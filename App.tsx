@@ -17,7 +17,7 @@ export default function App() {
 
   return (
     <GestureHandlerRootView style={styles.root}>
-      <NavigationContainer>
+      <NavigationContainer documentTitle={{ formatter: () => 'Attendance App' }}>
         <StatusBar style="auto" />
         <RootNavigator />
       </NavigationContainer>

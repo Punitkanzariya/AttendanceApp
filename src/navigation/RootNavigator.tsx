@@ -4,6 +4,9 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../types';
 import { useAuthStore } from '../store/authStore';
 import { Colors } from '../theme';
+import { db, firebaseLogout } from '../firebase';
+import { doc, onSnapshot } from 'firebase/firestore';
+import type { User } from '../types';
 
 import AuthNavigator from './AuthNavigator';
 import EmployeeNavigator from './EmployeeNavigator';
@@ -23,7 +26,36 @@ const Root = createNativeStackNavigator<RootStackParamList>();
  * - Authenticated: routes to the role-specific navigator
  */
 export default function RootNavigator() {
-  const { isLoading, isAuthenticated, user } = useAuthStore();
+  const { isLoading, isAuthenticated, user, setUser, persistSession } = useAuthStore();
+
+  React.useEffect(() => {
+    if (!isAuthenticated || !user?.uid) return;
+
+    const userRef = doc(db, 'employees', user.uid);
+    const unsubscribe = onSnapshot(userRef, async (docSnap) => {
+      if (!docSnap.exists()) {
+        // The user's document was deleted from Firestore (e.g. by an Admin).
+        // Force logout immediately.
+        await firebaseLogout();
+        useAuthStore.getState().logout();
+        return;
+      }
+
+      const userData = docSnap.data() as User;
+      const currentUser = useAuthStore.getState().user;
+      
+      if (
+        currentUser && 
+        (userData.isActive !== currentUser.isActive || userData.role !== currentUser.role)
+      ) {
+        const updatedUser = { ...currentUser, ...userData };
+        useAuthStore.getState().setUser(updatedUser);
+        useAuthStore.getState().persistSession(updatedUser);
+      }
+    });
+
+    return () => unsubscribe();
+  }, [isAuthenticated, user?.uid]);
 
   if (isLoading) {
     return (

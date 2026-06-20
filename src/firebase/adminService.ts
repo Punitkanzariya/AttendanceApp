@@ -1,4 +1,4 @@
-import { collection, doc, getDocs, updateDoc, query, orderBy } from 'firebase/firestore';
+import { collection, doc, getDocs, updateDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
 import { db } from './config';
 import type { User, UserRole } from '../types';
 
@@ -17,6 +17,21 @@ export async function fetchAllEmployees(): Promise<User[]> {
   });
   
   return users;
+}
+
+export function subscribeToAllEmployees(callback: (users: User[]) => void): () => void {
+  const employeesRef = collection(db, 'employees');
+  const q = query(employeesRef, orderBy('createdAt', 'desc'));
+
+  return onSnapshot(q, (snapshot) => {
+    const users: User[] = [];
+    snapshot.forEach((docSnap) => {
+      users.push({ uid: docSnap.id, ...docSnap.data() } as User);
+    });
+    callback(users);
+  }, (error) => {
+    console.error('Error subscribing to employees:', error);
+  });
 }
 
 // ─────────────────────────────────────────────────────────────────

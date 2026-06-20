@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '../../theme';
-import { fetchAllEmployees, updateEmployeeProfile, createEmployeeByAdmin } from '../../firebase';
+import { subscribeToAllEmployees, updateEmployeeProfile, createEmployeeByAdmin } from '../../firebase';
 import type { User, UserRole } from '../../types';
 import EmployeeEditModal from './components/EmployeeEditModal';
 import EmployeeAddModal from './components/EmployeeAddModal';
@@ -18,46 +18,40 @@ export default function AdminEmployeesScreen() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [isAddModalVisible, setIsAddModalVisible] = useState(false);
 
-  const loadData = async () => {
-    try {
-      const data = await fetchAllEmployees();
+  useEffect(() => {
+    const unsubscribe = subscribeToAllEmployees((data) => {
       setEmployees(data);
-    } catch (error) {
-      console.error('Failed to load employees:', error);
-    } finally {
       setIsLoading(false);
       setIsRefreshing(false);
-    }
-  };
-
-  useEffect(() => {
-    loadData();
+    });
+    return () => unsubscribe();
   }, []);
 
   const onRefresh = () => {
+    // In a real-time list, manual refresh is mostly visual feedback
     setIsRefreshing(true);
-    loadData();
+    setTimeout(() => setIsRefreshing(false), 500);
   };
 
   const handleSaveUser = async (uid: string, updates: Partial<User>) => {
     await updateEmployeeProfile(uid, updates);
-    // Optimistic update
-    setEmployees(prev => prev.map(emp => emp.uid === uid ? { ...emp, ...updates } : emp));
+    // Realtime listener will automatically update the list
   };
 
   const handleAddUser = async (params: { fullName: string; email: string; phone: string; role: UserRole; password?: string }) => {
     await createEmployeeByAdmin(params);
-    // Reload the list to get the new user with their generated UID
-    await loadData();
+    // Realtime listener will automatically pick up the new user
   };
 
-  const filteredEmployees = employees.filter(emp => {
-    if (filter === 'pending') return !emp.isActive;
-    if (filter === 'active') return emp.isActive;
-    return true;
-  });
+  const filteredEmployees = useMemo(() => {
+    return employees.filter(emp => {
+      if (filter === 'pending') return !emp.isActive;
+      if (filter === 'active') return emp.isActive;
+      return true;
+    });
+  }, [employees, filter]);
 
-  const renderItem = ({ item }: { item: User }) => (
+  const renderItem = useCallback(({ item }: { item: User }) => (
     <TouchableOpacity 
       style={styles.card} 
       activeOpacity={0.7}
@@ -88,7 +82,7 @@ export default function AdminEmployeesScreen() {
         <Ionicons name="chevron-forward" size={20} color={Colors.text.tertiary} />
       </View>
     </TouchableOpacity>
-  );
+  ), []);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -135,6 +129,10 @@ export default function AdminEmployeesScreen() {
           renderItem={renderItem}
           contentContainerStyle={styles.list}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
+          initialNumToRender={10}
+          maxToRenderPerBatch={10}
+          windowSize={5}
+          removeClippedSubviews={true}
           ListEmptyComponent={
             <View style={styles.empty}>
               <Ionicons name="people-outline" size={48} color={Colors.text.tertiary} />
