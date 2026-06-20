@@ -26,7 +26,7 @@ import { getStorage }   from 'firebase/storage';
 // Security is enforced by Firebase Security Rules (deny-by-default)
 // and Firebase App Check — NOT by hiding these values.
 // See: https://firebase.google.com/docs/projects/api-keys
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey:            'AIzaSyAjB_V7X1MLxZF8r8h7dW8ITaTRBlzBFtA',
   authDomain:        'techsture-hrm.firebaseapp.com',
   projectId:         'techsture-hrm',

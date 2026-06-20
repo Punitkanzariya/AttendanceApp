@@ -4,6 +4,8 @@ import type { AdminTabParamList } from '../types';
 import { Colors, FontSize } from '../theme';
 import PlaceholderScreen from '../screens/main/shared/PlaceholderScreen';
 
+import AdminEmployeesScreen from '../screens/admin/AdminEmployeesScreen';
+
 const Tab = createBottomTabNavigator<AdminTabParamList>();
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -41,15 +43,7 @@ export default function AdminNavigator() {
           />
         )}
       </Tab.Screen>
-      <Tab.Screen name="Employees">
-        {() => (
-          <PlaceholderScreen
-            iconName="people"
-            title="Manage Employees"
-            description="Add, edit, and deactivate employees"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Employees" component={AdminEmployeesScreen} />
       <Tab.Screen name="Sites">
         {() => (
           <PlaceholderScreen

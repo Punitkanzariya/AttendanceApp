@@ -11,19 +11,6 @@
  * ─────────────────────────────────────────────────────────────────
  */
 
-// Firebase service instances
 export { auth, db, storage } from './config';
-
-// Authentication functions
-export {
-  subscribeToAuthState,
-  fetchEmployeeProfile,
-  checkAccountLockout,
-  loginWithEmail,
-  registerWithEmail,
-  sendOtp,
-  verifyOtp,
-  sendPasswordReset,
-  firebaseLogout,
-  getCurrentFirebaseUser,
-} from './authService';
+export * from './authService';
+export * from './adminService';

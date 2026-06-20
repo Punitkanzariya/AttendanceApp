@@ -213,6 +213,7 @@ export async function loginWithEmail(
       const now = new Date().toISOString();
       const repairDoc = {
         email: email.toLowerCase().trim(),
+        phoneNumber: null,
         displayName: email.split('@')[0], // Fallback name
         role: 'employee',
         isActive: false, // Default to false
