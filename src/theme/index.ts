@@ -1,7 +1,7 @@
 export const Colors = {
-  primary: '#2563EB',       // Blue-600
-  primaryDark: '#1D4ED8',   // Blue-700
-  primaryLight: '#EFF6FF',  // Blue-50
+  primary: '#2E7D32',       // Green
+  primaryDark: '#1B5E20',   // Dark Green
+  primaryLight: '#E8F5E9',  // Light Green
   secondary: '#7C3AED',     // Violet-600
   accent: '#059669',        // Emerald-600
 
@@ -13,6 +13,7 @@ export const Colors = {
   white: '#FFFFFF',
   black: '#0F172A',
   background: '#F8FAFC',
+  employeeBg: '#f9f8f6',
   surface: '#FFFFFF',
   border: '#E2E8F0',
   divider: '#F1F5F9',

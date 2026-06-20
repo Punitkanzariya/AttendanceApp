@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
-import type { User, UserRole } from '../types';
+import type { User, UserRole } from '@/types';
 
 const SESSION_KEY = 'attendance_session';
 

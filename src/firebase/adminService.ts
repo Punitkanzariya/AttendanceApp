@@ -1,6 +1,6 @@
 import { collection, doc, getDocs, updateDoc, query, orderBy, onSnapshot } from 'firebase/firestore';
-import { db } from './config';
-import type { User, UserRole } from '../types';
+import { db } from '@/firebase/config';
+import type { User, UserRole } from '@/types';
 
 // ─────────────────────────────────────────────────────────────────
 //  FETCH ALL EMPLOYEES
@@ -55,7 +55,7 @@ export async function updateEmployeeProfile(
 import { initializeApp, getApps, getApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
 import { setDoc } from 'firebase/firestore';
-import { firebaseConfig } from './config';
+import { firebaseConfig } from '@/firebase/config';
 
 export async function createEmployeeByAdmin(params: {
   fullName: string;

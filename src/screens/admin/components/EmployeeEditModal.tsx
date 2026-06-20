@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Switch, ScrollView, Alert } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '../../../theme';
-import type { User, UserRole } from '../../../types';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
+import type { User, UserRole } from '@/types';
 
 interface Props {
   visible: boolean;

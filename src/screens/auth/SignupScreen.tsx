@@ -8,10 +8,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import type { AuthStackParamList } from '../../types';
-import { Colors } from '../../theme';
-import { useAuthStore } from '../../store/authStore';
-import { registerWithEmail } from '../../firebase';
+import type { AuthStackParamList } from '@/types';
+import { Colors } from '@/theme';
+import { useAuthStore } from '@/store/authStore';
+import { registerWithEmail } from '@/firebase';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Signup'>;
 

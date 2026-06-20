@@ -2,8 +2,8 @@ import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, StatusBar } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuthStore } from '../../store/authStore';
-import { firebaseLogout } from '../../firebase';
+import { useAuthStore } from '@/store/authStore';
+import { firebaseLogout } from '@/firebase';
 
 export default function PendingApprovalScreen() {
   const { logout, user } = useAuthStore();

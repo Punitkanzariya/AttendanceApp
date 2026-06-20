@@ -2,10 +2,10 @@ import React, { useEffect, useState, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, TextInput, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuthStore } from '../../../store/authStore';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '../../../theme';
-import { subscribeToAllLeaves, updateLeaveStatus } from '../../../firebase/leaveService';
-import type { LeaveRequest, LeaveStatus } from '../../../types';
+import { useAuthStore } from '@/store/authStore';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
+import { subscribeToAllLeaves, updateLeaveStatus } from '@/firebase/leaveService';
+import type { LeaveRequest, LeaveStatus } from '@/types';
 
 export default function LeaveApprovalsScreen() {
   const { user } = useAuthStore();

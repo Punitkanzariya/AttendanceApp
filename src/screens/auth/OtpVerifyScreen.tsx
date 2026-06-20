@@ -11,9 +11,9 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 
-import type { AuthStackParamList } from '../../types';
-import { useAuthStore } from '../../store/authStore';
-import { verifyOtp } from '../../firebase';
+import type { AuthStackParamList } from '@/types';
+import { useAuthStore } from '@/store/authStore';
+import { verifyOtp } from '@/firebase';
 
 type Nav   = NativeStackNavigationProp<AuthStackParamList, 'OtpVerify'>;
 type Route = RouteProp<AuthStackParamList, 'OtpVerify'>;

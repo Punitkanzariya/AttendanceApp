@@ -1,9 +1,9 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import type { FinanceTabParamList } from '../types';
-import { Colors, FontSize } from '../theme';
-import PlaceholderScreen from '../screens/main/shared/PlaceholderScreen';
-import ProfileScreen from '../screens/main/shared/ProfileScreen';
+import type { FinanceTabParamList } from '@/types';
+import { Colors, FontSize } from '@/theme';
+import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
+import ProfileScreen from '@/screens/main/shared/ProfileScreen';
 
 const Tab = createBottomTabNavigator<FinanceTabParamList>();
 

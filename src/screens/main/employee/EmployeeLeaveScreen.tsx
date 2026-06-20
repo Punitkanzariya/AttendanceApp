@@ -2,10 +2,10 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator, Platform, createElement } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuthStore } from '../../../store/authStore';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '../../../theme';
-import { subscribeToUserLeaves, submitLeaveRequest } from '../../../firebase/leaveService';
-import type { LeaveRequest } from '../../../types';
+import { useAuthStore } from '@/store/authStore';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
+import { subscribeToUserLeaves, submitLeaveRequest } from '@/firebase/leaveService';
+import type { LeaveRequest } from '@/types';
 
 const DateInput = ({ value, onChangeText, placeholder, min }: { value: string, onChangeText: (t: string) => void, placeholder: string, min?: string }) => {
   if (Platform.OS === 'web') {

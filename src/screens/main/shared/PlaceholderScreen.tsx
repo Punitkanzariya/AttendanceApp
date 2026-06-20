@@ -1,9 +1,9 @@
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '../../../theme';
-import { useAuthStore } from '../../../store/authStore';
-import { firebaseLogout } from '../../../firebase';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
+import { useAuthStore } from '@/store/authStore';
+import { firebaseLogout } from '@/firebase';
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 

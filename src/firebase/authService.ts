@@ -42,8 +42,8 @@ import {
   increment,
 } from 'firebase/firestore';
 
-import { auth, db } from './config';
-import type { User, UserRole } from '../types';
+import { auth, db } from '@/firebase/config';
+import type { User, UserRole } from '@/types';
 
 // ─── Constants (PRD §3.1) ────────────────────────────────────────
 const MAX_FAILED_ATTEMPTS = 5;       // Lock account after this many fails

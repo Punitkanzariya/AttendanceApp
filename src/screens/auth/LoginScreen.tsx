@@ -13,9 +13,9 @@ import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 
-import type { AuthStackParamList } from '../../types';
-import { useAuthStore } from '../../store/authStore';
-import { loginWithEmail, checkAccountLockout } from '../../firebase';
+import type { AuthStackParamList } from '@/types';
+import { useAuthStore } from '@/store/authStore';
+import { loginWithEmail, checkAccountLockout } from '@/firebase';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 

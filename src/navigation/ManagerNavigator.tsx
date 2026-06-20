@@ -1,10 +1,10 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import type { ManagerTabParamList } from '../types';
-import { Colors, FontSize } from '../theme';
-import PlaceholderScreen from '../screens/main/shared/PlaceholderScreen';
-import ProfileScreen from '../screens/main/shared/ProfileScreen';
-import LeaveApprovalsScreen from '../screens/main/manager/LeaveApprovalsScreen';
+import type { ManagerTabParamList } from '@/types';
+import { Colors, FontSize } from '@/theme';
+import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
+import ProfileScreen from '@/screens/main/shared/ProfileScreen';
+import LeaveApprovalsScreen from '@/screens/main/manager/LeaveApprovalsScreen';
 
 const Tab = createBottomTabNavigator<ManagerTabParamList>();
 

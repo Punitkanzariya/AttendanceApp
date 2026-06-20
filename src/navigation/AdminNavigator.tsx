@@ -1,10 +1,10 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import type { AdminTabParamList } from '../types';
-import { Colors, FontSize } from '../theme';
-import PlaceholderScreen from '../screens/main/shared/PlaceholderScreen';
+import type { AdminTabParamList } from '@/types';
+import { Colors, FontSize } from '@/theme';
+import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
 
-import AdminEmployeesScreen from '../screens/admin/AdminEmployeesScreen';
+import AdminEmployeesScreen from '@/screens/admin/AdminEmployeesScreen';
 
 const Tab = createBottomTabNavigator<AdminTabParamList>();
 

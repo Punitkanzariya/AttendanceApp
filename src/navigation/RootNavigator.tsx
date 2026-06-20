@@ -1,20 +1,20 @@
 import React from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import type { RootStackParamList } from '../types';
-import { useAuthStore } from '../store/authStore';
-import { Colors } from '../theme';
-import { db, firebaseLogout } from '../firebase';
+import type { RootStackParamList } from '@/types';
+import { useAuthStore } from '@/store/authStore';
+import { Colors } from '@/theme';
+import { db, firebaseLogout } from '@/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-import type { User } from '../types';
+import type { User } from '@/types';
 
-import AuthNavigator from './AuthNavigator';
-import EmployeeNavigator from './EmployeeNavigator';
-import SiteSupervisorNavigator from './SiteSupervisorNavigator';
-import ManagerNavigator from './ManagerNavigator';
-import AdminNavigator from './AdminNavigator';
-import FinanceNavigator from './FinanceNavigator';
-import PendingApprovalScreen from '../screens/auth/PendingApprovalScreen';
+import AuthNavigator from '@/navigation/AuthNavigator';
+import EmployeeNavigator from '@/navigation/EmployeeNavigator';
+import SiteSupervisorNavigator from '@/navigation/SiteSupervisorNavigator';
+import ManagerNavigator from '@/navigation/ManagerNavigator';
+import AdminNavigator from '@/navigation/AdminNavigator';
+import FinanceNavigator from '@/navigation/FinanceNavigator';
+import PendingApprovalScreen from '@/screens/auth/PendingApprovalScreen';
 
 const Root = createNativeStackNavigator<RootStackParamList>();
 

@@ -2,11 +2,11 @@ import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '../../theme';
-import { subscribeToAllEmployees, updateEmployeeProfile, createEmployeeByAdmin } from '../../firebase';
-import type { User, UserRole } from '../../types';
-import EmployeeEditModal from './components/EmployeeEditModal';
-import EmployeeAddModal from './components/EmployeeAddModal';
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
+import { subscribeToAllEmployees, updateEmployeeProfile, createEmployeeByAdmin } from '@/firebase';
+import type { User, UserRole } from '@/types';
+import EmployeeEditModal from '@/screens/admin/components/EmployeeEditModal';
+import EmployeeAddModal from '@/screens/admin/components/EmployeeAddModal';
 
 export default function AdminEmployeesScreen() {
   const [employees, setEmployees] = useState<User[]>([]);

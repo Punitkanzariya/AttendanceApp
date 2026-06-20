@@ -5,9 +5,9 @@
  *           Team members import from here — not from individual files.
  *
  *  USAGE EXAMPLES:
- *    import { auth, db, storage }           from '../firebase';
- *    import { loginWithEmail, sendOtp }     from '../firebase';
- *    import { fetchEmployeeProfile }        from '../firebase';
+ *    import { auth, db, storage }           from '@/firebase';
+ *    import { loginWithEmail, sendOtp }     from '@/firebase';
+ *    import { fetchEmployeeProfile }        from '@/firebase';
  * ─────────────────────────────────────────────────────────────────
  */
 

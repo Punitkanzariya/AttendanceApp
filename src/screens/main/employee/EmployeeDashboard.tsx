@@ -1,93 +1,140 @@
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '../../../theme';
-import { useAuthStore } from '../../../store/authStore';
-
-type IoniconName = React.ComponentProps<typeof Ionicons>['name'];
-
-interface QuickAction { icon: IoniconName; label: string; color: string; bg: string }
-
-const QUICK_ACTIONS: QuickAction[] = [
-  { icon: 'location',  label: 'Mark Attendance', color: '#2563EB', bg: '#EFF6FF' },
-  { icon: 'calendar',  label: 'Apply Leave',     color: '#D97706', bg: '#FFFBEB' },
-  { icon: 'receipt',   label: 'Submit Expense',  color: '#059669', bg: '#F0FDF4' },
-  { icon: 'bar-chart', label: 'My History',      color: '#7C3AED', bg: '#FDF4FF' },
-];
+import { Colors, Spacing } from '@/theme';
+import { useAuthStore } from '@/store/authStore';
 
 export default function EmployeeDashboard() {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    await new Promise(resolve => setTimeout(resolve, 1500));
+    setRefreshing(false);
+  }, []);
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
-      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
-
+      <ScrollView 
+        contentContainerStyle={styles.container} 
+        showsVerticalScrollIndicator={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#2E7D32']} tintColor="#2E7D32" />}
+      >
         {/* Header */}
         <View style={styles.header}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.greeting}>Good morning 👋</Text>
-            <Text style={styles.name}>{user?.displayName ?? 'Employee'}</Text>
-            <View style={styles.roleBadge}>
-              <Ionicons name="person" size={10} color={Colors.primary} />
-              <Text style={styles.roleText}>Employee</Text>
+          <View style={styles.locationContainer}>
+            <View style={styles.locationIconWrap}>
+              <Ionicons name="location" size={20} color={Colors.text.secondary} />
+            </View>
+            <View>
+              <Text style={styles.locationLabelTxt}>LOCATION</Text>
+              <Text style={styles.dateText}>Thambu chetty st,chennai</Text>
             </View>
           </View>
-          <TouchableOpacity onPress={logout} style={styles.logoutBtn}>
-            <Ionicons name="log-out-outline" size={18} color={Colors.error} />
-            <Text style={styles.logoutText}>Sign Out</Text>
+          <View style={styles.headerRight}>
+            <TouchableOpacity style={styles.bellBtn} activeOpacity={0.7}>
+              <Ionicons name="notifications-outline" size={18} color={Colors.text.primary} />
+              <View style={styles.notificationDot} />
+            </TouchableOpacity>
+            <View style={styles.avatarWrap}>
+              <Text style={styles.avatarInitials}>
+                {user?.displayName ? user.displayName.split(' ').map(n => n[0]).join('').substring(0,2).toUpperCase() : 'EM'}
+              </Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Title */}
+        <Text style={styles.pageTitle}>Welcome,{user?.displayName ?? 'User'}</Text>
+
+        {/* Summary Card */}
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryTopRow}>
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>Clock In</Text>
+              <Text style={styles.summaryValue}>--</Text>
+            </View>
+            <View style={styles.summaryCol}>
+              <Text style={styles.summaryLabel}>Clock Out</Text>
+              <Text style={styles.summaryValue}>--</Text>
+            </View>
+            <TouchableOpacity style={styles.clockBtn} activeOpacity={0.8}>
+              <Text style={styles.clockBtnTxt}>Clock In Now</Text>
+            </TouchableOpacity>
+          </View>
+          <View style={{ height: 1, backgroundColor: Colors.border, marginVertical: 4 }} />
+          <View>
+            <Text style={styles.summaryLabel}>Working Hours</Text>
+            <Text style={styles.summaryValue}>--</Text>
+          </View>
+        </View>
+
+        {/* Attendance for this Month */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Attendance for this Month</Text>
+          <TouchableOpacity style={styles.monthBtn} activeOpacity={0.7}>
+            <Text style={styles.monthBtnTxt}>APR</Text>
+            <Ionicons name="calendar-outline" size={12} color="#2563EB" />
           </TouchableOpacity>
         </View>
-
-        {/* Today's attendance card */}
-        <View style={styles.attendanceCard}>
-          <View style={styles.attendanceHeader}>
-            <Ionicons name="calendar-outline" size={16} color={Colors.text.secondary} />
-            <Text style={styles.attendanceTitle}>Today's Attendance</Text>
+        <View style={styles.attendanceGrid}>
+          <View style={[styles.attCard, { backgroundColor: '#E8F5E9', borderTopColor: '#2E7D32' }]}>
+            <Text style={styles.attLabel}>Present</Text>
+            <Text style={[styles.attNum, { color: '#2E7D32' }]}>13</Text>
           </View>
-          <View style={styles.statusRow}>
-            <View style={styles.statusItem}>
-              <Ionicons name="log-in-outline" size={20} color={Colors.success} />
-              <Text style={styles.statusValue}>--:--</Text>
-              <Text style={styles.statusLabel}>Check In</Text>
-            </View>
-            <View style={styles.statusDivider} />
-            <View style={styles.statusItem}>
-              <Ionicons name="log-out-outline" size={20} color={Colors.error} />
-              <Text style={styles.statusValue}>--:--</Text>
-              <Text style={styles.statusLabel}>Check Out</Text>
-            </View>
-            <View style={styles.statusDivider} />
-            <View style={styles.statusItem}>
-              <Ionicons name="ellipse" size={10} color={Colors.warning} style={{ marginBottom: 2 }} />
-              <Text style={[styles.statusValue, { color: Colors.warning, fontSize: FontSize.md }]}>Absent</Text>
-              <Text style={styles.statusLabel}>Status</Text>
-            </View>
+          <View style={[styles.attCard, { backgroundColor: '#FFEBEE', borderTopColor: '#C62828' }]}>
+            <Text style={styles.attLabel}>Absents</Text>
+            <Text style={[styles.attNum, { color: '#C62828' }]}>02</Text>
+          </View>
+          <View style={[styles.attCard, { backgroundColor: '#FFF8E1', borderTopColor: '#F9A825' }]}>
+            <Text style={styles.attLabel}>Late in</Text>
+            <Text style={[styles.attNum, { color: '#F9A825' }]}>04</Text>
           </View>
         </View>
 
-        {/* Quick actions */}
-        <Text style={styles.sectionTitle}>Quick Actions</Text>
-        <View style={styles.actionsGrid}>
-          {QUICK_ACTIONS.map((a) => (
-            <TouchableOpacity
-              key={a.label}
-              style={[styles.actionCard, { backgroundColor: a.bg }]}
-              activeOpacity={0.8}
-            >
-              <View style={[styles.actionIconWrap, { backgroundColor: a.color + '20' }]}>
-                <Ionicons name={a.icon} size={26} color={a.color} />
-              </View>
-              <Text style={styles.actionLabel}>{a.label}</Text>
-            </TouchableOpacity>
-          ))}
+        {/* Leave Balance */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Leave Balance</Text>
         </View>
-
-        {/* Recent activity */}
-        <Text style={styles.sectionTitle}>Recent Activity</Text>
-        <View style={styles.emptyCard}>
-          <Ionicons name="time-outline" size={36} color={Colors.text.tertiary} />
-          <Text style={styles.emptyText}>No recent activity</Text>
-          <Text style={styles.emptySubtext}>Your attendance and expense history will appear here</Text>
+        <View style={styles.leaveGrid}>
+          <View style={styles.leaveCard}>
+            <View style={[styles.leaveIconRing, { borderColor: '#2E7D32' }]}>
+              <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
+            </View>
+            <View>
+              <Text style={styles.leaveNum}>12 Days</Text>
+              <Text style={styles.leaveLabel}>Paid Leave</Text>
+            </View>
+          </View>
+          <View style={styles.leaveCard}>
+            <View style={[styles.leaveIconRing, { borderColor: '#2563EB' }]}>
+              <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
+            </View>
+            <View>
+              <Text style={styles.leaveNum}>7 Days</Text>
+              <Text style={styles.leaveLabel}>Sick Leave</Text>
+            </View>
+          </View>
+          <View style={styles.leaveCard}>
+            <View style={[styles.leaveIconRing, { borderColor: '#F59E0B' }]}>
+              <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
+            </View>
+            <View>
+              <Text style={styles.leaveNum}>5 Days</Text>
+              <Text style={styles.leaveLabel}>Casual Leave</Text>
+            </View>
+          </View>
+          <View style={styles.leaveCard}>
+            <View style={[styles.leaveIconRing, { borderColor: '#8B5CF6' }]}>
+              <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
+            </View>
+            <View>
+              <Text style={styles.leaveNum}>24 Days</Text>
+              <Text style={styles.leaveLabel}>Total Leave</Text>
+            </View>
+          </View>
         </View>
 
       </ScrollView>
@@ -96,59 +143,55 @@ export default function EmployeeDashboard() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: Colors.background },
-  container: { padding: Spacing.lg, paddingBottom: Spacing.xxl },
+  safe: { flex: 1, backgroundColor: Colors.employeeBg },
+  container: { padding: Spacing.xl, paddingBottom: Spacing.xxl },
 
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: Spacing.lg },
-  headerLeft: { gap: 4 },
-  greeting: { fontSize: FontSize.sm, color: Colors.text.secondary },
-  name: { fontSize: FontSize.xxl, fontWeight: FontWeight.bold, color: Colors.text.primary },
-  roleBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 4,
-    alignSelf: 'flex-start',
-    backgroundColor: Colors.primaryLight,
-    borderRadius: BorderRadius.full,
-    paddingHorizontal: Spacing.sm, paddingVertical: 3,
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  locationContainer: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  locationIconWrap: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#fff', alignItems: 'center', justifyContent: 'center' },
+  locationLabelTxt: { fontSize: 10, color: Colors.text.primary, textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 2 },
+  dateText: { fontSize: 13, color: Colors.text.primary, fontWeight: '600' },
+  headerRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  bellBtn: { 
+    width: 36, height: 36, borderRadius: 18, backgroundColor: Colors.white, 
+    alignItems: 'center', justifyContent: 'center' 
   },
-  roleText: { fontSize: FontSize.xs, color: Colors.primary, fontWeight: FontWeight.semibold },
-  logoutBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: Colors.white,
-    borderRadius: BorderRadius.md,
-    paddingHorizontal: Spacing.md, paddingVertical: Spacing.sm,
-    borderWidth: 1, borderColor: Colors.border,
+  notificationDot: { 
+    position: 'absolute', top: 8, right: 10, width: 6, height: 6, 
+    borderRadius: 3, backgroundColor: Colors.error 
   },
-  logoutText: { color: Colors.error, fontSize: FontSize.sm, fontWeight: FontWeight.medium },
+  avatarWrap: {
+    width: 36, height: 36, borderRadius: 18, backgroundColor: '#475569',
+    alignItems: 'center', justifyContent: 'center'
+  },
+  avatarInitials: { color: Colors.white, fontSize: 12, fontWeight: '700' },
 
-  attendanceCard: {
-    backgroundColor: Colors.white,
-    borderRadius: BorderRadius.lg, padding: Spacing.lg,
-    marginBottom: Spacing.xl, ...Shadow.sm,
-  },
-  attendanceHeader: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: Spacing.md },
-  attendanceTitle: { fontSize: FontSize.md, fontWeight: FontWeight.semibold, color: Colors.text.secondary },
-  statusRow: { flexDirection: 'row', justifyContent: 'space-around', alignItems: 'center' },
-  statusItem: { alignItems: 'center', gap: 4 },
-  statusValue: { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.text.primary },
-  statusLabel: { fontSize: FontSize.xs, color: Colors.text.tertiary },
-  statusDivider: { width: 1, height: 40, backgroundColor: Colors.border },
+  pageTitle: { fontSize: 25, fontWeight: '700', color: Colors.text.primary, lineHeight: 34, marginBottom: 15 },
 
-  sectionTitle: { fontSize: FontSize.lg, fontWeight: FontWeight.bold, color: Colors.text.primary, marginBottom: Spacing.md },
-  actionsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, marginBottom: Spacing.xl },
-  actionCard: {
-    width: '47%', borderRadius: BorderRadius.lg, padding: Spacing.lg,
-    alignItems: 'center', gap: Spacing.sm, ...Shadow.sm,
+  summaryCard: {
+    backgroundColor: Colors.white, borderRadius: 16, padding: 16,
+    marginBottom: 40, gap: 10,
   },
-  actionIconWrap: {
-    width: 52, height: 52, borderRadius: BorderRadius.md,
-    alignItems: 'center', justifyContent: 'center',
-  },
-  actionLabel: { fontSize: FontSize.sm, fontWeight: FontWeight.semibold, color: Colors.text.primary, textAlign: 'center' },
+  summaryTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  summaryCol: { flex: 1 },
+  summaryLabel: { fontSize: 11, color: Colors.text.secondary, fontWeight: '500', marginBottom: 4 },
+  summaryValue: { fontSize: 15, fontWeight: '600', color: Colors.text.primary },
+  clockBtn: { backgroundColor: Colors.primary, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 20, alignItems: 'center' },
+  clockBtnTxt: { color: Colors.white, fontWeight: '600', fontSize: 13 },
 
-  emptyCard: {
-    backgroundColor: Colors.white, borderRadius: BorderRadius.lg,
-    padding: Spacing.xl, alignItems: 'center', gap: Spacing.sm, ...Shadow.sm,
-  },
-  emptyText: { fontSize: FontSize.md, fontWeight: FontWeight.semibold, color: Colors.text.secondary },
-  emptySubtext: { fontSize: FontSize.sm, color: Colors.text.tertiary, textAlign: 'center', lineHeight: 20 },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.lg },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.text.primary },
+  monthBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#EFF6FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
+  monthBtnTxt: { color: '#2563EB', fontSize: 11, fontWeight: '600' },
+  
+  attendanceGrid: { flexDirection: 'row', gap: Spacing.sm, marginBottom: 30 },
+  attCard: { flex: 1, borderRadius: 8, padding: 12, borderTopWidth: 4, height: 75, justifyContent: 'space-between' },
+  attLabel: { fontSize: 11, color: Colors.text.primary, fontWeight: '600' },
+  attNum: { fontSize: 18, fontWeight: '700', alignSelf: 'flex-end' },
+
+  leaveGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, marginBottom: 40 },
+  leaveCard: { width: '47%', backgroundColor: Colors.white, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  leaveIconRing: { width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  leaveNum: { fontSize: 13, fontWeight: '700', color: Colors.text.primary, marginBottom: 2 },
+  leaveLabel: { fontSize: 10, color: Colors.text.secondary },
 });

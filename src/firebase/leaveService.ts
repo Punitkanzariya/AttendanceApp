@@ -1,6 +1,6 @@
 import { collection, doc, addDoc, updateDoc, query, orderBy, where, onSnapshot } from 'firebase/firestore';
-import { db } from './config';
-import type { LeaveRequest, LeaveStatus } from '../types';
+import { db } from '@/firebase/config';
+import type { LeaveRequest, LeaveStatus } from '@/types';
 
 export async function submitLeaveRequest(
   employeeId: string,

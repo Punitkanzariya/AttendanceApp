@@ -1,23 +1,21 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { Ionicons } from '@expo/vector-icons';
-import type { EmployeeTabParamList } from '../types';
-import { Colors, FontSize } from '../theme';
+import { House, MapPin, Calendar, Receipt, CircleUser } from 'lucide-react-native';
+import type { EmployeeTabParamList } from '@/types';
+import { Colors, FontSize } from '@/theme';
 
-import EmployeeDashboard from '../screens/main/employee/EmployeeDashboard';
-import EmployeeLeaveScreen from '../screens/main/employee/EmployeeLeaveScreen';
-import PlaceholderScreen from '../screens/main/shared/PlaceholderScreen';
-import ProfileScreen from '../screens/main/shared/ProfileScreen';
+import EmployeeDashboard from '@/screens/main/employee/EmployeeDashboard';
+import EmployeeLeaveScreen from '@/screens/main/employee/EmployeeLeaveScreen';
+import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
+import ProfileScreen from '@/screens/main/shared/ProfileScreen';
 
 const Tab = createBottomTabNavigator<EmployeeTabParamList>();
 
-type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
-
-const TAB_ICONS: Record<keyof EmployeeTabParamList, { active: IoniconsName; inactive: IoniconsName }> = {
-  Dashboard:  { active: 'home',              inactive: 'home-outline'           },
-  Attendance: { active: 'location',          inactive: 'location-outline'       },
-  Leave:      { active: 'calendar',          inactive: 'calendar-outline'       },
-  Expenses:   { active: 'receipt',           inactive: 'receipt-outline'        },
-  Profile:    { active: 'person-circle',     inactive: 'person-circle-outline'  },
+const TAB_ICONS = {
+  Dashboard: House,
+  Attendance: MapPin,
+  Leave: Calendar,
+  Expenses: Receipt,
+  Profile: CircleUser,
 };
 
 export default function EmployeeNavigator() {
@@ -25,13 +23,13 @@ export default function EmployeeNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarIcon: ({ focused, color, size }) => {
-          const icons = TAB_ICONS[route.name as keyof EmployeeTabParamList];
+        tabBarIcon: ({ focused, color }) => {
+          const Icon = TAB_ICONS[route.name as keyof EmployeeTabParamList];
           return (
-            <Ionicons
-              name={focused ? icons.active : icons.inactive}
-              size={size}
+            <Icon
+              size={22}
               color={color}
+              strokeWidth={focused ? 2.5 : 2}
             />
           );
         },
