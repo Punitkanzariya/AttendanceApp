@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
   TextInput, ActivityIndicator, Alert,
-  KeyboardAvoidingView, Platform, ScrollView,
+  KeyboardAvoidingView, Platform, ScrollView, Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -124,19 +124,13 @@ export default function SignupScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Back */}
-          <TouchableOpacity
-            style={styles.backBtn}
-            onPress={() => step === 0 ? navigation.goBack() : setStep(0)}
-          >
-            <Ionicons name="chevron-back" size={22} color="#0F172A" />
-          </TouchableOpacity>
-
-          {/* Header */}
-          <View style={styles.iconBox}>
-            <Ionicons name="person-add" size={24} color="#fff" />
+          {/* Static Logo */}
+          <View style={{ alignItems: 'center' }}>
+            <Image 
+              source={require('../../../assets/splash-icon.png')} 
+              style={{ width: 150, height: 150, resizeMode: 'contain', marginBottom: 20, marginTop: -10 }} 
+            />
           </View>
-          <Text style={styles.title}>Create Account</Text>
 
           {/* Step bar */}
           <View style={styles.stepBarRow}>
@@ -454,7 +448,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, height: 50,
   },
   ic:  { marginRight: 8 },
-  input: { flex: 1, fontSize: 15, color: '#0F172A' },
+  input: { flex: 1, fontSize: 15, color: '#0F172A', outlineStyle: 'none' },
   eye: { padding: 4 },
   cc:  { fontSize: 14, fontWeight: '600', color: '#0F172A' },
   sep: { width: 1, height: 22, backgroundColor: '#E2E8F0', marginHorizontal: 8 },

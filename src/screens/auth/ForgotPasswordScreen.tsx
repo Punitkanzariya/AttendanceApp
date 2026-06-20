@@ -2,7 +2,7 @@ import { useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
   TextInput, ActivityIndicator, Alert,
-  KeyboardAvoidingView, Platform, ScrollView, Animated,
+  KeyboardAvoidingView, Platform, ScrollView, Animated, Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -46,16 +46,15 @@ export default function ForgotPasswordScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={22} color="#0F172A" />
-          </TouchableOpacity>
-
           {!sent ? (
             <>
-              <View style={styles.logoBox}>
-                <Ionicons name="lock-open" size={24} color="#fff" />
+              {/* Static Logo */}
+              <View style={{ alignItems: 'center' }}>
+                <Image 
+                  source={require('../../../assets/splash-icon.png')} 
+                  style={{ width: 150, height: 150, resizeMode: 'contain', marginBottom: 20, marginTop: -10 }} 
+                />
               </View>
-              <Text style={styles.title}>Reset Password</Text>
               <Text style={styles.subtitle}>Enter your registered email and we'll send you a reset link.</Text>
 
               <View style={styles.field}>
@@ -122,7 +121,7 @@ export default function ForgotPasswordScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fff' },
-  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 32 },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingBottom: 32 },
 
   backBtn: {
     width: 40, height: 40, borderRadius: 12, backgroundColor: '#F8FAFC',
@@ -135,7 +134,7 @@ const styles = StyleSheet.create({
     shadowColor: '#2563EB', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
   },
   title: { fontSize: 26, fontWeight: '800', color: '#0F172A', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#64748B', lineHeight: 22, marginBottom: 24 },
+  subtitle: { textAlign:"center",fontSize: 14, color: '#64748B', lineHeight: 22, marginBottom: 24 },
 
   field: { gap: 6, marginBottom: 20 },
   label: { fontSize: 13, fontWeight: '600', color: '#374151' },
@@ -145,7 +144,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, height: 50,
   },
   icon: { marginRight: 8 },
-  input: { flex: 1, fontSize: 15, color: '#0F172A' },
+  input: { flex: 1, fontSize: 15, color: '#0F172A', outlineStyle: 'none' },
   err: { fontSize: 12, color: '#EF4444', marginTop: 2 },
 
   btnPrimary: {

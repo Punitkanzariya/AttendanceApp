@@ -24,7 +24,6 @@ export interface User {
 // ─── Navigation Param Lists ────────────────────────────────────────────────────
 export type AuthStackParamList = {
   Splash: undefined;
-  Welcome: undefined;
   Login: undefined;
   PhoneLogin: undefined;
   OtpVerify: { phoneNumber: string; verificationId: string; isSignup?: boolean };

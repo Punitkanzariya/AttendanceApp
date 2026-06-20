@@ -3,7 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
   TextInput, ActivityIndicator, Alert,
   KeyboardAvoidingView, Platform, ScrollView, Animated,
-  useWindowDimensions,
+  useWindowDimensions, Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -123,17 +123,13 @@ export default function OtpVerifyScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Back */}
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={22} color="#0F172A" />
-          </TouchableOpacity>
-
-          {/* Icon */}
-          <View style={styles.iconBox}>
-            <Ionicons name="chatbubble-ellipses" size={26} color="#fff" />
+          {/* Static Logo */}
+          <View style={{ alignItems: 'center' }}>
+            <Image 
+              source={require('../../../assets/splash-icon.png')} 
+              style={{ width: 150, height: 150, resizeMode: 'contain', marginBottom: 20, marginTop: -10 }} 
+            />
           </View>
-
-          <Text style={styles.title}>Verify OTP</Text>
           <Text style={styles.subtitle}>
             6-digit code sent to{' '}
             <Text style={styles.phone}>{masked}</Text>
@@ -242,7 +238,7 @@ export default function OtpVerifyScreen() {
 
 const styles = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: '#fff' },
-  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 32 },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingBottom: 32 },
 
   backBtn: {
     width: 40, height: 40, borderRadius: 12, backgroundColor: '#F8FAFC',
@@ -257,7 +253,7 @@ const styles = StyleSheet.create({
   },
 
   title:    { fontSize: 26, fontWeight: '800', color: '#0F172A', marginBottom: 6 },
-  subtitle: { fontSize: 14, color: '#64748B', marginBottom: 16, lineHeight: 22 },
+  subtitle: {textAlign:"center", fontSize: 14, color: '#64748B', marginBottom: 16, lineHeight: 22 },
   phone:    { color: '#0F172A', fontWeight: '700' },
 
   errBanner: {
@@ -281,7 +277,7 @@ const styles = StyleSheet.create({
   boxError:    { borderColor: '#EF4444', backgroundColor: '#FEF2F2' },
   boxInput: {
     width: '100%', height: '100%', textAlign: 'center',
-    fontWeight: '800', color: '#0F172A',
+    fontWeight: '800', color: '#0F172A', outlineStyle: 'none'
   },
 
   statusRow: { alignItems: 'center', marginBottom: 24, gap: 8 },

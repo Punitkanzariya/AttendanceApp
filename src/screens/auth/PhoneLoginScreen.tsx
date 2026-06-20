@@ -2,7 +2,7 @@ import { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, StatusBar,
   TextInput, ActivityIndicator, Alert,
-  KeyboardAvoidingView, Platform, ScrollView,
+  KeyboardAvoidingView, Platform, ScrollView, Image
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -51,14 +51,13 @@ export default function PhoneLoginScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
 
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
-            <Ionicons name="chevron-back" size={22} color="#0F172A" />
-          </TouchableOpacity>
-
-          <View style={styles.logoBox}>
-            <Ionicons name="phone-portrait" size={24} color="#fff" />
+          {/* Static Logo */}
+          <View style={{ alignItems: 'center' }}>
+            <Image 
+              source={require('../../../assets/splash-icon.png')} 
+              style={{ width: 150, height: 150, resizeMode: 'contain', marginBottom: 20, marginTop: -10 }} 
+            />
           </View>
-          <Text style={styles.title}>OTP Sign In</Text>
           <Text style={styles.subtitle}>Enter your mobile number to receive a 6-digit code</Text>
 
           {/* Input */}
@@ -144,7 +143,7 @@ export default function PhoneLoginScreen() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: '#fff' },
-  scroll: { flexGrow: 1, paddingHorizontal: 24, paddingTop: 12, paddingBottom: 32 },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingBottom: 32 },
 
   backBtn: {
     width: 40, height: 40, borderRadius: 12, backgroundColor: '#F8FAFC',
@@ -157,7 +156,7 @@ const styles = StyleSheet.create({
     shadowColor: '#2563EB', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
   },
   title: { fontSize: 26, fontWeight: '800', color: '#0F172A', marginBottom: 4 },
-  subtitle: { fontSize: 14, color: '#64748B', lineHeight: 22, marginBottom: 24 },
+  subtitle: {textAlign:"center", fontSize: 14, color: '#64748B', lineHeight: 22, marginBottom: 24 },
 
   field: { marginBottom: 12 },
   label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 },
@@ -171,7 +170,7 @@ const styles = StyleSheet.create({
   flag: { fontSize: 20 },
   cc: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
   sep: { width: 1, height: 24, backgroundColor: '#E2E8F0', marginHorizontal: 10 },
-  input: { flex: 1, fontSize: 18, fontWeight: '600', color: '#0F172A', letterSpacing: 2 },
+  input: { flex: 1, fontSize: 18, fontWeight: '600', color: '#0F172A', letterSpacing: 2, outlineStyle: 'none' },
 
   dropdown: {
     borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12,
