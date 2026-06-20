@@ -3,6 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import type { ManagerTabParamList } from '../types';
 import { Colors, FontSize } from '../theme';
 import PlaceholderScreen from '../screens/main/shared/PlaceholderScreen';
+import ProfileScreen from '../screens/main/shared/ProfileScreen';
+import LeaveApprovalsScreen from '../screens/main/manager/LeaveApprovalsScreen';
 
 const Tab = createBottomTabNavigator<ManagerTabParamList>();
 
@@ -59,15 +61,7 @@ export default function ManagerNavigator() {
           />
         )}
       </Tab.Screen>
-      <Tab.Screen name="Leave">
-        {() => (
-          <PlaceholderScreen
-            iconName="calendar"
-            title="Leave Approvals"
-            description="Approve or reject leave requests"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Leave" component={LeaveApprovalsScreen} />
       <Tab.Screen name="Reports">
         {() => (
           <PlaceholderScreen
@@ -77,9 +71,7 @@ export default function ManagerNavigator() {
           />
         )}
       </Tab.Screen>
-      <Tab.Screen name="Profile">
-        {() => <PlaceholderScreen iconName="person-circle" title="My Profile" />}
-      </Tab.Screen>
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }

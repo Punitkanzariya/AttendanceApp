@@ -82,3 +82,22 @@ export type RootStackParamList = {
   AdminApp: undefined;
   FinanceApp: undefined;
 };
+
+// ─── Leave Management ────────────────────────────────────────────────────────
+export type LeaveStatus = 'pending' | 'approved' | 'rejected';
+
+export interface LeaveRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  leaveType: string;
+  startDate: string; // ISO date
+  endDate: string;   // ISO date
+  totalDays: number;
+  reason: string;
+  status: LeaveStatus;
+  createdAt: string; // ISO date
+  updatedAt: string; // ISO date
+  reviewedBy?: string; // UID of the manager/admin
+  reviewNotes?: string;
+}

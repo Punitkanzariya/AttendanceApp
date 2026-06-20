@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import type { FinanceTabParamList } from '../types';
 import { Colors, FontSize } from '../theme';
 import PlaceholderScreen from '../screens/main/shared/PlaceholderScreen';
+import ProfileScreen from '../screens/main/shared/ProfileScreen';
 
 const Tab = createBottomTabNavigator<FinanceTabParamList>();
 
@@ -67,9 +68,7 @@ export default function FinanceNavigator() {
           />
         )}
       </Tab.Screen>
-      <Tab.Screen name="Profile">
-        {() => <PlaceholderScreen iconName="person-circle" title="My Profile" />}
-      </Tab.Screen>
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }

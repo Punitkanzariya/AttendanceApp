@@ -4,7 +4,9 @@ import type { EmployeeTabParamList } from '../types';
 import { Colors, FontSize } from '../theme';
 
 import EmployeeDashboard from '../screens/main/employee/EmployeeDashboard';
+import EmployeeLeaveScreen from '../screens/main/employee/EmployeeLeaveScreen';
 import PlaceholderScreen from '../screens/main/shared/PlaceholderScreen';
+import ProfileScreen from '../screens/main/shared/ProfileScreen';
 
 const Tab = createBottomTabNavigator<EmployeeTabParamList>();
 
@@ -49,15 +51,7 @@ export default function EmployeeNavigator() {
           />
         )}
       </Tab.Screen>
-      <Tab.Screen name="Leave">
-        {() => (
-          <PlaceholderScreen
-            iconName="calendar"
-            title="Leave Management"
-            description="Apply and track your leave requests"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Leave" component={EmployeeLeaveScreen} />
       <Tab.Screen name="Expenses">
         {() => (
           <PlaceholderScreen
@@ -67,15 +61,7 @@ export default function EmployeeNavigator() {
           />
         )}
       </Tab.Screen>
-      <Tab.Screen name="Profile">
-        {() => (
-          <PlaceholderScreen
-            iconName="person-circle"
-            title="My Profile"
-            description="View and update your profile"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );
 }
