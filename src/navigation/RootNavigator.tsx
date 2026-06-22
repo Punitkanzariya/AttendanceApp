@@ -15,6 +15,7 @@ import ManagerNavigator from '@/navigation/ManagerNavigator';
 import AdminNavigator from '@/navigation/AdminNavigator';
 import FinanceNavigator from '@/navigation/FinanceNavigator';
 import PendingApprovalScreen from '@/screens/auth/PendingApprovalScreen';
+import NotificationScreen from '@/screens/main/shared/NotificationScreen';
 
 const Root = createNativeStackNavigator<RootStackParamList>();
 
@@ -66,7 +67,7 @@ export default function RootNavigator() {
   }
 
   return (
-    <Root.Navigator screenOptions={{ headerShown: false, animation: 'fade' }}>
+    <Root.Navigator screenOptions={{ headerShown: false }}>
       {!isAuthenticated ? (
         <Root.Screen name="Auth" component={AuthNavigator} />
       ) : (
@@ -91,6 +92,14 @@ export default function RootNavigator() {
           {user?.role === 'finance' && (
             <Root.Screen name="FinanceApp" component={FinanceNavigator} />
           )}
+          <Root.Screen 
+            name="Notifications" 
+            component={NotificationScreen} 
+            options={{ 
+              animation: 'none',
+              presentation: 'transparentModal'
+            }}
+          />
             </>
           )}
         </>

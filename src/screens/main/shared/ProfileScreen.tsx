@@ -1,61 +1,109 @@
-import React from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { useAuthStore } from '@/store/authStore';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
+import React from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+} from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { useNavigation } from "@react-navigation/native";
+import { useAuthStore } from "@/store/authStore";
+import { Colors, Spacing, BorderRadius } from "@/theme";
+import GradientHeader from "@/components/shared/GradientHeader";
 
 export default function ProfileScreen() {
   const { user, logout } = useAuthStore();
+  const navigation = useNavigation<any>();
 
-  const renderRow = (label: string, value: string) => (
-    <View style={styles.row}>
+  const renderRow = (label: string, value: string, noBorder = false) => (
+    <View style={[styles.row, noBorder && { borderBottomWidth: 0 }]}>
       <Text style={styles.label}>{label}</Text>
-      <Text style={styles.value} numberOfLines={1} ellipsizeMode="tail">{value}</Text>
+      <Text style={styles.value} numberOfLines={1} ellipsizeMode="tail">
+        {value}
+      </Text>
     </View>
   );
 
   const formatRole = (role?: string) => {
-    if (!role) return 'N/A';
-    return role.split('_').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+    if (!role) return "N/A";
+    return role
+      .split("_")
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
   };
 
   const getInitials = (name?: string | null) => {
-    if (!name) return '?';
+    if (!name) return "?";
     return name.charAt(0).toUpperCase();
   };
 
   return (
-    <SafeAreaView style={styles.safeArea} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
       <View style={styles.root}>
-        <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-          
+        {/* Background Gradient */}
+        <GradientHeader />
+
+        <ScrollView
+          contentContainerStyle={styles.scrollContainer}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Top Profile Header */}
+          <View
+            style={{
+              alignItems: "center",
+              marginTop: 10,
+              marginBottom: Spacing.lg,
+              position: "relative",
+            }}
+          >
+            {/* Back Button */}
+            <TouchableOpacity
+              style={styles.backButton}
+              onPress={() => navigation?.goBack?.()}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="arrow-back" size={20} color="#111" />
+            </TouchableOpacity>
+
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>
+                {getInitials(user?.displayName)}
+              </Text>
+            </View>
+            <Text style={styles.profileName}>
+              {user?.displayName || "Your account"}
+            </Text>
+            <Text style={styles.profilePhone}>
+              {user?.phoneNumber || "N/A"}
+            </Text>
+            <Text style={styles.profilePhone}>{user?.email || "N/A"}</Text>
+          </View>
+
+          {/* Profile Details */}
           <View style={styles.card}>
-            {/* Avatar (Overlapping) */}
-            <View style={styles.avatarContainer}>
-              <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{getInitials(user?.displayName)}</Text>
-              </View>
-            </View>
-
-            {/* Profile Details */}
             <View style={styles.detailsContainer}>
-              {renderRow('Employee ID', user?.uid.slice(0, 8).toUpperCase() || 'N/A')}
-              {renderRow('Name', user?.displayName || 'Unknown')}
-              {renderRow('Role', formatRole(user?.role))}
-              {renderRow('Email', user?.email || 'N/A')}
-              {renderRow('Phone', user?.phoneNumber || 'Not provided')}
-              {renderRow('Status', user?.isActive ? 'Active' : 'Inactive')}
+              {renderRow(
+                "Employee Code",
+                user?.uid.slice(0, 8).toUpperCase() || "EMP001",
+              )}
+              {renderRow("Department", "UI/UX Design")}
+              {renderRow("Job Position", formatRole(user?.role))}
+              {renderRow("Manager", "John Doe")}
+              {renderRow("DOB", "12 March 2000", true)}
             </View>
-
           </View>
 
           {/* Logout Button */}
-          <TouchableOpacity style={styles.logoutCard} onPress={logout} activeOpacity={0.8}>
-            <Ionicons name="log-out-outline" size={22} color="#EF4444" />
+          <TouchableOpacity
+            style={styles.logoutCard}
+            onPress={logout}
+            activeOpacity={0.8}
+          >
+            <Ionicons name="log-out-outline" size={20} color="#EF4444" />
             <Text style={styles.logoutText}>Logout</Text>
           </TouchableOpacity>
-
         </ScrollView>
       </View>
     </SafeAreaView>
@@ -63,88 +111,117 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: Colors.employeeBg,
-  },
   safeArea: {
     flex: 1,
+    backgroundColor: "#BFDBFE",
+  },
+  root: {
+    flex: 1,
+    position: "relative",
     backgroundColor: Colors.employeeBg,
   },
   scrollContainer: {
-    paddingHorizontal: Spacing.lg,
-    paddingTop: Spacing.xxl + 20, // Space for avatar overlap
+    paddingHorizontal: Spacing.sm,
+    paddingTop: Spacing.md,
     paddingBottom: Spacing.xl,
     flexGrow: 1,
   },
   card: {
     backgroundColor: Colors.white,
-    borderRadius: BorderRadius.xl,
-    paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    width: '100%',
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    paddingBottom: Spacing.md,
+    width: "100%",
+    elevation: 2,
+    shadowColor: "#0000005d",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
-  avatarContainer: {
-    alignItems: 'center',
-    marginTop: -50, // pull up to overlap
-    marginBottom: Spacing.xl,
+  backButton: {
+    position: "absolute",
+    left: 0,
+    top: 0,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: Colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+    elevation: 2,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  profileName: {
+    fontSize: 22,
+    fontWeight: "700",
+    color: "#111",
+    marginTop: 6,
+  },
+  profilePhone: {
+    fontSize: 12,
+    color: "#666",
+    fontWeight: "500",
   },
   avatar: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 4,
-    borderColor: Colors.employeeBg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: "#EFF6FF",
+    borderWidth: 0,
+    alignItems: "center",
+    justifyContent: "center",
   },
   avatarText: {
-    fontSize: 40,
-    fontWeight: FontWeight.bold,
+    fontSize: 32,
+    fontWeight: "bold",
     color: Colors.primary,
   },
   detailsContainer: {
-    gap: Spacing.md,
+    gap: 0,
   },
   row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: Spacing.md + 4,
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.divider,
+    borderBottomColor: "#F1F5F9",
   },
   label: {
-    fontSize: FontSize.md,
-    color: Colors.text.secondary,
+    fontSize: 13,
+    color: "#64748B",
     flex: 1,
+    fontWeight: "500",
   },
   value: {
-    fontSize: FontSize.md,
-    fontWeight: FontWeight.bold,
-    color: Colors.text.primary,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#0F172A",
     flex: 2,
-    textAlign: 'right',
+    textAlign: "right",
   },
   logoutCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: Colors.white,
-    borderRadius: BorderRadius.xl,
-    borderWidth: 1,
-    borderColor: Colors.border,
-    marginTop: Spacing.lg,
-    paddingVertical: Spacing.lg,
-    paddingHorizontal: Spacing.lg,
-    width: '100%',
+    borderRadius: BorderRadius.md,
+    marginTop: Spacing.sm,
+    paddingVertical: 14,
+    paddingHorizontal: Spacing.md,
+    width: "100%",
+    elevation: 2,
+    shadowColor: "#0000005d",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
   },
   logoutText: {
-    fontSize: FontSize.md,
-    fontWeight: FontWeight.bold,
-    color: '#EF4444', // slightly brighter red matching the image
-    marginLeft: Spacing.sm,
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#EF4444",
+    marginLeft: 8,
   },
 });

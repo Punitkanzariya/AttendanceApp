@@ -81,7 +81,9 @@ export type RootStackParamList = {
   ManagerApp: undefined;
   AdminApp: undefined;
   FinanceApp: undefined;
+  Notifications: undefined;
 };
+
 
 // ─── Leave Management ────────────────────────────────────────────────────────
 export type LeaveStatus = 'pending' | 'approved' | 'rejected';
