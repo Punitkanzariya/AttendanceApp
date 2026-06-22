@@ -5,6 +5,7 @@ import { Colors, FontSize } from '@/theme';
 
 import EmployeeDashboard from '@/screens/main/employee/EmployeeDashboard';
 import EmployeeLeaveScreen from '@/screens/main/employee/EmployeeLeaveScreen';
+import EmployeeExpenseScreen from '@/screens/main/employee/EmployeeExpenseScreen';
 import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
 import ProfileScreen from '@/screens/main/shared/ProfileScreen';
 
@@ -50,15 +51,7 @@ export default function EmployeeNavigator() {
         )}
       </Tab.Screen>
       <Tab.Screen name="Leave" component={EmployeeLeaveScreen} />
-      <Tab.Screen name="Expenses">
-        {() => (
-          <PlaceholderScreen
-            iconName="receipt"
-            title="Expense Submission"
-            description="Submit expenses and upload bills"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Expenses" component={EmployeeExpenseScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

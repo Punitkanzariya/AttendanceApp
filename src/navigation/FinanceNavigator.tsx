@@ -4,6 +4,8 @@ import type { FinanceTabParamList } from '@/types';
 import { Colors, FontSize } from '@/theme';
 import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
 import ProfileScreen from '@/screens/main/shared/ProfileScreen';
+import FinanceExpenseScreen from '@/screens/main/finance/FinanceExpenseScreen';
+import ReimbursementsScreen from '@/screens/main/finance/ReimbursementsScreen';
 
 const Tab = createBottomTabNavigator<FinanceTabParamList>();
 
@@ -41,24 +43,8 @@ export default function FinanceNavigator() {
           />
         )}
       </Tab.Screen>
-      <Tab.Screen name="Expenses">
-        {() => (
-          <PlaceholderScreen
-            iconName="receipt"
-            title="Verify Expenses"
-            description="Review and verify submitted expenses"
-          />
-        )}
-      </Tab.Screen>
-      <Tab.Screen name="Reimbursements">
-        {() => (
-          <PlaceholderScreen
-            iconName="cash"
-            title="Reimbursements"
-            description="Process approved reimbursements"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Expenses" component={FinanceExpenseScreen} />
+      <Tab.Screen name="Reimbursements" component={ReimbursementsScreen} />
       <Tab.Screen name="Reports">
         {() => (
           <PlaceholderScreen

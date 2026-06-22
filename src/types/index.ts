@@ -101,3 +101,22 @@ export interface LeaveRequest {
   reviewedBy?: string; // UID of the manager/admin
   reviewNotes?: string;
 }
+
+// ─── Expense Management ────────────────────────────────────────────────────────
+export type ExpenseStatus = 'pending_supervisor' | 'pending_manager' | 'pending_finance' | 'reimbursed' | 'rejected' | 'draft';
+
+export interface ExpenseRequest {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  category: string;
+  amount: number;
+  date: string; // ISO date
+  description: string;
+  status: ExpenseStatus;
+  attachmentUrl?: string | null;
+  createdAt: string; // ISO date
+  updatedAt: string; // ISO date
+  reviewedBy?: string; // UID of the manager/finance
+  rejectionReason?: string;
+}

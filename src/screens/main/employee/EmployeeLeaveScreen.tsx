@@ -175,8 +175,9 @@ export default function EmployeeLeaveScreen() {
               <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
             </View>
             <View>
-              <Text style={styles.leaveNum}>12 Days</Text>
+              <Text style={styles.leaveNum}>12 <Text style={styles.leaveTotalTxt}>/ 15 Days</Text></Text>
               <Text style={styles.leaveLabel}>Paid Leave</Text>
+              <Text style={styles.leaveTakenTxt}>3 Taken</Text>
             </View>
           </View>
           <View style={styles.leaveBalanceCard}>
@@ -184,8 +185,9 @@ export default function EmployeeLeaveScreen() {
               <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
             </View>
             <View>
-              <Text style={styles.leaveNum}>7 Days</Text>
+              <Text style={styles.leaveNum}>7 <Text style={styles.leaveTotalTxt}>/ 10 Days</Text></Text>
               <Text style={styles.leaveLabel}>Sick Leave</Text>
+              <Text style={styles.leaveTakenTxt}>3 Taken</Text>
             </View>
           </View>
         </View>
@@ -195,8 +197,9 @@ export default function EmployeeLeaveScreen() {
               <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
             </View>
             <View>
-              <Text style={styles.leaveNum}>5 Days</Text>
+              <Text style={styles.leaveNum}>5 <Text style={styles.leaveTotalTxt}>/ 8 Days</Text></Text>
               <Text style={styles.leaveLabel}>Casual Leave</Text>
+              <Text style={styles.leaveTakenTxt}>3 Taken</Text>
             </View>
           </View>
           <View style={styles.leaveBalanceCard}>
@@ -204,8 +207,9 @@ export default function EmployeeLeaveScreen() {
               <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
             </View>
             <View>
-              <Text style={styles.leaveNum}>24 Days</Text>
+              <Text style={styles.leaveNum}>24 <Text style={styles.leaveTotalTxt}>/ 33 Days</Text></Text>
               <Text style={styles.leaveLabel}>Total Leave</Text>
+              <Text style={styles.leaveTakenTxt}>9 Taken</Text>
             </View>
           </View>
         </View>
@@ -362,7 +366,9 @@ const styles = StyleSheet.create({
   leaveBalanceCard: { flex: 1, backgroundColor: Colors.white, borderRadius: 12, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: Colors.border },
   leaveIconRing: { width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   leaveNum: { fontSize: 13, fontWeight: '700', color: Colors.text.primary, marginBottom: 2 },
+  leaveTotalTxt: { fontSize: 10, color: Colors.text.secondary, fontWeight: '500' },
   leaveLabel: { fontSize: 10, color: Colors.text.secondary },
+  leaveTakenTxt: { fontSize: 9, color: '#64748B', marginTop: 2, fontWeight: '500' },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',

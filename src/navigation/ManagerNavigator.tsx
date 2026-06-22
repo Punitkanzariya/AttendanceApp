@@ -5,6 +5,7 @@ import { Colors, FontSize } from '@/theme';
 import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
 import ProfileScreen from '@/screens/main/shared/ProfileScreen';
 import LeaveApprovalsScreen from '@/screens/main/manager/LeaveApprovalsScreen';
+import ExpenseApprovalsScreen from '@/screens/main/manager/ExpenseApprovalsScreen';
 
 const Tab = createBottomTabNavigator<ManagerTabParamList>();
 
@@ -52,15 +53,7 @@ export default function ManagerNavigator() {
           />
         )}
       </Tab.Screen>
-      <Tab.Screen name="Expenses">
-        {() => (
-          <PlaceholderScreen
-            iconName="receipt"
-            title="Expense Approvals"
-            description="Approve or reject expense submissions"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Expenses" component={ExpenseApprovalsScreen} />
       <Tab.Screen name="Leave" component={LeaveApprovalsScreen} />
       <Tab.Screen name="Reports">
         {() => (

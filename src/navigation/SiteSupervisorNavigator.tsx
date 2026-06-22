@@ -4,6 +4,7 @@ import type { SiteSupervisorTabParamList } from '@/types';
 import { Colors, FontSize } from '@/theme';
 import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
 import ProfileScreen from '@/screens/main/shared/ProfileScreen';
+import SupervisorExpenseScreen from '@/screens/main/sitesupervisor/SupervisorExpenseScreen';
 
 const Tab = createBottomTabNavigator<SiteSupervisorTabParamList>();
 
@@ -13,6 +14,7 @@ const TAB_ICONS: Record<keyof SiteSupervisorTabParamList, { active: IoniconsName
   Dashboard:        { active: 'home',             inactive: 'home-outline'           },
   Employees:        { active: 'people',           inactive: 'people-outline'         },
   VerifyAttendance: { active: 'checkmark-circle', inactive: 'checkmark-circle-outline' },
+  Expenses:         { active: 'receipt',          inactive: 'receipt-outline'        },
   Reports:          { active: 'bar-chart',        inactive: 'bar-chart-outline'      },
   Profile:          { active: 'person-circle',    inactive: 'person-circle-outline'  },
 };
@@ -59,6 +61,7 @@ export default function SiteSupervisorNavigator() {
           />
         )}
       </Tab.Screen>
+      <Tab.Screen name="Expenses" component={SupervisorExpenseScreen} />
       <Tab.Screen name="Reports">
         {() => (
           <PlaceholderScreen
