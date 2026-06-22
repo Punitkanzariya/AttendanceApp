@@ -164,14 +164,39 @@ export default function SupervisorReportsScreen() {
       if (activeTab === 'attendance') {
         const records = siteAttendance.map(log => {
           const emp = employees.find(e => e.uid === log.employeeId);
+          let checkInStr = 'N/A';
+          if (log.checkIn && log.checkIn.timestamp) {
+            try {
+              checkInStr = new Date(log.checkIn.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {}
+          }
+          let checkOutStr = 'N/A';
+          if (log.checkOut && log.checkOut.timestamp) {
+            try {
+              checkOutStr = new Date(log.checkOut.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {}
+          }
+          let hoursStr = '0 hrs';
+          if (log.workingHours !== undefined && log.workingHours !== null) {
+            hoursStr = `${log.workingHours.toFixed(1)} hrs`;
+          }
+          let statusText = 'Present';
+          if (log.status) {
+            statusText = log.status.charAt(0).toUpperCase() + log.status.slice(1);
+          }
+          let verificationText = 'Pending';
+          if (log.verificationStatus) {
+            verificationText = log.verificationStatus.charAt(0).toUpperCase() + log.verificationStatus.slice(1);
+          }
+
           return {
             name: emp?.displayName || log.employeeName || 'Unknown Employee',
-            date: log.dateStr,
-            checkIn: log.checkIn ? new Date(log.checkIn.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
-            checkOut: log.checkOut ? new Date(log.checkOut.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
-            hours: log.workingHours ? `${log.workingHours.toFixed(1)} hrs` : '0 hrs',
-            status: log.status.charAt(0).toUpperCase() + log.status.slice(1),
-            verification: log.verificationStatus.charAt(0).toUpperCase() + log.verificationStatus.slice(1),
+            date: log.dateStr || 'N/A',
+            checkIn: checkInStr,
+            checkOut: checkOutStr,
+            hours: hoursStr,
+            status: statusText,
+            verification: verificationText,
           };
         });
         const html = generateAttendanceHTML(
@@ -183,19 +208,19 @@ export default function SupervisorReportsScreen() {
       } else {
         const records = siteExpenses.map(exp => {
           const emp = employees.find(e => e.uid === exp.employeeId);
-          let statusText: string = exp.status;
+          let statusText: string = exp.status || 'pending_supervisor';
           if (statusText === 'pending_supervisor') statusText = 'Pending Supervisor';
           else if (statusText === 'pending_manager') statusText = 'Pending Manager';
           else if (statusText === 'pending_finance') statusText = 'Pending Finance';
           else if (statusText === 'reimbursed') statusText = 'Reimbursed';
           else if (statusText === 'rejected') statusText = 'Rejected';
-          else statusText = statusText.charAt(0).toUpperCase() + statusText.slice(1);
+          else if (statusText) statusText = statusText.charAt(0).toUpperCase() + statusText.slice(1);
 
           return {
             name: emp?.displayName || exp.employeeName || 'Unknown Employee',
-            category: exp.category,
-            date: exp.date,
-            amount: exp.amount.toString(),
+            category: exp.category || 'Other',
+            date: exp.date || 'N/A',
+            amount: exp.amount ? exp.amount.toString() : '0',
             description: exp.description || '',
             status: statusText,
           };
@@ -222,14 +247,39 @@ export default function SupervisorReportsScreen() {
         const headers = ['Employee Name', 'Date', 'Clock In', 'Clock Out', 'Total Hours', 'Status', 'Verification'];
         const rows = siteAttendance.map(log => {
           const emp = employees.find(e => e.uid === log.employeeId);
+          let checkInStr = 'N/A';
+          if (log.checkIn && log.checkIn.timestamp) {
+            try {
+              checkInStr = new Date(log.checkIn.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {}
+          }
+          let checkOutStr = 'N/A';
+          if (log.checkOut && log.checkOut.timestamp) {
+            try {
+              checkOutStr = new Date(log.checkOut.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {}
+          }
+          let hoursVal = '0';
+          if (log.workingHours !== undefined && log.workingHours !== null) {
+            hoursVal = log.workingHours.toFixed(1);
+          }
+          let statusText = 'Present';
+          if (log.status) {
+            statusText = log.status.charAt(0).toUpperCase() + log.status.slice(1);
+          }
+          let verificationText = 'Pending';
+          if (log.verificationStatus) {
+            verificationText = log.verificationStatus.charAt(0).toUpperCase() + log.verificationStatus.slice(1);
+          }
+
           return [
             emp?.displayName || log.employeeName || 'Unknown Employee',
-            log.dateStr,
-            log.checkIn ? new Date(log.checkIn.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
-            log.checkOut ? new Date(log.checkOut.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
-            log.workingHours ? log.workingHours.toFixed(1) : '0',
-            log.status.charAt(0).toUpperCase() + log.status.slice(1),
-            log.verificationStatus.charAt(0).toUpperCase() + log.verificationStatus.slice(1),
+            log.dateStr || 'N/A',
+            checkInStr,
+            checkOutStr,
+            hoursVal,
+            statusText,
+            verificationText,
           ];
         });
         await exportToCSV(headers, rows, `Attendance_Report_${user?.siteId || 'All'}`);
@@ -237,19 +287,19 @@ export default function SupervisorReportsScreen() {
         const headers = ['Employee Name', 'Category', 'Date', 'Amount (INR)', 'Description', 'Status'];
         const rows = siteExpenses.map(exp => {
           const emp = employees.find(e => e.uid === exp.employeeId);
-          let statusText: string = exp.status;
+          let statusText: string = exp.status || 'pending_supervisor';
           if (statusText === 'pending_supervisor') statusText = 'Pending Supervisor';
           else if (statusText === 'pending_manager') statusText = 'Pending Manager';
           else if (statusText === 'pending_finance') statusText = 'Pending Finance';
           else if (statusText === 'reimbursed') statusText = 'Reimbursed';
           else if (statusText === 'rejected') statusText = 'Rejected';
-          else statusText = statusText.charAt(0).toUpperCase() + statusText.slice(1);
+          else if (statusText) statusText = statusText.charAt(0).toUpperCase() + statusText.slice(1);
 
           return [
             emp?.displayName || exp.employeeName || 'Unknown Employee',
-            exp.category,
-            exp.date,
-            exp.amount.toString(),
+            exp.category || 'Other',
+            exp.date || 'N/A',
+            exp.amount ? exp.amount.toString() : '0',
             exp.description || '',
             statusText,
           ];

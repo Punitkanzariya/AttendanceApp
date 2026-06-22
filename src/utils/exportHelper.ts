@@ -36,12 +36,44 @@ export async function exportToCSV(headers: string[], rows: string[][], filename:
 // ─── PDF EXPORT HELPER ───────────────────────────────────────────────────────
 export async function exportToPDF(htmlContent: string, filename: string): Promise<void> {
   try {
-    const { uri } = await Print.printToFileAsync({ html: htmlContent });
     if (Platform.OS === 'web') {
-      // expo-print printToFileAsync returns a local data uri or blob on web
-      // We can trigger standard print directly
-      await Print.printAsync({ html: htmlContent });
+      const iframe = document.createElement('iframe');
+      iframe.style.position = 'fixed';
+      iframe.style.right = '0';
+      iframe.style.bottom = '0';
+      iframe.style.width = '0';
+      iframe.style.height = '0';
+      iframe.style.border = '0';
+      document.body.appendChild(iframe);
+      
+      const iframeWindow = iframe.contentWindow;
+      const iframeDoc = iframe.contentDocument || (iframeWindow ? iframeWindow.document : null);
+      
+      if (iframeDoc && iframeWindow) {
+        iframeDoc.open();
+        iframeDoc.write(htmlContent);
+        iframeDoc.close();
+        
+        // Wait for styles and DOM to load
+        await new Promise<void>(resolve => {
+          iframeWindow.onload = () => {
+            resolve();
+          };
+          setTimeout(resolve, 300);
+        });
+
+        iframeWindow.focus();
+        iframeWindow.print();
+        
+        // Clean up
+        setTimeout(() => {
+          document.body.removeChild(iframe);
+        }, 1000);
+      } else {
+        throw new Error('Could not access print frame document');
+      }
     } else {
+      const { uri } = await Print.printToFileAsync({ html: htmlContent });
       // Mobile sharing of PDF file
       const pdfUri = `${FileSystem.cacheDirectory}${filename}.pdf`;
       await FileSystem.moveAsync({

@@ -199,14 +199,39 @@ export default function ManagerReportsScreen() {
       if (activeTab === 'attendance') {
         const records = teamAttendance.map(log => {
           const emp = employees.find(e => e.uid === log.employeeId);
+          let checkInStr = 'N/A';
+          if (log.checkIn && log.checkIn.timestamp) {
+            try {
+              checkInStr = new Date(log.checkIn.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {}
+          }
+          let checkOutStr = 'N/A';
+          if (log.checkOut && log.checkOut.timestamp) {
+            try {
+              checkOutStr = new Date(log.checkOut.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {}
+          }
+          let hoursStr = '0 hrs';
+          if (log.workingHours !== undefined && log.workingHours !== null) {
+            hoursStr = `${log.workingHours.toFixed(1)} hrs`;
+          }
+          let statusText = 'Present';
+          if (log.status) {
+            statusText = log.status.charAt(0).toUpperCase() + log.status.slice(1);
+          }
+          let verificationText = 'Pending';
+          if (log.verificationStatus) {
+            verificationText = log.verificationStatus.charAt(0).toUpperCase() + log.verificationStatus.slice(1);
+          }
+
           return {
             name: emp?.displayName || log.employeeName || 'Unknown Employee',
-            date: log.dateStr,
-            checkIn: log.checkIn ? new Date(log.checkIn.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
-            checkOut: log.checkOut ? new Date(log.checkOut.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
-            hours: log.workingHours ? `${log.workingHours.toFixed(1)} hrs` : '0 hrs',
-            status: log.status.charAt(0).toUpperCase() + log.status.slice(1),
-            verification: log.verificationStatus.charAt(0).toUpperCase() + log.verificationStatus.slice(1),
+            date: log.dateStr || 'N/A',
+            checkIn: checkInStr,
+            checkOut: checkOutStr,
+            hours: hoursStr,
+            status: statusText,
+            verification: verificationText,
           };
         });
         const html = generateAttendanceHTML(
@@ -218,14 +243,35 @@ export default function ManagerReportsScreen() {
       } else if (activeTab === 'leaves') {
         const records = teamLeaves.map(lvl => {
           const emp = employees.find(e => e.uid === lvl.employeeId);
+          let formattedStart = 'N/A';
+          if (lvl.startDate) {
+            try {
+              formattedStart = typeof lvl.startDate === 'string' ? lvl.startDate : new Date(lvl.startDate).toLocaleDateString();
+            } catch (e) {}
+          }
+          let formattedEnd = 'N/A';
+          if (lvl.endDate) {
+            try {
+              formattedEnd = typeof lvl.endDate === 'string' ? lvl.endDate : new Date(lvl.endDate).toLocaleDateString();
+            } catch (e) {}
+          }
+          let daysStr = '1';
+          if (lvl.totalDays !== undefined && lvl.totalDays !== null) {
+            daysStr = lvl.totalDays.toString();
+          }
+          let statusText = 'Pending';
+          if (lvl.status) {
+            statusText = lvl.status.charAt(0).toUpperCase() + lvl.status.slice(1);
+          }
+
           return {
             name: emp?.displayName || lvl.employeeName || 'Unknown Employee',
-            type: lvl.leaveType,
-            startDate: new Date(lvl.startDate).toLocaleDateString(),
-            endDate: new Date(lvl.endDate).toLocaleDateString(),
-            days: lvl.totalDays.toString(),
+            type: lvl.leaveType || 'Casual Leave',
+            startDate: formattedStart,
+            endDate: formattedEnd,
+            days: daysStr,
             reason: lvl.reason || '',
-            status: lvl.status.charAt(0).toUpperCase() + lvl.status.slice(1),
+            status: statusText,
           };
         });
         const html = generateLeavesHTML(
@@ -237,19 +283,19 @@ export default function ManagerReportsScreen() {
       } else {
         const records = teamExpenses.map(exp => {
           const emp = employees.find(e => e.uid === exp.employeeId);
-          let statusText: string = exp.status;
+          let statusText: string = exp.status || 'pending_supervisor';
           if (statusText === 'pending_supervisor') statusText = 'Pending Supervisor';
           else if (statusText === 'pending_manager') statusText = 'Pending Manager';
           else if (statusText === 'pending_finance') statusText = 'Pending Finance';
           else if (statusText === 'reimbursed') statusText = 'Reimbursed';
           else if (statusText === 'rejected') statusText = 'Rejected';
-          else statusText = statusText.charAt(0).toUpperCase() + statusText.slice(1);
+          else if (statusText) statusText = statusText.charAt(0).toUpperCase() + statusText.slice(1);
 
           return {
             name: emp?.displayName || exp.employeeName || 'Unknown Employee',
-            category: exp.category,
-            date: exp.date,
-            amount: exp.amount.toString(),
+            category: exp.category || 'Other',
+            date: exp.date || 'N/A',
+            amount: exp.amount ? exp.amount.toString() : '0',
             description: exp.description || '',
             status: statusText,
           };
@@ -276,14 +322,39 @@ export default function ManagerReportsScreen() {
         const headers = ['Employee Name', 'Date', 'Clock In', 'Clock Out', 'Total Hours', 'Status', 'Verification'];
         const rows = teamAttendance.map(log => {
           const emp = employees.find(e => e.uid === log.employeeId);
+          let checkInStr = 'N/A';
+          if (log.checkIn && log.checkIn.timestamp) {
+            try {
+              checkInStr = new Date(log.checkIn.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {}
+          }
+          let checkOutStr = 'N/A';
+          if (log.checkOut && log.checkOut.timestamp) {
+            try {
+              checkOutStr = new Date(log.checkOut.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            } catch (e) {}
+          }
+          let hoursVal = '0';
+          if (log.workingHours !== undefined && log.workingHours !== null) {
+            hoursVal = log.workingHours.toFixed(1);
+          }
+          let statusText = 'Present';
+          if (log.status) {
+            statusText = log.status.charAt(0).toUpperCase() + log.status.slice(1);
+          }
+          let verificationText = 'Pending';
+          if (log.verificationStatus) {
+            verificationText = log.verificationStatus.charAt(0).toUpperCase() + log.verificationStatus.slice(1);
+          }
+
           return [
             emp?.displayName || log.employeeName || 'Unknown Employee',
-            log.dateStr,
-            log.checkIn ? new Date(log.checkIn.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
-            log.checkOut ? new Date(log.checkOut.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : 'N/A',
-            log.workingHours ? log.workingHours.toFixed(1) : '0',
-            log.status.charAt(0).toUpperCase() + log.status.slice(1),
-            log.verificationStatus.charAt(0).toUpperCase() + log.verificationStatus.slice(1),
+            log.dateStr || 'N/A',
+            checkInStr,
+            checkOutStr,
+            hoursVal,
+            statusText,
+            verificationText,
           ];
         });
         await exportToCSV(headers, rows, 'Team_Attendance_Report');
@@ -291,14 +362,35 @@ export default function ManagerReportsScreen() {
         const headers = ['Employee Name', 'Leave Type', 'Start Date', 'End Date', 'Total Days', 'Reason', 'Status'];
         const rows = teamLeaves.map(lvl => {
           const emp = employees.find(e => e.uid === lvl.employeeId);
+          let formattedStart = 'N/A';
+          if (lvl.startDate) {
+            try {
+              formattedStart = typeof lvl.startDate === 'string' ? lvl.startDate : new Date(lvl.startDate).toLocaleDateString();
+            } catch (e) {}
+          }
+          let formattedEnd = 'N/A';
+          if (lvl.endDate) {
+            try {
+              formattedEnd = typeof lvl.endDate === 'string' ? lvl.endDate : new Date(lvl.endDate).toLocaleDateString();
+            } catch (e) {}
+          }
+          let daysStr = '1';
+          if (lvl.totalDays !== undefined && lvl.totalDays !== null) {
+            daysStr = lvl.totalDays.toString();
+          }
+          let statusText = 'Pending';
+          if (lvl.status) {
+            statusText = lvl.status.charAt(0).toUpperCase() + lvl.status.slice(1);
+          }
+
           return [
             emp?.displayName || lvl.employeeName || 'Unknown Employee',
-            lvl.leaveType,
-            new Date(lvl.startDate).toLocaleDateString(),
-            new Date(lvl.endDate).toLocaleDateString(),
-            lvl.totalDays.toString(),
+            lvl.leaveType || 'Casual Leave',
+            formattedStart,
+            formattedEnd,
+            daysStr,
             lvl.reason || '',
-            lvl.status.charAt(0).toUpperCase() + lvl.status.slice(1),
+            statusText,
           ];
         });
         await exportToCSV(headers, rows, 'Team_Leaves_Report');
@@ -306,19 +398,19 @@ export default function ManagerReportsScreen() {
         const headers = ['Employee Name', 'Category', 'Date', 'Amount (INR)', 'Description', 'Status'];
         const rows = teamExpenses.map(exp => {
           const emp = employees.find(e => e.uid === exp.employeeId);
-          let statusText: string = exp.status;
+          let statusText: string = exp.status || 'pending_supervisor';
           if (statusText === 'pending_supervisor') statusText = 'Pending Supervisor';
           else if (statusText === 'pending_manager') statusText = 'Pending Manager';
           else if (statusText === 'pending_finance') statusText = 'Pending Finance';
           else if (statusText === 'reimbursed') statusText = 'Reimbursed';
           else if (statusText === 'rejected') statusText = 'Rejected';
-          else statusText = statusText.charAt(0).toUpperCase() + statusText.slice(1);
+          else if (statusText) statusText = statusText.charAt(0).toUpperCase() + statusText.slice(1);
 
           return [
             emp?.displayName || exp.employeeName || 'Unknown Employee',
-            exp.category,
-            exp.date,
-            exp.amount.toString(),
+            exp.category || 'Other',
+            exp.date || 'N/A',
+            exp.amount ? exp.amount.toString() : '0',
             exp.description || '',
             statusText,
           ];
