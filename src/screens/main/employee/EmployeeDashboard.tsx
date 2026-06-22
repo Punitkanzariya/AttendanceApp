@@ -1,19 +1,43 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing } from '@/theme';
 import { useAuthStore } from '@/store/authStore';
+import { useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { EmployeeTabParamList, AttendanceRecord } from '@/types';
+import { subscribeToTodayAttendance } from '@/firebase';
 
 export default function EmployeeDashboard() {
   const { user } = useAuthStore();
+  const navigation = useNavigation<BottomTabNavigationProp<EmployeeTabParamList>>();
   const [refreshing, setRefreshing] = useState(false);
+  const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    return subscribeToTodayAttendance(user.uid, (record) => {
+      setTodayRecord(record);
+    });
+  }, [user?.uid]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    await new Promise(resolve => setTimeout(resolve, 1000));
     setRefreshing(false);
   }, []);
+
+  const formatTime = (isoString?: string) => {
+    if (!isoString) return '--';
+    return new Date(isoString).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getWorkingHoursText = () => {
+    if (!todayRecord) return '--';
+    if (!todayRecord.checkOut) return 'In Progress';
+    return `${todayRecord.workingHours} hrs`;
+  };
 
   return (
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
@@ -54,20 +78,30 @@ export default function EmployeeDashboard() {
           <View style={styles.summaryTopRow}>
             <View style={styles.summaryCol}>
               <Text style={styles.summaryLabel}>Clock In</Text>
-              <Text style={styles.summaryValue}>--</Text>
+              <Text style={styles.summaryValue}>{formatTime(todayRecord?.checkIn?.timestamp)}</Text>
             </View>
             <View style={styles.summaryCol}>
               <Text style={styles.summaryLabel}>Clock Out</Text>
-              <Text style={styles.summaryValue}>--</Text>
+              <Text style={styles.summaryValue}>{formatTime(todayRecord?.checkOut?.timestamp)}</Text>
             </View>
-            <TouchableOpacity style={styles.clockBtn} activeOpacity={0.8}>
-              <Text style={styles.clockBtnTxt}>Clock In Now</Text>
+            <TouchableOpacity 
+              style={[
+                styles.clockBtn,
+                todayRecord?.checkIn && todayRecord?.checkOut && { backgroundColor: Colors.text.tertiary }
+              ]} 
+              activeOpacity={0.8}
+              onPress={() => navigation.navigate('Attendance')}
+              disabled={!!(todayRecord?.checkIn && todayRecord?.checkOut)}
+            >
+              <Text style={styles.clockBtnTxt}>
+                {!todayRecord ? 'Clock In Now' : !todayRecord.checkOut ? 'Clock Out Now' : 'Completed'}
+              </Text>
             </TouchableOpacity>
           </View>
           <View style={{ height: 1, backgroundColor: Colors.border, marginVertical: 4 }} />
           <View>
             <Text style={styles.summaryLabel}>Working Hours</Text>
-            <Text style={styles.summaryValue}>--</Text>
+            <Text style={styles.summaryValue}>{getWorkingHoursText()}</Text>
           </View>
         </View>
 

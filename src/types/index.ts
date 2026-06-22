@@ -42,7 +42,7 @@ export type EmployeeTabParamList = {
 export type SiteSupervisorTabParamList = {
   Dashboard: undefined;
   Employees: undefined;
-  VerifyAttendance: undefined;
+  Expenses: undefined;
   Reports: undefined;
   Profile: undefined;
 };
@@ -119,4 +119,33 @@ export interface ExpenseRequest {
   updatedAt: string; // ISO date
   reviewedBy?: string; // UID of the manager/finance
   rejectionReason?: string;
+}
+
+// ─── Attendance Management ───────────────────────────────────────────────────
+export interface AttendanceLocation {
+  latitude: number;
+  longitude: number;
+  address: string;
+}
+
+export interface AttendanceDetails {
+  timestamp: string; // ISO date
+  location: AttendanceLocation | null;
+  remark?: string;
+  deviceInfo?: string;
+}
+
+export interface AttendanceRecord {
+  id: string; // doc ID format: employeeId_YYYY-MM-DD
+  employeeId: string;
+  employeeName: string;
+  dateStr: string; // YYYY-MM-DD
+  checkIn: AttendanceDetails | null;
+  checkOut: AttendanceDetails | null;
+  status: 'present' | 'absent' | 'late';
+  workingHours: number; // in hours, computed on check-out
+  verificationStatus: 'pending' | 'verified' | 'rejected';
+  verifiedBy?: string | null;
+  verifiedAt?: string | null;
+  updatedAt: string; // ISO date
 }

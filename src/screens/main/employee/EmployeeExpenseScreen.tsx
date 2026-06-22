@@ -206,7 +206,13 @@ export default function EmployeeExpenseScreen() {
         <View style={styles.categoryWrap}>
           <View style={styles.iconRing}>
             <Ionicons 
-              name={item.category === 'Travel' ? 'car-outline' : item.category === 'Meals' ? 'restaurant-outline' : 'cart-outline'} 
+              name={
+                item.category === 'Travel' ? 'car-outline' :
+                item.category === 'Meals' ? 'restaurant-outline' :
+                item.category === 'Fuel' ? 'speedometer-outline' :
+                item.category === 'Supplies' ? 'briefcase-outline' :
+                'cart-outline'
+              } 
               size={18} 
               color={Colors.primary} 
             />
@@ -332,7 +338,7 @@ export default function EmployeeExpenseScreen() {
 
               <Text style={styles.inputLabel}>Category</Text>
               <View style={styles.typeSelectorRow}>
-                {['Travel', 'Meals', 'Supplies'].map((type) => (
+                {['Travel', 'Meals', 'Fuel', 'Supplies', 'Other'].map((type) => (
                   <TouchableOpacity
                     key={type}
                     style={[styles.typeButton, category === type && styles.typeButtonActive]}
@@ -468,8 +474,8 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: FontSize.xl, fontWeight: FontWeight.bold },
   
   inputLabel: { fontSize: FontSize.sm, fontWeight: FontWeight.medium, color: Colors.text.secondary, marginBottom: Spacing.xs },
-  typeSelectorRow: { flexDirection: 'row', gap: Spacing.sm, marginBottom: Spacing.lg },
-  typeButton: { flex: 1, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: BorderRadius.full, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background },
+  typeSelectorRow: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.sm, marginBottom: Spacing.lg },
+  typeButton: { paddingHorizontal: 12, paddingVertical: Spacing.sm, alignItems: 'center', borderRadius: BorderRadius.full, borderWidth: 1, borderColor: Colors.border, backgroundColor: Colors.background, minWidth: '28%' },
   typeButtonActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   typeButtonText: { fontSize: FontSize.sm, fontWeight: FontWeight.medium, color: Colors.text.secondary },
   typeButtonTextActive: { color: Colors.white, fontWeight: FontWeight.bold },

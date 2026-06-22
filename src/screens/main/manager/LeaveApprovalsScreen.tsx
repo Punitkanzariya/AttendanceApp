@@ -12,6 +12,7 @@ export default function LeaveApprovalsScreen() {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<LeaveStatus | 'all'>('pending');
+  const [hasAutoSwitched, setHasAutoSwitched] = useState(false);
 
   // Review Modal State
   const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
@@ -26,6 +27,17 @@ export default function LeaveApprovalsScreen() {
 
     return () => unsubscribe();
   }, []);
+
+  // Auto-switch filter to 'all' if no pending leaves are found on initial load
+  useEffect(() => {
+    if (!isLoading && !hasAutoSwitched) {
+      const pendingCount = leaves.filter(l => l.status === 'pending').length;
+      if (pendingCount === 0) {
+        setFilter('all');
+      }
+      setHasAutoSwitched(true);
+    }
+  }, [leaves, isLoading, hasAutoSwitched]);
 
   const filteredLeaves = useMemo(() => {
     if (filter === 'all') return leaves;

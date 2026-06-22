@@ -5,6 +5,9 @@ import { Colors, FontSize } from '@/theme';
 import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
 import ProfileScreen from '@/screens/main/shared/ProfileScreen';
 import SupervisorExpenseScreen from '@/screens/main/sitesupervisor/SupervisorExpenseScreen';
+import VerifyAttendanceScreen from '@/screens/main/sitesupervisor/VerifyAttendanceScreen';
+import SupervisorDashboard from '@/screens/main/sitesupervisor/SupervisorDashboard';
+import SupervisorReportsScreen from '@/screens/main/sitesupervisor/SupervisorReportsScreen';
 
 const Tab = createBottomTabNavigator<SiteSupervisorTabParamList>();
 
@@ -34,43 +37,10 @@ export default function SiteSupervisorNavigator() {
         tabBarLabelStyle: { fontSize: FontSize.xs },
       })}
     >
-      <Tab.Screen name="Dashboard">
-        {() => (
-          <PlaceholderScreen
-            iconName="business"
-            title="Supervisor Dashboard"
-            description="Overview of your site and team"
-          />
-        )}
-      </Tab.Screen>
-      <Tab.Screen name="Employees">
-        {() => (
-          <PlaceholderScreen
-            iconName="people"
-            title="Assigned Employees"
-            description="View and manage your team members"
-          />
-        )}
-      </Tab.Screen>
-      <Tab.Screen name="VerifyAttendance" options={{ tabBarLabel: 'Verify' }}>
-        {() => (
-          <PlaceholderScreen
-            iconName="checkmark-circle"
-            title="Verify Attendance"
-            description="Review and verify employee attendance"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Dashboard" component={SupervisorDashboard} />
+      <Tab.Screen name="Employees" component={VerifyAttendanceScreen} />
       <Tab.Screen name="Expenses" component={SupervisorExpenseScreen} />
-      <Tab.Screen name="Reports">
-        {() => (
-          <PlaceholderScreen
-            iconName="bar-chart"
-            title="Site Reports"
-            description="View reports for your site"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Reports" component={SupervisorReportsScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

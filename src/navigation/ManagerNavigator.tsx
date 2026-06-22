@@ -6,6 +6,9 @@ import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
 import ProfileScreen from '@/screens/main/shared/ProfileScreen';
 import LeaveApprovalsScreen from '@/screens/main/manager/LeaveApprovalsScreen';
 import ExpenseApprovalsScreen from '@/screens/main/manager/ExpenseApprovalsScreen';
+import TeamAttendanceScreen from '@/screens/main/manager/TeamAttendanceScreen';
+import ManagerDashboard from '@/screens/main/manager/ManagerDashboard';
+import ManagerReportsScreen from '@/screens/main/manager/ManagerReportsScreen';
 
 const Tab = createBottomTabNavigator<ManagerTabParamList>();
 
@@ -35,35 +38,11 @@ export default function ManagerNavigator() {
         tabBarLabelStyle: { fontSize: FontSize.xs },
       })}
     >
-      <Tab.Screen name="Dashboard">
-        {() => (
-          <PlaceholderScreen
-            iconName="grid"
-            title="Manager Dashboard"
-            description="Overview of your team"
-          />
-        )}
-      </Tab.Screen>
-      <Tab.Screen name="TeamAttendance" options={{ tabBarLabel: 'Attendance' }}>
-        {() => (
-          <PlaceholderScreen
-            iconName="people"
-            title="Team Attendance"
-            description="View and manage team attendance"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Dashboard" component={ManagerDashboard} />
+      <Tab.Screen name="TeamAttendance" component={TeamAttendanceScreen} options={{ tabBarLabel: 'Attendance' }} />
       <Tab.Screen name="Expenses" component={ExpenseApprovalsScreen} />
       <Tab.Screen name="Leave" component={LeaveApprovalsScreen} />
-      <Tab.Screen name="Reports">
-        {() => (
-          <PlaceholderScreen
-            iconName="bar-chart"
-            title="Reports"
-            description="Generate and view team reports"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Reports" component={ManagerReportsScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

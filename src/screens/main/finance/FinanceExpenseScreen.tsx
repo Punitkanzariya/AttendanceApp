@@ -94,7 +94,7 @@ export default function FinanceExpenseScreen() {
     <TouchableOpacity 
       style={styles.card} 
       activeOpacity={0.7}
-      onPress={() => item.status === 'pending_finance' ? openReviewModal(item) : null}
+      onPress={() => openReviewModal(item)}
     >
       <View style={styles.cardHeader}>
         <View style={styles.rowStart}>
@@ -182,7 +182,9 @@ export default function FinanceExpenseScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Process Reimbursement</Text>
+              <Text style={styles.modalTitle}>
+                {selectedExpense?.status === 'pending_finance' ? 'Process Reimbursement' : 'Reimbursement Details'}
+              </Text>
               <TouchableOpacity onPress={() => setSelectedExpense(null)}>
                 <Ionicons name="close" size={24} color={Colors.text.secondary} />
               </TouchableOpacity>
@@ -191,6 +193,17 @@ export default function FinanceExpenseScreen() {
             {selectedExpense && (
               <>
                 <View style={styles.modalScroll}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md }}>
+                    <View>
+                      <Text style={styles.detailLabel}>Status:</Text>
+                      <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedExpense.status) + '20', alignSelf: 'flex-start', marginTop: 2 }]}>
+                        <Text style={[styles.statusText, { color: getStatusColor(selectedExpense.status), fontSize: 11 }]}>
+                          {selectedExpense.status.replace('_', ' ').toUpperCase()}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
+
                   <Text style={styles.detailLabel}>Employee:</Text>
                   <Text style={styles.detailValue}>{selectedExpense.employeeName}</Text>
                   
@@ -219,35 +232,48 @@ export default function FinanceExpenseScreen() {
                     </TouchableOpacity>
                   )}
 
-                  <Text style={styles.inputLabel}>Rejection Notes (Only if rejecting)</Text>
-                  <TextInput
-                    style={[styles.input, styles.textArea]}
-                    placeholder="Provide reason if rejecting..."
-                    value={reviewNotes}
-                    onChangeText={setReviewNotes}
-                    multiline
-                    numberOfLines={3}
-                    textAlignVertical="top"
-                  />
+                  {selectedExpense.status === 'pending_finance' ? (
+                    <>
+                      <Text style={styles.inputLabel}>Rejection Notes (Only if rejecting)</Text>
+                      <TextInput
+                        style={[styles.input, styles.textArea]}
+                        placeholder="Provide reason if rejecting..."
+                        value={reviewNotes}
+                        onChangeText={setReviewNotes}
+                        multiline
+                        numberOfLines={3}
+                        textAlignVertical="top"
+                      />
+                    </>
+                  ) : (
+                    selectedExpense.rejectionReason ? (
+                      <View style={{ marginTop: Spacing.md }}>
+                        <Text style={styles.detailLabel}>Rejection Reason / Notes:</Text>
+                        <Text style={[styles.detailValue, { color: Colors.error }]}>{selectedExpense.rejectionReason}</Text>
+                      </View>
+                    ) : null
+                  )}
                 </View>
 
-                <View style={styles.actionRow}>
-                  <TouchableOpacity 
-                    style={[styles.actionBtn, { backgroundColor: Colors.error }]} 
-                    onPress={() => handleReviewAction('rejected')}
-                    disabled={isProcessing}
-                  >
-                    <Text style={styles.actionBtnText}>Reject</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={[styles.actionBtn, { backgroundColor: Colors.success }]} 
-                    onPress={() => handleReviewAction('reimbursed')}
-                    disabled={isProcessing}
-                  >
-                    <Text style={styles.actionBtnText}>Reimburse & Pay</Text>
-                  </TouchableOpacity>
-                </View>
+                {selectedExpense.status === 'pending_finance' && (
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { backgroundColor: Colors.error }]} 
+                      onPress={() => handleReviewAction('rejected')}
+                      disabled={isProcessing}
+                    >
+                      <Text style={styles.actionBtnText}>Reject</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity 
+                      style={[styles.actionBtn, { backgroundColor: Colors.success }]} 
+                      onPress={() => handleReviewAction('reimbursed')}
+                      disabled={isProcessing}
+                    >
+                      <Text style={styles.actionBtnText}>Reimburse & Pay</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </>
             )}
           </View>
