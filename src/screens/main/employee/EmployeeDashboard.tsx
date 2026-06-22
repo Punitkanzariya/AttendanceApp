@@ -99,40 +99,44 @@ export default function EmployeeDashboard() {
           <Text style={styles.sectionTitle}>Leave Balance</Text>
         </View>
         <View style={styles.leaveGrid}>
-          <View style={styles.leaveCard}>
-            <View style={[styles.leaveIconRing, { borderColor: '#2E7D32' }]}>
-              <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
+          <View style={styles.leaveRow}>
+            <View style={styles.leaveCard}>
+              <View style={[styles.leaveIconRing, { borderColor: '#2E7D32' }]}>
+                <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
+              </View>
+              <View>
+                <Text style={styles.leaveNum}>12 Days</Text>
+                <Text style={styles.leaveLabel}>Paid Leave</Text>
+              </View>
             </View>
-            <View>
-              <Text style={styles.leaveNum}>12 Days</Text>
-              <Text style={styles.leaveLabel}>Paid Leave</Text>
-            </View>
-          </View>
-          <View style={styles.leaveCard}>
-            <View style={[styles.leaveIconRing, { borderColor: '#2563EB' }]}>
-              <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
-            </View>
-            <View>
-              <Text style={styles.leaveNum}>7 Days</Text>
-              <Text style={styles.leaveLabel}>Sick Leave</Text>
-            </View>
-          </View>
-          <View style={styles.leaveCard}>
-            <View style={[styles.leaveIconRing, { borderColor: '#F59E0B' }]}>
-              <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
-            </View>
-            <View>
-              <Text style={styles.leaveNum}>5 Days</Text>
-              <Text style={styles.leaveLabel}>Casual Leave</Text>
+            <View style={styles.leaveCard}>
+              <View style={[styles.leaveIconRing, { borderColor: '#2563EB' }]}>
+                <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
+              </View>
+              <View>
+                <Text style={styles.leaveNum}>7 Days</Text>
+                <Text style={styles.leaveLabel}>Sick Leave</Text>
+              </View>
             </View>
           </View>
-          <View style={styles.leaveCard}>
-            <View style={[styles.leaveIconRing, { borderColor: '#8B5CF6' }]}>
-              <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
+          <View style={styles.leaveRow}>
+            <View style={styles.leaveCard}>
+              <View style={[styles.leaveIconRing, { borderColor: '#F59E0B' }]}>
+                <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
+              </View>
+              <View>
+                <Text style={styles.leaveNum}>5 Days</Text>
+                <Text style={styles.leaveLabel}>Casual Leave</Text>
+              </View>
             </View>
-            <View>
-              <Text style={styles.leaveNum}>24 Days</Text>
-              <Text style={styles.leaveLabel}>Total Leave</Text>
+            <View style={styles.leaveCard}>
+              <View style={[styles.leaveIconRing, { borderColor: '#8B5CF6' }]}>
+                <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
+              </View>
+              <View>
+                <Text style={styles.leaveNum}>24 Days</Text>
+                <Text style={styles.leaveLabel}>Total Leave</Text>
+              </View>
             </View>
           </View>
         </View>
@@ -144,7 +148,7 @@ export default function EmployeeDashboard() {
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: Colors.employeeBg },
-  container: { padding: Spacing.xl, paddingBottom: Spacing.xxl },
+  container: { padding: 20, paddingBottom: Spacing.xxl },
 
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   locationContainer: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -171,6 +175,7 @@ const styles = StyleSheet.create({
   summaryCard: {
     backgroundColor: Colors.white, borderRadius: 16, padding: 16,
     marginBottom: 40, gap: 10,
+    borderWidth: 1, borderColor: Colors.border,
   },
   summaryTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   summaryCol: { flex: 1 },
@@ -185,12 +190,13 @@ const styles = StyleSheet.create({
   monthBtnTxt: { color: '#2563EB', fontSize: 11, fontWeight: '600' },
   
   attendanceGrid: { flexDirection: 'row', gap: Spacing.sm, marginBottom: 30 },
-  attCard: { flex: 1, borderRadius: 8, padding: 12, borderTopWidth: 4, height: 75, justifyContent: 'space-between' },
+  attCard: { flex: 1, borderRadius: 8, padding: 10, borderTopWidth: 4, borderWidth: 1, borderColor: Colors.border, height: 75, justifyContent: 'space-between' },
   attLabel: { fontSize: 11, color: Colors.text.primary, fontWeight: '600' },
   attNum: { fontSize: 18, fontWeight: '700', alignSelf: 'flex-end' },
 
-  leaveGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: Spacing.md, marginBottom: 40 },
-  leaveCard: { width: '47%', backgroundColor: Colors.white, borderRadius: 12, padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  leaveGrid: { flexDirection: 'column', gap: Spacing.sm, marginBottom: 40 },
+  leaveRow: { flexDirection: 'row', gap: Spacing.sm },
+  leaveCard: { flex: 1, backgroundColor: Colors.white, borderRadius: 12, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: Colors.border },
   leaveIconRing: { width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   leaveNum: { fontSize: 13, fontWeight: '700', color: Colors.text.primary, marginBottom: 2 },
   leaveLabel: { fontSize: 10, color: Colors.text.secondary },

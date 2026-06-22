@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator, Platform, createElement } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Modal, TextInput, Alert, ActivityIndicator, Platform, createElement, KeyboardAvoidingView, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/store/authStore';
@@ -129,32 +129,98 @@ export default function EmployeeLeaveScreen() {
   const renderItem = ({ item }: { item: LeaveRequest }) => (
     <View style={styles.card}>
       <View style={styles.cardHeader}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.leaveTypeText}>{item.leaveType || 'Leave'}</Text>
-          <Text style={styles.dateText}>{item.startDate} to {item.endDate} ({item.totalDays || 1} Days)</Text>
+          <View style={styles.dateRow}>
+            <Ionicons name="calendar-outline" size={14} color={Colors.text.secondary} />
+            <Text style={styles.dateText}>{item.startDate} to {item.endDate} ({item.totalDays || 1} Days)</Text>
+          </View>
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '15', borderColor: getStatusColor(item.status) + '40' }]}>
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
             {item.status.toUpperCase()}
           </Text>
         </View>
       </View>
-      <Text style={styles.reasonLabel}>Reason:</Text>
+      
+      <Text style={styles.reasonLabel}>Reason</Text>
       <Text style={styles.reasonText}>{item.reason}</Text>
-      {item.reviewNotes && (
+      
+      {!!item.reviewNotes && (
         <View style={styles.notesContainer}>
-          <Text style={styles.notesLabel}>Manager Notes:</Text>
-          <Text style={styles.notesText}>{item.reviewNotes}</Text>
+          <Ionicons name="chatbubble-ellipses-outline" size={16} color={getStatusColor(item.status)} style={{ marginTop: 2 }} />
+          <View style={{ flex: 1 }}>
+            <Text style={styles.notesLabel}>Manager Notes</Text>
+            <Text style={styles.notesText}>{item.reviewNotes}</Text>
+          </View>
         </View>
       )}
-      <Text style={styles.appliedDate}>Applied: {new Date(item.createdAt).toLocaleDateString()}</Text>
+      
+      <View style={styles.cardFooter}>
+        <Text style={styles.appliedDate}>Applied on {new Date(item.createdAt).toLocaleDateString()}</Text>
+      </View>
+    </View>
+  );
+
+  const renderHeader = () => (
+    <View style={styles.headerContent}>
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Leave Balance</Text>
+      </View>
+      
+      <View style={styles.leaveGrid}>
+        <View style={styles.leaveRow}>
+          <View style={styles.leaveBalanceCard}>
+            <View style={[styles.leaveIconRing, { borderColor: '#2E7D32' }]}>
+              <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
+            </View>
+            <View>
+              <Text style={styles.leaveNum}>12 Days</Text>
+              <Text style={styles.leaveLabel}>Paid Leave</Text>
+            </View>
+          </View>
+          <View style={styles.leaveBalanceCard}>
+            <View style={[styles.leaveIconRing, { borderColor: '#2563EB' }]}>
+              <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
+            </View>
+            <View>
+              <Text style={styles.leaveNum}>7 Days</Text>
+              <Text style={styles.leaveLabel}>Sick Leave</Text>
+            </View>
+          </View>
+        </View>
+        <View style={styles.leaveRow}>
+          <View style={styles.leaveBalanceCard}>
+            <View style={[styles.leaveIconRing, { borderColor: '#F59E0B' }]}>
+              <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
+            </View>
+            <View>
+              <Text style={styles.leaveNum}>5 Days</Text>
+              <Text style={styles.leaveLabel}>Casual Leave</Text>
+            </View>
+          </View>
+          <View style={styles.leaveBalanceCard}>
+            <View style={[styles.leaveIconRing, { borderColor: '#8B5CF6' }]}>
+              <Ionicons name="briefcase-outline" size={16} color={Colors.text.primary} />
+            </View>
+            <View>
+              <Text style={styles.leaveNum}>24 Days</Text>
+              <Text style={styles.leaveLabel}>Total Leave</Text>
+            </View>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.sectionHeader}>
+        <Text style={styles.sectionTitle}>Leave History</Text>
+      </View>
     </View>
   );
 
   return (
     <SafeAreaView style={styles.root} edges={['top']}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Leaves</Text>
+        <Text style={styles.headerTitle}>Leaves</Text>
       </View>
 
       {isLoading ? (
@@ -166,6 +232,7 @@ export default function EmployeeLeaveScreen() {
           data={leaves}
           keyExtractor={item => item.id}
           renderItem={renderItem}
+          ListHeaderComponent={renderHeader}
           contentContainerStyle={styles.listContainer}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
@@ -187,9 +254,13 @@ export default function EmployeeLeaveScreen() {
       </TouchableOpacity>
 
       {/* Apply Leave Modal */}
-      <Modal visible={isModalVisible} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
+      <Modal visible={isModalVisible} animationType="fade" transparent={true}>
+        <KeyboardAvoidingView 
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Apply for Leave</Text>
               <TouchableOpacity onPress={() => setIsModalVisible(false)}>
@@ -228,7 +299,7 @@ export default function EmployeeLeaveScreen() {
               min={todayDate}
             />
             
-            {startDate && endDate && calculateDays(startDate, endDate) > 0 && (
+            {!!startDate && !!endDate && calculateDays(startDate, endDate) > 0 && (
                <Text style={styles.totalDaysPreview}>
                  Total Duration: {calculateDays(startDate, endDate)} Days
                </Text>
@@ -256,56 +327,69 @@ export default function EmployeeLeaveScreen() {
                 <Text style={styles.submitBtnText}>Submit Request</Text>
               )}
             </TouchableOpacity>
+            </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background },
+  root: { flex: 1, backgroundColor: Colors.employeeBg },
   header: {
     padding: Spacing.xl,
-    backgroundColor: Colors.white,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
+    paddingBottom: Spacing.md,
   },
-  headerTitle: { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.text.primary },
+  headerTitle: { fontSize: 25, fontWeight: '700', color: Colors.text.primary, lineHeight: 34 },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContainer: { padding: Spacing.lg, paddingBottom: 100 },
   card: {
     backgroundColor: Colors.white,
-    padding: Spacing.lg,
-    borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.md,
-    ...Shadow.sm,
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: Spacing.lg,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
+  headerContent: { marginBottom: Spacing.md },
+  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: Colors.text.primary },
+  monthSelector: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, gap: 6 },
+  monthBtnTxt: { color: '#2563EB', fontSize: 11, fontWeight: '600' },
+  leaveGrid: { flexDirection: 'column', gap: Spacing.sm, marginBottom: Spacing.xl },
+  leaveRow: { flexDirection: 'row', gap: Spacing.sm },
+  leaveBalanceCard: { flex: 1, backgroundColor: Colors.white, borderRadius: 12, padding: 10, flexDirection: 'row', alignItems: 'center', gap: 8, borderWidth: 1, borderColor: Colors.border },
+  leaveIconRing: { width: 34, height: 34, borderRadius: 17, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  leaveNum: { fontSize: 13, fontWeight: '700', color: Colors.text.primary, marginBottom: 2 },
+  leaveLabel: { fontSize: 10, color: Colors.text.secondary },
   cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.md,
   },
-  leaveTypeText: { fontSize: FontSize.md, fontWeight: FontWeight.bold, color: Colors.text.primary, marginBottom: 2 },
-  dateText: { fontSize: FontSize.sm, fontWeight: FontWeight.medium, color: Colors.text.secondary },
+  leaveTypeText: { fontSize: 16, fontWeight: '700', color: Colors.text.primary, marginBottom: 4 },
+  dateRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dateText: { fontSize: 13, fontWeight: '500', color: Colors.text.secondary },
   statusBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: BorderRadius.full,
+    borderWidth: 1,
   },
-  statusText: { fontSize: 10, fontWeight: FontWeight.bold },
-  reasonLabel: { fontSize: FontSize.sm, color: Colors.text.secondary, marginTop: Spacing.sm },
-  reasonText: { fontSize: FontSize.md, color: Colors.text.primary, marginTop: 4 },
+  statusText: { fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  reasonLabel: { fontSize: 12, fontWeight: '600', color: Colors.text.secondary, marginTop: Spacing.sm },
+  reasonText: { fontSize: 15, color: Colors.text.primary, marginTop: 4, lineHeight: 22 },
   notesContainer: {
     marginTop: Spacing.md,
-    padding: Spacing.md,
-    backgroundColor: Colors.background,
-    borderRadius: BorderRadius.md,
+    flexDirection: 'row',
+    gap: 8,
   },
-  notesLabel: { fontSize: FontSize.xs, fontWeight: FontWeight.bold, color: Colors.text.secondary },
-  notesText: { fontSize: FontSize.sm, color: Colors.text.primary, marginTop: 4 },
-  appliedDate: { fontSize: FontSize.xs, color: Colors.text.tertiary, marginTop: Spacing.md, textAlign: 'right' },
+  notesLabel: { fontSize: 12, fontWeight: '700', color: Colors.text.secondary, marginBottom: 2 },
+  notesText: { fontSize: 13, color: Colors.text.primary, lineHeight: 18 },
+  cardFooter: { marginTop: Spacing.lg, paddingTop: Spacing.md, borderTopWidth: 1, borderTopColor: Colors.divider },
+  appliedDate: { fontSize: 11, fontWeight: '500', color: Colors.text.tertiary, textAlign: 'right' },
   emptyContainer: { alignItems: 'center', marginTop: Spacing.xxl * 2 },
   emptyText: { marginTop: Spacing.md, color: Colors.text.tertiary },
   
@@ -327,12 +411,15 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
+    justifyContent: 'center',
+    padding: Spacing.lg,
   },
   modalContent: {
     backgroundColor: Colors.white,
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
+    borderRadius: BorderRadius.xl,
+    maxHeight: '90%',
+  },
+  scrollContent: {
     padding: Spacing.xl,
   },
   modalHeader: {
