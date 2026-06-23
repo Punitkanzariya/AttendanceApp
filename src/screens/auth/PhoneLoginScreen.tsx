@@ -170,7 +170,7 @@ const styles = StyleSheet.create({
   flag: { fontSize: 20 },
   cc: { fontSize: 14, fontWeight: '700', color: '#0F172A' },
   sep: { width: 1, height: 24, backgroundColor: '#E2E8F0', marginHorizontal: 10 },
-  input: { flex: 1, fontSize: 18, fontWeight: '600', color: '#0F172A', letterSpacing: 2, outlineStyle: 'none' },
+  input: { flex: 1, fontSize: 18, fontWeight: '600', color: '#0F172A', letterSpacing: 2, outlineStyle: 'none' as any },
 
   dropdown: {
     borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 12,

@@ -144,7 +144,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, height: 50,
   },
   icon: { marginRight: 8 },
-  input: { flex: 1, fontSize: 15, color: '#0F172A', outlineStyle: 'none' },
+  input: { flex: 1, fontSize: 15, color: '#0F172A', outlineStyle: 'none' as any },
   err: { fontSize: 12, color: '#EF4444', marginTop: 2 },
 
   btnPrimary: {

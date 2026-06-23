@@ -14,6 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import { subscribeToAllAttendance, getLocalDateString } from '@/firebase';
 import type { AttendanceRecord } from '@/types';
+import AttendanceDetailModal from '@/components/shared/AttendanceDetailModal';
 
 export default function TeamAttendanceScreen() {
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
@@ -23,6 +24,9 @@ export default function TeamAttendanceScreen() {
   
   // Date Selector state (defaults to today)
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+  const [isDetailVisible, setDetailVisible] = useState(false);
 
   // Subscribe to all attendance records
   useEffect(() => {
@@ -100,7 +104,14 @@ export default function TeamAttendanceScreen() {
     const isLate = item.status === 'late';
 
     return (
-      <View style={styles.card}>
+      <TouchableOpacity
+        style={styles.card}
+        activeOpacity={0.7}
+        onPress={() => {
+          setSelectedRecord(item);
+          setDetailVisible(true);
+        }}
+      >
         <View style={styles.cardHeader}>
           <View>
             <Text style={styles.empName}>{item.employeeName}</Text>
@@ -136,19 +147,19 @@ export default function TeamAttendanceScreen() {
         {/* Location Tags */}
         <View style={styles.locationDetails}>
           {item.checkIn?.location && (
-            <Text style={styles.locationText} numberOfLines={1}>
+            <Text style={styles.locationText} numberOfLines={2}>
               <Ionicons name="enter-outline" size={12} color={Colors.text.tertiary} />{' '}
               {item.checkIn.location.address}
             </Text>
           )}
           {item.checkOut?.location && (
-            <Text style={styles.locationText} numberOfLines={1}>
+            <Text style={styles.locationText} numberOfLines={2}>
               <Ionicons name="exit-outline" size={12} color={Colors.text.tertiary} />{' '}
               {item.checkOut.location.address}
             </Text>
           )}
         </View>
-      </View>
+      </TouchableOpacity>
     );
   };
 
@@ -235,6 +246,12 @@ export default function TeamAttendanceScreen() {
           }
         />
       )}
+
+      <AttendanceDetailModal
+        visible={isDetailVisible}
+        onClose={() => setDetailVisible(false)}
+        record={selectedRecord}
+      />
     </SafeAreaView>
   );
 }

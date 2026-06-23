@@ -14,6 +14,7 @@ export default function GradientHeader({ height = 250 }: GradientHeaderProps) {
       style={[styles.gradientHeader, { height }]}
       start={{ x: 0, y: 0 }}
       end={{ x: 0, y: 1 }}
+      pointerEvents="none"
     />
   );
 }

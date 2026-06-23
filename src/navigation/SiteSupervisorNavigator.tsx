@@ -16,7 +16,6 @@ type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 const TAB_ICONS: Record<keyof SiteSupervisorTabParamList, { active: IoniconsName; inactive: IoniconsName }> = {
   Dashboard:        { active: 'home',             inactive: 'home-outline'           },
   Employees:        { active: 'people',           inactive: 'people-outline'         },
-  VerifyAttendance: { active: 'checkmark-circle', inactive: 'checkmark-circle-outline' },
   Expenses:         { active: 'receipt',          inactive: 'receipt-outline'        },
   Reports:          { active: 'bar-chart',        inactive: 'bar-chart-outline'      },
   Profile:          { active: 'person-circle',    inactive: 'person-circle-outline'  },

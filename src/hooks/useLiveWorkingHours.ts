@@ -5,7 +5,7 @@ export function useLiveWorkingHours(todayRecord: AttendanceRecord | null): strin
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval> | undefined;
     if (todayRecord?.checkIn && !todayRecord?.checkOut) {
       interval = setInterval(() => {
         setCurrentTime(new Date());

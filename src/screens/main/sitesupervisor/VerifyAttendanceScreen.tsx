@@ -15,6 +15,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import { subscribeToAllAttendance, updateVerificationStatus } from '@/firebase';
 import type { AttendanceRecord } from '@/types';
+import AttendanceDetailModal from '@/components/shared/AttendanceDetailModal';
 
 export default function VerifyAttendanceScreen() {
   const { user } = useAuthStore();
@@ -24,6 +25,9 @@ export default function VerifyAttendanceScreen() {
   const [filter, setFilter] = useState<'pending' | 'verified' | 'rejected' | 'all'>('pending');
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [hasAutoSwitched, setHasAutoSwitched] = useState(false);
+
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+  const [isDetailVisible, setDetailVisible] = useState(false);
 
   // Subscribe to all attendance
   useEffect(() => {
@@ -126,8 +130,15 @@ export default function VerifyAttendanceScreen() {
 
     return (
       <View style={styles.card}>
-        {/* Card Header */}
-        <View style={styles.cardHeader}>
+        <TouchableOpacity
+          activeOpacity={0.7}
+          onPress={() => {
+            setSelectedRecord(item);
+            setDetailVisible(true);
+          }}
+        >
+          {/* Card Header */}
+          <View style={styles.cardHeader}>
           <View style={{ flex: 1 }}>
             <Text style={styles.empName}>{item.employeeName}</Text>
             <Text style={styles.logDate}>
@@ -183,16 +194,16 @@ export default function VerifyAttendanceScreen() {
         <View style={styles.locContainer}>
           {item.checkIn?.location && (
             <View style={styles.locItem}>
-              <Ionicons name="location-outline" size={14} color={Colors.text.tertiary} />
-              <Text style={styles.locText} numberOfLines={1}>
+              <Ionicons name="location-outline" size={14} color={Colors.text.tertiary} style={{ marginTop: 1 }} />
+              <Text style={styles.locText} numberOfLines={2}>
                 In: {item.checkIn.location.address}
               </Text>
             </View>
           )}
           {item.checkOut?.location && (
             <View style={styles.locItem}>
-              <Ionicons name="location-outline" size={14} color={Colors.text.tertiary} />
-              <Text style={styles.locText} numberOfLines={1}>
+              <Ionicons name="location-outline" size={14} color={Colors.text.tertiary} style={{ marginTop: 1 }} />
+              <Text style={styles.locText} numberOfLines={2}>
                 Out: {item.checkOut.location.address}
               </Text>
             </View>
@@ -214,6 +225,7 @@ export default function VerifyAttendanceScreen() {
             )}
           </View>
         )}
+        </TouchableOpacity>
 
         {/* Actions (Only show for pending logs) */}
         {isPending && (
@@ -227,7 +239,14 @@ export default function VerifyAttendanceScreen() {
                   onPress={() => handleReject(item.id)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="close-circle-outline" size={16} color={Colors.error} />
+                  <View style={styles.btnIconWrap}>
+                    <Ionicons
+                      name="close-circle-outline"
+                      size={16}
+                      color={Colors.error}
+                      style={{ includeFontPadding: false, textAlignVertical: 'center' }}
+                    />
+                  </View>
                   <Text style={styles.rejectBtnText}>Reject</Text>
                 </TouchableOpacity>
 
@@ -236,7 +255,14 @@ export default function VerifyAttendanceScreen() {
                   onPress={() => handleVerify(item.id)}
                   activeOpacity={0.7}
                 >
-                  <Ionicons name="checkmark-circle-outline" size={16} color={Colors.white} />
+                  <View style={styles.btnIconWrap}>
+                    <Ionicons
+                      name="checkmark-circle-outline"
+                      size={16}
+                      color={Colors.white}
+                      style={{ includeFontPadding: false, textAlignVertical: 'center' }}
+                    />
+                  </View>
                   <Text style={styles.verifyBtnText}>Verify</Text>
                 </TouchableOpacity>
               </>
@@ -292,6 +318,12 @@ export default function VerifyAttendanceScreen() {
           }
         />
       )}
+
+      <AttendanceDetailModal
+        visible={isDetailVisible}
+        onClose={() => setDetailVisible(false)}
+        record={selectedRecord}
+      />
     </SafeAreaView>
   );
 }
@@ -432,7 +464,7 @@ const styles = StyleSheet.create({
   },
   locItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 6,
   },
   locText: {
@@ -493,6 +525,12 @@ const styles = StyleSheet.create({
     fontSize: FontSize.xs,
     fontWeight: FontWeight.bold,
     color: Colors.white,
+  },
+  btnIconWrap: {
+    width: 22,
+    height: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   emptyContainer: {

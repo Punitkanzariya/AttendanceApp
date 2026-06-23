@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -15,8 +16,63 @@ import GradientHeader from "@/components/shared/GradientHeader";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { EmployeeTabParamList, AttendanceRecord } from "@/types";
-import { subscribeToTodayAttendance } from "@/firebase";
+import { subscribeToTodayAttendance, checkInEmployee, checkOutEmployee } from "@/firebase";
 import { useLiveWorkingHours } from "@/hooks/useLiveWorkingHours";
+import * as Location from "expo-location";
+import * as ImagePicker from "expo-image-picker";
+
+async function getShortAddress(latitude: number, longitude: number): Promise<string> {
+  let address = '';
+  // 1. Try Native Geocoder
+  try {
+    const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+    if (geocode && geocode.length > 0) {
+      const item = geocode[0];
+      address = [item.name, item.street, item.district, item.city, item.postalCode]
+        .filter(Boolean)
+        .join(', ');
+    }
+  } catch (err) {
+    console.warn('Native geocoding failed, trying fallback...', err);
+  }
+
+  // 2. Try OpenStreetMap Nominatim Fallback
+  if (!address) {
+    try {
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
+        {
+          headers: {
+            'User-Agent': 'AttendanceApp/1.0',
+          },
+        }
+      );
+      const data = await response.json();
+      if (data && data.address) {
+        const road = data.address.road || data.address.street || data.address.pedestrian;
+        const suburb = data.address.suburb || data.address.neighbourhood || data.address.city_district;
+        const city = data.address.city || data.address.town || data.address.village || data.address.county;
+        const postcode = data.address.postcode;
+        
+        address = [road, suburb, city, postcode]
+          .filter(Boolean)
+          .join(', ');
+      }
+      if (!address && data && data.display_name) {
+        address = data.display_name;
+      }
+    } catch (fallbackErr) {
+      console.warn('Fallback geocoding failed:', fallbackErr);
+    }
+  }
+
+  // 3. Absolute Fallback to coordinates
+  if (!address) {
+    address = `Lat: ${latitude.toFixed(4)}, Lon: ${longitude.toFixed(4)}`;
+  }
+
+  return address;
+}
 
 export default function EmployeeDashboard() {
   const { user } = useAuthStore();
@@ -25,7 +81,14 @@ export default function EmployeeDashboard() {
     useNavigation<BottomTabNavigationProp<EmployeeTabParamList>>();
   const [refreshing, setRefreshing] = useState(false);
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
+  const [isClocking, setIsClocking] = useState(false);
+  const [currentAddress, setCurrentAddress] = useState("Fetching location...");
+  const [currentLocationCoords, setCurrentLocationCoords] = useState<{
+    latitude: number;
+    longitude: number;
+  } | null>(null);
 
+  // Subscribe to today's attendance
   useEffect(() => {
     if (!user?.uid) return;
     return subscribeToTodayAttendance(user.uid, (record) => {
@@ -33,11 +96,117 @@ export default function EmployeeDashboard() {
     });
   }, [user?.uid]);
 
+  // Fetch location on mount
+  const fetchLocation = useCallback(async () => {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setCurrentAddress('Location Permission Denied');
+        return;
+      }
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      setCurrentLocationCoords({
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+      });
+      
+      const address = await getShortAddress(loc.coords.latitude, loc.coords.longitude);
+      setCurrentAddress(address);
+    } catch (err) {
+      console.warn(err);
+      setCurrentAddress('Failed to get location');
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchLocation();
+  }, [fetchLocation]);
+
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    await fetchLocation();
     setRefreshing(false);
-  }, []);
+  }, [fetchLocation]);
+
+  const handleClockAction = async () => {
+    if (isClocking) return;
+    setIsClocking(true);
+
+    try {
+      // 1. Request location permissions and get position
+      const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
+      if (locStatus !== 'granted') {
+        Alert.alert('Permission Required', 'Location permission is required to clock in/out.');
+        setIsClocking(false);
+        return;
+      }
+
+      // 2. Request camera permissions
+      const { status: camStatus } = await ImagePicker.requestCameraPermissionsAsync();
+      if (camStatus !== 'granted') {
+        Alert.alert('Permission Required', 'Camera permission is required to capture a verification selfie.');
+        setIsClocking(false);
+        return;
+      }
+
+      // 3. Capture selfie
+      const cameraResult = await ImagePicker.launchCameraAsync({
+        cameraType: ImagePicker.CameraType.front,
+        allowsEditing: false,
+        quality: 0.4,
+      });
+
+      if (cameraResult.canceled || !cameraResult.assets || cameraResult.assets.length === 0) {
+        Alert.alert('Action Canceled', 'Selfie verification is required to clock in/out.');
+        setIsClocking(false);
+        return;
+      }
+
+      const selfieUri = cameraResult.assets[0].uri;
+
+      // 4. Fetch current position
+      const loc = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const address = await getShortAddress(loc.coords.latitude, loc.coords.longitude);
+
+      const attendanceLoc = {
+        latitude: loc.coords.latitude,
+        longitude: loc.coords.longitude,
+        address,
+      };
+
+      if (!todayRecord) {
+        // Clock In
+        await checkInEmployee(
+          user!.uid,
+          user!.displayName || 'Employee',
+          attendanceLoc,
+          '',
+          selfieUri,
+          user!.email
+        );
+        Alert.alert('Success', 'Successfully Clocked In');
+      } else if (!todayRecord.checkOut) {
+        // Clock Out
+        await checkOutEmployee(
+          user!.uid,
+          attendanceLoc,
+          '',
+          selfieUri
+        );
+        Alert.alert('Success', 'Successfully Clocked Out');
+      }
+    } catch (error: any) {
+      console.error(error);
+      Alert.alert('Error', error.message || 'An error occurred while registering attendance');
+    } finally {
+      setIsClocking(false);
+    }
+  };
 
   const formatTime = (isoString?: string) => {
     if (!isoString) return "--";
@@ -50,7 +219,7 @@ export default function EmployeeDashboard() {
   const getWorkingHoursText = () => useLiveWorkingHours(todayRecord);
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.root}>
         <GradientHeader />
         <ScrollView
@@ -75,9 +244,11 @@ export default function EmployeeDashboard() {
                   color={Colors.text.secondary}
                 />
               </View>
-              <View>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.locationLabelTxt}>LOCATION</Text>
-                <Text style={styles.dateText}>Thambu chetty st,chennai</Text>
+                <Text style={styles.dateText} numberOfLines={2} ellipsizeMode="tail">
+                  {currentAddress}
+                </Text>
               </View>
             </View>
             <View style={styles.headerRight}>
@@ -147,23 +318,28 @@ export default function EmployeeDashboard() {
                   { paddingHorizontal: 40 },
                   todayRecord &&
                     !todayRecord.checkOut && {
-                      backgroundColor: Colors.error, // Red for clock out
+                      backgroundColor: Colors.error,
                     },
                   todayRecord?.checkIn &&
                     todayRecord?.checkOut && {
                       backgroundColor: Colors.text.tertiary,
                     },
+                  isClocking && {
+                    opacity: 0.6,
+                  }
                 ]}
                 activeOpacity={0.8}
-                onPress={() => navigation.navigate("Attendance")}
-                disabled={!!(todayRecord?.checkIn && todayRecord?.checkOut)}
+                onPress={handleClockAction}
+                disabled={isClocking || !!(todayRecord?.checkIn && todayRecord?.checkOut)}
               >
                 <Text style={styles.clockBtnTxt}>
-                  {!todayRecord
-                    ? "Clock In"
-                    : !todayRecord.checkOut
-                      ? "Clock Out"
-                      : "Completed"}
+                  {isClocking ? "Processing..." : (
+                    !todayRecord
+                      ? "Clock In"
+                      : !todayRecord.checkOut
+                        ? "Clock Out"
+                        : "Completed"
+                  )}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -171,11 +347,19 @@ export default function EmployeeDashboard() {
 
           {/* Quick Actions */}
           <View style={styles.quickActionsContainer}>
-            <TouchableOpacity style={styles.quickBtn} activeOpacity={0.8}>
+            <TouchableOpacity 
+              style={styles.quickBtn} 
+              activeOpacity={0.8}
+              onPress={() => (navigation as any).navigate('Leave')}
+            >
               <Ionicons name="calendar-outline" size={20} color="#2563EB" />
               <Text style={styles.quickBtnTxt}>Apply leave</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.quickBtn} activeOpacity={0.8}>
+            <TouchableOpacity 
+              style={styles.quickBtn} 
+              activeOpacity={0.8}
+              onPress={() => (navigation as any).navigate('Expenses')}
+            >
               <Ionicons
                 name="document-text-outline"
                 size={20}
@@ -183,7 +367,11 @@ export default function EmployeeDashboard() {
               />
               <Text style={styles.quickBtnTxt}>Submit expense</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.quickBtn} activeOpacity={0.8}>
+            <TouchableOpacity 
+              style={styles.quickBtn} 
+              activeOpacity={0.8}
+              onPress={() => (navigation as any).navigate('Attendance')}
+            >
               <Ionicons name="time-outline" size={20} color="#2563EB" />
               <Text style={styles.quickBtnTxt}>History</Text>
             </TouchableOpacity>
@@ -326,7 +514,13 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 20,
   },
-  locationContainer: { flexDirection: "row", alignItems: "center", gap: 10 },
+  locationContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flex: 1,
+    marginRight: 12,
+  },
   locationIconWrap: {
     width: 36,
     height: 36,

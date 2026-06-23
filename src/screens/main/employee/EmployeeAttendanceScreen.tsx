@@ -20,6 +20,7 @@ import {
   getLocalDateString,
 } from "@/firebase";
 import type { AttendanceRecord } from "@/types";
+import AttendanceDetailModal from "@/components/shared/AttendanceDetailModal";
 
 export default function EmployeeAttendanceScreen() {
   const { user } = useAuthStore();
@@ -32,6 +33,9 @@ export default function EmployeeAttendanceScreen() {
 
   const [isMonthPickerVisible, setMonthPickerVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
+
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+  const [isDetailVisible, setDetailVisible] = useState(false);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -92,7 +96,7 @@ export default function EmployeeAttendanceScreen() {
   });
 
   return (
-    <SafeAreaView style={styles.safe} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.root}>
         {/* Custom Header */}
         <View style={styles.header}>
@@ -165,7 +169,15 @@ export default function EmployeeAttendanceScreen() {
               const hrsColor = hrs >= 8 ? Colors.success : Colors.warning;
 
               return (
-                <View key={record.id || index} style={styles.card}>
+                <TouchableOpacity
+                  key={record.id || index}
+                  style={styles.card}
+                  activeOpacity={0.7}
+                  onPress={() => {
+                    setSelectedRecord(record);
+                    setDetailVisible(true);
+                  }}
+                >
                   <View style={styles.cardInner}>
                     {/* Top Row: Date & Badge */}
                     <View style={styles.cardTopRow}>
@@ -233,7 +245,7 @@ export default function EmployeeAttendanceScreen() {
                       </View>
                     </View>
                   </View>
-                </View>
+                </TouchableOpacity>
               );
             })
           )}
@@ -251,6 +263,12 @@ export default function EmployeeAttendanceScreen() {
             }}
           />
         )}
+
+        <AttendanceDetailModal
+          visible={isDetailVisible}
+          onClose={() => setDetailVisible(false)}
+          record={selectedRecord}
+        />
       </View>
     </SafeAreaView>
   );

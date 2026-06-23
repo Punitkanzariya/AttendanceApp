@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -12,10 +12,34 @@ import { useNavigation } from "@react-navigation/native";
 import { useAuthStore } from "@/store/authStore";
 import { Colors, Spacing, BorderRadius } from "@/theme";
 import GradientHeader from "@/components/shared/GradientHeader";
+import { doc, getDoc } from "firebase/firestore";
+import { db } from "@/firebase/config";
 
 export default function ProfileScreen() {
   const { user, logout } = useAuthStore();
   const navigation = useNavigation<any>();
+  const [managerName, setManagerName] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!user?.managerId) {
+      setManagerName(null);
+      return;
+    }
+    const fetchManager = async () => {
+      try {
+        const docSnap = await getDoc(doc(db, "employees", user.managerId!));
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          if (data && data.displayName) {
+            setManagerName(data.displayName);
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to fetch manager name:", err);
+      }
+    };
+    fetchManager();
+  }, [user?.managerId]);
 
   const renderRow = (label: string, value: string, noBorder = false) => (
     <View style={[styles.row, noBorder && { borderBottomWidth: 0 }]}>
@@ -39,8 +63,22 @@ export default function ProfileScreen() {
     return name.charAt(0).toUpperCase();
   };
 
+  const formatJoinedDate = (isoString?: string) => {
+    if (!isoString) return "N/A";
+    try {
+      const dateObj = new Date(isoString);
+      return dateObj.toLocaleDateString("en-US", {
+        day: "numeric",
+        month: "long",
+        year: "numeric",
+      });
+    } catch {
+      return "N/A";
+    }
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea} edges={["top", "bottom"]}>
+    <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <View style={styles.root}>
         {/* Background Gradient */}
         <GradientHeader />
@@ -86,12 +124,12 @@ export default function ProfileScreen() {
             <View style={styles.detailsContainer}>
               {renderRow(
                 "Employee Code",
-                user?.uid.slice(0, 8).toUpperCase() || "EMP001",
+                user?.employeeId || user?.uid.slice(0, 8).toUpperCase() || "EMP001",
               )}
-              {renderRow("Department", "UI/UX Design")}
+              {renderRow("Department", user?.department || "N/A")}
               {renderRow("Job Position", formatRole(user?.role))}
-              {renderRow("Manager", "John Doe")}
-              {renderRow("DOB", "12 March 2000", true)}
+              {renderRow("Manager", managerName || "Not Assigned")}
+              {renderRow("Joined Date", formatJoinedDate(user?.createdAt), true)}
             </View>
           </View>
 

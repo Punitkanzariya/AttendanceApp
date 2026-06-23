@@ -26,7 +26,7 @@ export default function PlaceholderScreen({
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+    <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.container}>
         <View style={styles.iconWrap}>
           <Ionicons name={iconName} size={48} color={Colors.primary} />

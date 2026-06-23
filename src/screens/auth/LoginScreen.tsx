@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -93,6 +94,11 @@ export default function LoginScreen() {
     setGeneralError(null);
     try {
       const result = await loginWithEmail(data.email, data.password);
+      // Save credentials for subsequent biometric logins
+      await SecureStore.setItemAsync('biometric_credentials', JSON.stringify({
+        email: data.email,
+        password: data.password
+      }));
       await persistSession(result.user);
     } catch (err: any) {
       if (err.message?.startsWith('ACCOUNT_LOCKED')) {
@@ -109,15 +115,55 @@ export default function LoginScreen() {
 
   const handleBiometricLogin = async () => {
     try {
+      // 1. Retrieve saved credentials
+      const credsRaw = await SecureStore.getItemAsync('biometric_credentials');
+      if (!credsRaw) {
+        Alert.alert(
+          'Biometrics Not Configured',
+          'Please sign in with your email and password first to enable biometric login.'
+        );
+        return;
+      }
+
+      const creds = JSON.parse(credsRaw);
+      
+      // 2. Pre-check lockout status
+      const status = await checkAccountLockout(creds.email);
+      if (status.isLocked) {
+        const mins = Math.ceil(status.remainingMs / 60000);
+        setLockout({ locked: true, mins });
+        Animated.spring(lockAnim, { toValue: 1, useNativeDriver: true }).start();
+        Alert.alert('Account Locked', `Too many failed attempts. Try again in ${mins} minutes.`);
+        return;
+      }
+
+      // 3. Authenticate using local-authentication
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: 'Sign in to WorkTrack',
         fallbackLabel: 'Use Passcode',
       });
+
       if (result.success) {
-        Alert.alert('Success', 'Biometric verified! (Hook up token here)');
+        setIsLoading(true);
+        setGeneralError(null);
+        try {
+          const loginResult = await loginWithEmail(creds.email, creds.password);
+          await persistSession(loginResult.user);
+        } catch (err: any) {
+          if (err.message?.startsWith('ACCOUNT_LOCKED')) {
+            const mins = err.message.split(':')[1] || '15';
+            setLockout({ locked: true, mins: parseInt(mins, 10) });
+            Animated.spring(lockAnim, { toValue: 1, useNativeDriver: true }).start();
+          } else {
+            setGeneralError(err.message);
+          }
+        } finally {
+          setIsLoading(false);
+        }
       }
     } catch (err) {
       console.log('Biometric error', err);
+      Alert.alert('Error', 'Failed to authenticate with biometrics.');
     }
   };
 
@@ -292,7 +338,7 @@ const styles = StyleSheet.create({
   },
   inputDisabled: { backgroundColor: '#F1F5F9', borderColor: '#E2E8F0', opacity: 0.7 },
   icon: { marginRight: 12 },
-  input: { flex: 1, fontSize: 16, color: '#0F172A', fontWeight: '500', outlineStyle: 'none' },
+  input: { flex: 1, fontSize: 16, color: '#0F172A', fontWeight: '500', outlineStyle: 'none' as any },
   eye: { padding: 8, marginRight: -4 },
 
   err: { fontSize: 12, color: '#EF4444', marginTop: 4, marginLeft: 4 },

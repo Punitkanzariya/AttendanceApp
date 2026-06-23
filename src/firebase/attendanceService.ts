@@ -40,11 +40,29 @@ export function subscribeToTodayAttendance(
   });
 }
 
+async function convertUriToBase64(uri: string): Promise<string> {
+  try {
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    return await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.error("Error converting selfie to base64", e);
+    throw new Error("Failed to process selfie image");
+  }
+}
+
 export async function checkInEmployee(
   employeeId: string,
   employeeName: string,
   location: AttendanceLocation | null,
-  remark?: string
+  remark?: string,
+  selfieUri?: string | null,
+  employeeEmail?: string | null
 ): Promise<void> {
   const todayStr = getLocalDateString();
   const docId = `${employeeId}_${todayStr}`;
@@ -57,15 +75,22 @@ export async function checkInEmployee(
 
   const deviceInfo = `${Platform.OS} ${Platform.Version || ''}`;
 
+  let selfieUrl = null;
+  if (selfieUri) {
+    selfieUrl = await convertUriToBase64(selfieUri);
+  }
+
   const attendanceData: Omit<AttendanceRecord, 'id'> = {
     employeeId,
     employeeName,
+    employeeEmail: employeeEmail || null,
     dateStr: todayStr,
     checkIn: {
       timestamp: nowIso,
       location,
       remark: remark || '',
       deviceInfo,
+      selfieUrl,
     },
     checkOut: null,
     status,
@@ -80,7 +105,8 @@ export async function checkInEmployee(
 export async function checkOutEmployee(
   employeeId: string,
   location: AttendanceLocation | null,
-  remark?: string
+  remark?: string,
+  selfieUri?: string | null
 ): Promise<void> {
   const todayStr = getLocalDateString();
   const docId = `${employeeId}_${todayStr}`;
@@ -108,12 +134,18 @@ export async function checkOutEmployee(
 
   const deviceInfo = `${Platform.OS} ${Platform.Version || ''}`;
 
+  let selfieUrl = null;
+  if (selfieUri) {
+    selfieUrl = await convertUriToBase64(selfieUri);
+  }
+
   await updateDoc(docRef, {
     checkOut: {
       timestamp: nowIso,
       location,
       remark: remark || '',
       deviceInfo,
+      selfieUrl,
     },
     workingHours,
     updatedAt: nowIso,

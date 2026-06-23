@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   boxError:    { borderColor: '#EF4444', backgroundColor: '#FEF2F2' },
   boxInput: {
     width: '100%', height: '100%', textAlign: 'center',
-    fontWeight: '800', color: '#0F172A', outlineStyle: 'none'
+    fontWeight: '800', color: '#0F172A', outlineStyle: 'none' as any
   },
 
   statusRow: { alignItems: 'center', marginBottom: 24, gap: 8 },

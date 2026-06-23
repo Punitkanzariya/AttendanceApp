@@ -17,6 +17,8 @@ export interface User {
   role: UserRole;
   siteId?: string;
   managerId?: string;
+  department?: string;
+  employeeId?: string;
   createdAt: string;
   isActive: boolean;
 }
@@ -135,12 +137,14 @@ export interface AttendanceDetails {
   location: AttendanceLocation | null;
   remark?: string;
   deviceInfo?: string;
+  selfieUrl?: string | null;
 }
 
 export interface AttendanceRecord {
   id: string; // doc ID format: employeeId_YYYY-MM-DD
   employeeId: string;
   employeeName: string;
+  employeeEmail?: string | null;
   dateStr: string; // YYYY-MM-DD
   checkIn: AttendanceDetails | null;
   checkOut: AttendanceDetails | null;

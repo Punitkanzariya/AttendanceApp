@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12, height: 50,
   },
   ic:  { marginRight: 8 },
-  input: { flex: 1, fontSize: 15, color: '#0F172A', outlineStyle: 'none' },
+  input: { flex: 1, fontSize: 15, color: '#0F172A', outlineStyle: 'none' as any },
   eye: { padding: 4 },
   cc:  { fontSize: 14, fontWeight: '600', color: '#0F172A' },
   sep: { width: 1, height: 22, backgroundColor: '#E2E8F0', marginHorizontal: 8 },
