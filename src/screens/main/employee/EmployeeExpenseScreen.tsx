@@ -6,6 +6,10 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  Linking,
+  Image,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -25,6 +29,8 @@ export default function EmployeeExpenseScreen() {
   const [expenseToEdit, setExpenseToEdit] = useState<ExpenseRequest | null>(
     null,
   );
+  const [expenseToView, setExpenseToView] = useState<ExpenseRequest | null>(null);
+  const [isAttachmentVisible, setIsAttachmentVisible] = useState(false);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -53,6 +59,22 @@ export default function EmployeeExpenseScreen() {
     setExpenseToEdit(null);
   };
 
+  const openAttachment = (url: string) => {
+    if (url.startsWith('data:image')) {
+      setIsAttachmentVisible(true);
+    } else if (Platform.OS === 'web') {
+      // For PDFs on web
+      const win = window.open();
+      if (win) {
+        win.document.write('<iframe src="' + url  + '" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>');
+      }
+    } else {
+      Linking.openURL(url).catch((err) => {
+        console.error('Failed to open URL:', err);
+      });
+    }
+  };
+
   const getStatusColor = (status: ExpenseStatus) => {
     switch (status) {
       case "reimbursed":
@@ -65,7 +87,11 @@ export default function EmployeeExpenseScreen() {
   };
 
   const renderItem = ({ item }: { item: ExpenseRequest }) => (
-    <View style={styles.card}>
+    <TouchableOpacity 
+      style={styles.card} 
+      activeOpacity={0.7}
+      onPress={() => setExpenseToView(item)}
+    >
       <View style={styles.cardHeader}>
         <View style={styles.categoryWrap}>
           <View style={styles.iconRing}>
@@ -140,7 +166,7 @@ export default function EmployeeExpenseScreen() {
           </TouchableOpacity>
         )}
       </View>
-    </View>
+    </TouchableOpacity>
   );
 
   const renderHeader = () => {
@@ -227,6 +253,84 @@ export default function EmployeeExpenseScreen() {
         onClose={handleCloseModal}
         expenseToEdit={expenseToEdit}
       />
+
+      {/* Details Modal */}
+      <Modal visible={!!expenseToView} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Expense Details</Text>
+              <TouchableOpacity onPress={() => setExpenseToView(null)}>
+                <Ionicons name="close" size={24} color={Colors.text.secondary} />
+              </TouchableOpacity>
+            </View>
+
+            {expenseToView && (
+              <View style={styles.modalScroll}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md }}>
+                  <View>
+                    <Text style={styles.detailLabel}>Status:</Text>
+                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(expenseToView.status) + '20', alignSelf: 'flex-start', marginTop: 2, borderWidth: 0 }]}>
+                      <Text style={[styles.statusText, { color: getStatusColor(expenseToView.status), fontSize: 11 }]}>
+                        {expenseToView.status.replace('_', ' ').toUpperCase()}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+
+                <View style={{ flexDirection: 'row', gap: Spacing.xl }}>
+                  <View>
+                    <Text style={styles.detailLabel}>Amount:</Text>
+                    <Text style={[styles.detailValue, { fontSize: FontSize.lg, color: Colors.primary }]}>₹{expenseToView.amount}</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.detailLabel}>Date:</Text>
+                    <Text style={styles.detailValue}>{expenseToView.date}</Text>
+                  </View>
+                  <View>
+                    <Text style={styles.detailLabel}>Category:</Text>
+                    <Text style={styles.detailValue}>{expenseToView.category}</Text>
+                  </View>
+                </View>
+
+                <Text style={styles.detailLabel}>Description:</Text>
+                <Text style={styles.detailValue}>{expenseToView.description}</Text>
+
+                {expenseToView.attachmentUrl && (
+                  <TouchableOpacity style={styles.viewBillBtn} onPress={() => openAttachment(expenseToView.attachmentUrl!)}>
+                    <Ionicons name="open-outline" size={16} color={Colors.primary} />
+                    <Text style={styles.viewBillText}>View Attached Bill</Text>
+                  </TouchableOpacity>
+                )}
+
+                {expenseToView.rejectionReason && (
+                  <View style={{ marginTop: Spacing.md }}>
+                    <Text style={styles.detailLabel}>Rejection Reason / Notes:</Text>
+                    <Text style={[styles.detailValue, { color: Colors.error }]}>{expenseToView.rejectionReason}</Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
+      {/* Attachment Image Viewer Modal */}
+      <Modal visible={isAttachmentVisible} transparent={true} animationType="fade">
+        <View style={styles.imageViewerOverlay}>
+          <TouchableOpacity style={styles.closeImageBtn} onPress={() => setIsAttachmentVisible(false)}>
+            <Ionicons name="close-circle" size={36} color={Colors.white} />
+          </TouchableOpacity>
+          {expenseToView?.attachmentUrl && (
+            <Image 
+              source={{ uri: expenseToView.attachmentUrl }} 
+              style={styles.fullImage} 
+              resizeMode="contain" 
+            />
+          )}
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -395,4 +499,17 @@ const styles = StyleSheet.create({
     borderRadius: BorderRadius.full,
   },
   resubmitBtnText: { fontSize: 12, color: Colors.primary, fontWeight: "600" },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: Colors.white, borderTopLeftRadius: BorderRadius.xl, borderTopRightRadius: BorderRadius.xl, padding: Spacing.xl, maxHeight: '90%' },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.xl },
+  modalTitle: { fontSize: FontSize.xl, fontWeight: 'bold' },
+  modalScroll: { marginBottom: Spacing.lg },
+  detailLabel: { fontSize: FontSize.sm, color: Colors.text.tertiary, marginBottom: 2 },
+  detailValue: { fontSize: FontSize.md, fontWeight: 'bold', color: Colors.text.primary, marginBottom: Spacing.md },
+  viewBillBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#EFF6FF', padding: Spacing.md, borderRadius: BorderRadius.md, marginBottom: Spacing.lg, borderWidth: 1, borderColor: '#BFDBFE', justifyContent: 'center' },
+  viewBillText: { color: Colors.primary, fontWeight: '600', fontSize: FontSize.sm },
+  imageViewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
+  closeImageBtn: { position: 'absolute', top: 40, right: 20, zIndex: 10 },
+  fullImage: { width: '100%', height: '80%' },
 });
