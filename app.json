@@ -27,6 +27,12 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      [
+        "expo-local-authentication",
+        {
+          "faceIDPermission": "Allow Techsture to use Face ID for secure login."
+        }
+      ],
       "expo-secure-store",
       "expo-sharing",
       "@react-native-community/datetimepicker"

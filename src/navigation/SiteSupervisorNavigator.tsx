@@ -9,6 +9,9 @@ import VerifyAttendanceScreen from '@/screens/main/sitesupervisor/VerifyAttendan
 import SupervisorDashboard from '@/screens/main/sitesupervisor/SupervisorDashboard';
 import SupervisorReportsScreen from '@/screens/main/sitesupervisor/SupervisorReportsScreen';
 
+import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 const Tab = createBottomTabNavigator<SiteSupervisorTabParamList>();
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -22,6 +25,7 @@ const TAB_ICONS: Record<keyof SiteSupervisorTabParamList, { active: IoniconsName
 };
 
 export default function SiteSupervisorNavigator() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -32,7 +36,11 @@ export default function SiteSupervisorNavigator() {
         },
         tabBarActiveTintColor: Colors.accent,
         tabBarInactiveTintColor: Colors.text.tertiary,
-        tabBarStyle: { borderTopColor: Colors.border, paddingBottom: 4, height: 60 },
+        tabBarStyle: { 
+          borderTopColor: Colors.border, 
+          paddingBottom: Platform.OS === 'ios' ? insets.bottom : insets.bottom + 8, 
+          height: 60 + insets.bottom 
+        },
         tabBarLabelStyle: { fontSize: FontSize.xs },
       })}
     >

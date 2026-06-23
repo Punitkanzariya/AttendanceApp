@@ -9,6 +9,8 @@ import ExpenseApprovalsScreen from '@/screens/main/manager/ExpenseApprovalsScree
 import TeamAttendanceScreen from '@/screens/main/manager/TeamAttendanceScreen';
 import ManagerDashboard from '@/screens/main/manager/ManagerDashboard';
 import ManagerReportsScreen from '@/screens/main/manager/ManagerReportsScreen';
+import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const Tab = createBottomTabNavigator<ManagerTabParamList>();
 
@@ -24,6 +26,7 @@ const TAB_ICONS: Record<keyof ManagerTabParamList, { active: IoniconsName; inact
 };
 
 export default function ManagerNavigator() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -34,7 +37,11 @@ export default function ManagerNavigator() {
         },
         tabBarActiveTintColor: Colors.secondary,
         tabBarInactiveTintColor: Colors.text.tertiary,
-        tabBarStyle: { borderTopColor: Colors.border, paddingBottom: 4, height: 60 },
+        tabBarStyle: { 
+          borderTopColor: Colors.border, 
+          paddingBottom: Platform.OS === 'ios' ? insets.bottom : insets.bottom + 8, 
+          height: 60 + insets.bottom 
+        },
         tabBarLabelStyle: { fontSize: FontSize.xs },
       })}
     >

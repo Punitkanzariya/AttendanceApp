@@ -190,10 +190,10 @@ export default function EmployeeExpenseScreen() {
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Expenses</Text>
         <TouchableOpacity
-          style={styles.headerBtn}
+          style={styles.headerBtnPrimary}
           onPress={handleOpenModalForNew}
         >
-          <Ionicons name="add" size={20} color={Colors.text.primary} />
+          <Ionicons name="add" size={22} color="#FFFFFF" />
         </TouchableOpacity>
       </View>
 
@@ -248,6 +248,19 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255,255,255,0.6)",
     alignItems: "center",
     justifyContent: "center",
+  },
+  headerBtnPrimary: {
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 3,
   },
   headerTitle: {
     fontSize: 15,

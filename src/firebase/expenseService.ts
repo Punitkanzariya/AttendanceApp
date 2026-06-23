@@ -2,6 +2,7 @@ import { collection, addDoc, updateDoc, doc, onSnapshot, query, where, getDocs, 
 import { db, storage } from './config';
 import type { ExpenseRequest, ExpenseStatus } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as FileSystem from 'expo-file-system';
 
 const EXPENSE_COLLECTION = 'Expenses';
 const DRAFT_KEY = '@expense_draft';
@@ -22,14 +23,10 @@ export const submitExpenseRequest = async (
   // Convert attachment to Base64 (Data URL) and store in Firestore directly
   if (attachmentUri) {
     try {
-      const response = await fetch(attachmentUri);
-      const blob = await response.blob();
-      attachmentUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
+      const base64 = await FileSystem.readAsStringAsync(attachmentUri, {
+        encoding: FileSystem.EncodingType.Base64,
       });
+      attachmentUrl = `data:image/jpeg;base64,${base64}`;
     } catch (e) {
       console.error("Error converting attachment to base64", e);
       throw new Error("Failed to process attachment");
@@ -73,14 +70,10 @@ export const updateExpenseRequest = async (
 
   if (attachmentUri && !attachmentUri.startsWith('data:')) {
     try {
-      const response = await fetch(attachmentUri);
-      const blob = await response.blob();
-      attachmentUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
+      const base64 = await FileSystem.readAsStringAsync(attachmentUri, {
+        encoding: FileSystem.EncodingType.Base64,
       });
+      attachmentUrl = `data:image/jpeg;base64,${base64}`;
     } catch (e) {
       console.error("Error converting attachment to base64", e);
       throw new Error("Failed to process attachment");

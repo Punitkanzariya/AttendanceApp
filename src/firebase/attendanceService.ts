@@ -2,6 +2,7 @@ import { collection, doc, setDoc, updateDoc, query, where, onSnapshot, getDoc } 
 import { db } from '@/firebase/config';
 import type { AttendanceRecord, AttendanceLocation } from '@/types';
 import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system';
 
 // Helper to get local date string YYYY-MM-DD
 export function getLocalDateString(date = new Date()): string {
@@ -42,14 +43,10 @@ export function subscribeToTodayAttendance(
 
 async function convertUriToBase64(uri: string): Promise<string> {
   try {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    return await new Promise<string>((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
+    const base64 = await FileSystem.readAsStringAsync(uri, {
+      encoding: FileSystem.EncodingType.Base64,
     });
+    return `data:image/jpeg;base64,${base64}`;
   } catch (e) {
     console.error("Error converting selfie to base64", e);
     throw new Error("Failed to process selfie image");

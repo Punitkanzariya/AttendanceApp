@@ -10,6 +10,9 @@ import EmployeeExpenseScreen from '@/screens/main/employee/EmployeeExpenseScreen
 import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
 import ProfileScreen from '@/screens/main/shared/ProfileScreen';
 
+import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 const Tab = createBottomTabNavigator<EmployeeTabParamList>();
 
 const TAB_ICONS = {
@@ -21,6 +24,7 @@ const TAB_ICONS = {
 };
 
 export default function EmployeeNavigator() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -37,7 +41,11 @@ export default function EmployeeNavigator() {
         },
         tabBarActiveTintColor: Colors.primary,
         tabBarInactiveTintColor: Colors.text.tertiary,
-        tabBarStyle: { borderTopColor: Colors.border, paddingBottom: 4, height: 60 },
+        tabBarStyle: { 
+          borderTopColor: Colors.border, 
+          paddingBottom: Platform.OS === 'ios' ? insets.bottom : insets.bottom + 8, 
+          height: 60 + insets.bottom 
+        },
         tabBarLabelStyle: { fontSize: FontSize.xs },
       })}
     >

@@ -6,6 +6,9 @@ import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
 
 import AdminEmployeesScreen from '@/screens/admin/AdminEmployeesScreen';
 
+import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 const Tab = createBottomTabNavigator<AdminTabParamList>();
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -20,6 +23,7 @@ const TAB_ICONS: Record<keyof AdminTabParamList, { active: IoniconsName; inactiv
 };
 
 export default function AdminNavigator() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -30,7 +34,11 @@ export default function AdminNavigator() {
         },
         tabBarActiveTintColor: Colors.error,
         tabBarInactiveTintColor: Colors.text.tertiary,
-        tabBarStyle: { borderTopColor: Colors.border, paddingBottom: 4, height: 60 },
+        tabBarStyle: { 
+          borderTopColor: Colors.border, 
+          paddingBottom: Platform.OS === 'ios' ? insets.bottom : insets.bottom + 8, 
+          height: 60 + insets.bottom 
+        },
         tabBarLabelStyle: { fontSize: FontSize.xs },
       })}
     >

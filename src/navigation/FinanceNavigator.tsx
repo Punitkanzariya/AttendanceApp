@@ -7,6 +7,9 @@ import ProfileScreen from '@/screens/main/shared/ProfileScreen';
 import FinanceExpenseScreen from '@/screens/main/finance/FinanceExpenseScreen';
 import ReimbursementsScreen from '@/screens/main/finance/ReimbursementsScreen';
 
+import { Platform } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 const Tab = createBottomTabNavigator<FinanceTabParamList>();
 
 type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
@@ -20,6 +23,7 @@ const TAB_ICONS: Record<keyof FinanceTabParamList, { active: IoniconsName; inact
 };
 
 export default function FinanceNavigator() {
+  const insets = useSafeAreaInsets();
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -30,7 +34,11 @@ export default function FinanceNavigator() {
         },
         tabBarActiveTintColor: Colors.warning,
         tabBarInactiveTintColor: Colors.text.tertiary,
-        tabBarStyle: { borderTopColor: Colors.border, paddingBottom: 4, height: 60 },
+        tabBarStyle: { 
+          borderTopColor: Colors.border, 
+          paddingBottom: Platform.OS === 'ios' ? insets.bottom : insets.bottom + 8, 
+          height: 60 + insets.bottom 
+        },
         tabBarLabelStyle: { fontSize: FontSize.xs },
       })}
     >
