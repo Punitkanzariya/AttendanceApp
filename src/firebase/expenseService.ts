@@ -2,7 +2,8 @@ import { collection, addDoc, updateDoc, doc, onSnapshot, query, where, getDocs, 
 import { db, storage } from './config';
 import type { ExpenseRequest, ExpenseStatus } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 const EXPENSE_COLLECTION = 'Expenses';
 const DRAFT_KEY = '@expense_draft';
@@ -20,15 +21,23 @@ export const submitExpenseRequest = async (
 ): Promise<string> => {
   let attachmentUrl = null;
 
-  // Convert attachment to Base64 (Data URL) and store in Firestore directly
+  // Convert attachment and store in Firebase Storage
   if (attachmentUri) {
     try {
-      const base64 = await FileSystem.readAsStringAsync(attachmentUri, {
+      const manipResult = await ImageManipulator.manipulateAsync(
+        attachmentUri,
+        [{ resize: { width: 800 } }],
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      const base64 = await FileSystem.readAsStringAsync(manipResult.uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
+
+      // Instead of Firebase Storage, return the compressed Base64 Data URL directly
       attachmentUrl = `data:image/jpeg;base64,${base64}`;
     } catch (e) {
-      console.error("Error converting attachment to base64", e);
+      console.error("Error uploading attachment to storage", e);
       throw new Error("Failed to process attachment");
     }
   }
@@ -68,14 +77,22 @@ export const updateExpenseRequest = async (
 ): Promise<void> => {
   let attachmentUrl = existingAttachmentUrl;
 
-  if (attachmentUri && !attachmentUri.startsWith('data:')) {
+  if (attachmentUri && !attachmentUri.startsWith('http')) {
     try {
-      const base64 = await FileSystem.readAsStringAsync(attachmentUri, {
+      const manipResult = await ImageManipulator.manipulateAsync(
+        attachmentUri,
+        [{ resize: { width: 800 } }],
+        { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      const base64 = await FileSystem.readAsStringAsync(manipResult.uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
+
+      // Instead of Firebase Storage, return the compressed Base64 Data URL directly
       attachmentUrl = `data:image/jpeg;base64,${base64}`;
     } catch (e) {
-      console.error("Error converting attachment to base64", e);
+      console.error("Error uploading attachment to storage", e);
       throw new Error("Failed to process attachment");
     }
   }
