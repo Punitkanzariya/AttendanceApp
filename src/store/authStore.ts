@@ -1,23 +1,23 @@
 import { create } from 'zustand';
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import type { User, UserRole } from '@/types';
 
 const SESSION_KEY = 'attendance_session';
 
-// Cross-platform storage: SecureStore on mobile, localStorage on Web
+// Cross-platform storage: AsyncStorage on mobile, localStorage on Web
 const Storage = {
   getItem: async (key: string) => {
     if (Platform.OS === 'web') return localStorage.getItem(key);
-    return SecureStore.getItemAsync(key);
+    return AsyncStorage.getItem(key);
   },
   setItem: async (key: string, value: string) => {
     if (Platform.OS === 'web') localStorage.setItem(key, value);
-    else await SecureStore.setItemAsync(key, value);
+    else await AsyncStorage.setItem(key, value);
   },
   removeItem: async (key: string) => {
     if (Platform.OS === 'web') localStorage.removeItem(key);
-    else await SecureStore.deleteItemAsync(key);
+    else await AsyncStorage.removeItem(key);
   }
 };
 

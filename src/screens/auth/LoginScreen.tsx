@@ -9,7 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import * as LocalAuthentication from 'expo-local-authentication';
-import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
@@ -95,7 +95,7 @@ export default function LoginScreen() {
     try {
       const result = await loginWithEmail(data.email, data.password);
       // Save credentials for subsequent biometric logins
-      await SecureStore.setItemAsync('biometric_credentials', JSON.stringify({
+      await AsyncStorage.setItem('biometric_credentials', JSON.stringify({
         email: data.email,
         password: data.password
       }));
@@ -116,7 +116,7 @@ export default function LoginScreen() {
   const handleBiometricLogin = async () => {
     try {
       // 1. Retrieve saved credentials
-      const credsRaw = await SecureStore.getItemAsync('biometric_credentials');
+      const credsRaw = await AsyncStorage.getItem('biometric_credentials');
       if (!credsRaw) {
         Alert.alert(
           'Biometrics Not Configured',

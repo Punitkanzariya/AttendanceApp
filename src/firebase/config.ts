@@ -17,9 +17,11 @@
  */
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth }      from 'firebase/auth';
+import { getAuth, initializeAuth } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage }   from 'firebase/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 // ─── Firebase Project Credentials ───────────────────────────────
 // These keys are SAFE to include in client-side code.
@@ -47,7 +49,24 @@ const app = getApps().length === 0
 // db    → Firestore database (employees, attendance, expenses, etc.)
 // storage → Firebase Cloud Storage (expense bill uploads, selfies)
 
-export const auth    = getAuth(app);
+let firebaseAuth;
+if (Platform.OS === 'web') {
+  // Web uses default getAuth without AsyncStorage
+  firebaseAuth = getAuth(app);
+} else {
+  try {
+    // Dynamically require to avoid Web bundler crashes
+    const { getReactNativePersistence } = require('firebase/auth');
+    firebaseAuth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage)
+    });
+  } catch (e) {
+    // Fallback if missing
+    firebaseAuth = getAuth(app);
+  }
+}
+
+export const auth = firebaseAuth;
 export const db      = getFirestore(app);
 export const storage = getStorage(app);
 

@@ -13,6 +13,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing } from "@/theme";
 import { useAuthStore } from "@/store/authStore";
 import GradientHeader from "@/components/shared/GradientHeader";
+import AnimatedSuccessModal from "@/components/shared/AnimatedSuccessModal";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { EmployeeTabParamList, AttendanceRecord } from "@/types";
@@ -88,6 +89,10 @@ export default function EmployeeDashboard() {
     longitude: number;
   } | null>(null);
 
+  // Success Modal State
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+
   // Subscribe to today's attendance
   useEffect(() => {
     if (!user?.uid) return;
@@ -151,7 +156,33 @@ export default function EmployeeDashboard() {
         return;
       }
 
-      // 3. Capture selfie
+      // 3. Start fetching fresh location in the background BEFORE opening the camera
+      // This ensures 100% accuracy but 0 wait time, since GPS runs while user poses!
+      const locationPromise = (async () => {
+        try {
+          const freshLoc = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          const newAddress = await getShortAddress(freshLoc.coords.latitude, freshLoc.coords.longitude);
+          return {
+            latitude: freshLoc.coords.latitude,
+            longitude: freshLoc.coords.longitude,
+            address: newAddress,
+          };
+        } catch (err) {
+          // Fallback to cached only if fresh fetch fails completely
+          if (currentLocationCoords && currentAddress && currentAddress !== "Fetching location...") {
+            return {
+              latitude: currentLocationCoords.latitude,
+              longitude: currentLocationCoords.longitude,
+              address: currentAddress,
+            };
+          }
+          throw err;
+        }
+      })();
+
+      // 4. Capture selfie (While this is open, the background GPS is finishing up!)
       const cameraResult = await ImagePicker.launchCameraAsync({
         cameraType: ImagePicker.CameraType.front,
         allowsEditing: false,
@@ -166,18 +197,8 @@ export default function EmployeeDashboard() {
 
       const selfieUri = cameraResult.assets[0].uri;
 
-      // 4. Fetch current position
-      const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-
-      const address = await getShortAddress(loc.coords.latitude, loc.coords.longitude);
-
-      const attendanceLoc = {
-        latitude: loc.coords.latitude,
-        longitude: loc.coords.longitude,
-        address,
-      };
+      // 5. Await the location promise. By the time the camera is closed, this will already be 100% done!
+      const attendanceLoc = await locationPromise;
 
       if (!todayRecord) {
         // Clock In
@@ -189,7 +210,8 @@ export default function EmployeeDashboard() {
           selfieUri,
           user!.email
         );
-        Alert.alert('Success', 'Successfully Clocked In');
+        setSuccessMessage('Successfully Clocked In');
+        setSuccessModalVisible(true);
       } else if (!todayRecord.checkOut) {
         // Clock Out
         await checkOutEmployee(
@@ -198,7 +220,8 @@ export default function EmployeeDashboard() {
           '',
           selfieUri
         );
-        Alert.alert('Success', 'Successfully Clocked Out');
+        setSuccessMessage('Successfully Clocked Out');
+        setSuccessModalVisible(true);
       }
     } catch (error: any) {
       console.error(error);
@@ -220,6 +243,11 @@ export default function EmployeeDashboard() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
+      <AnimatedSuccessModal 
+        visible={successModalVisible} 
+        message={successMessage} 
+        onClose={() => setSuccessModalVisible(false)} 
+      />
       <View style={styles.root}>
         <GradientHeader />
         <ScrollView
