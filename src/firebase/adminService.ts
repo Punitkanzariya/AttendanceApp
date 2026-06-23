@@ -60,6 +60,7 @@ import { firebaseConfig } from '@/firebase/config';
 export async function createEmployeeByAdmin(params: {
   fullName: string;
   email: string;
+  username: string;
   phone: string;
   role: UserRole;
   password?: string;
@@ -87,7 +88,8 @@ export async function createEmployeeByAdmin(params: {
   // 3. Save to Firestore using the MAIN app's db
   const now = new Date().toISOString();
   await setDoc(doc(db, 'employees', firebaseUser.uid), {
-    email: params.email.toLowerCase().trim(),
+    email: params.email.trim(),
+    username: params.username.toLowerCase().trim(),
     phoneNumber: params.phone || null,
     displayName: params.fullName.trim(),
     role: params.role,

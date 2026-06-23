@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, Switch, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, Switch, ScrollView, Alert, TextInput, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import type { User, UserRole } from '@/types';
@@ -22,6 +22,8 @@ const ROLES: { label: string; value: UserRole }[] = [
 export default function EmployeeEditModal({ visible, user, onClose, onSave }: Props) {
   const [isActive, setIsActive] = useState<boolean>(false);
   const [role, setRole] = useState<UserRole>('employee');
+  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
   // Sync state when user changes
@@ -29,15 +31,33 @@ export default function EmployeeEditModal({ visible, user, onClose, onSave }: Pr
     if (user) {
       setIsActive(user.isActive);
       setRole(user.role);
+      setEmail(user.email || '');
+      setUsername(user.username || '');
     }
   }, [user]);
 
   if (!user) return null;
 
   const handleSave = async () => {
+    if (!username.trim() || !email.trim()) {
+      Alert.alert('Validation Error', 'Email and Username are required.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      Alert.alert('Error', 'Please enter a valid email address');
+      return;
+    }
+
     try {
       setIsSaving(true);
-      await onSave(user.uid, { isActive, role });
+      await onSave(user.uid, {
+        isActive,
+        role,
+        email: email.trim(),
+        username: username.trim()
+      });
       onClose();
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to update employee.');
@@ -66,8 +86,38 @@ export default function EmployeeEditModal({ visible, user, onClose, onSave }: Pr
               </View>
               <View>
                 <Text style={styles.name}>{user.displayName || 'Unnamed User'}</Text>
-                <Text style={styles.email}>{user.email}</Text>
+                <Text style={styles.email}>@{user.username}</Text>
                 {user.phoneNumber && <Text style={styles.email}>{user.phoneNumber}</Text>}
+              </View>
+            </View>
+
+            {/* Email Input */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Email Address *</Text>
+              <View style={styles.inputBox}>
+                <Ionicons name="mail-outline" size={20} color={Colors.text.tertiary} />
+                <TextInput
+                  style={[styles.input, { color: Colors.text.tertiary }]}
+                  value={email}
+                  editable={false}
+                  selectTextOnFocus={false}
+                />
+              </View>
+            </View>
+
+            {/* Username Input */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Username *</Text>
+              <View style={styles.inputBox}>
+                <Ionicons name="person-circle-outline" size={20} color={Colors.text.tertiary} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. rahul_123"
+                  value={username}
+                  onChangeText={setUsername}
+                  autoCapitalize="none"
+                  editable={!isSaving}
+                />
               </View>
             </View>
 
@@ -203,6 +253,35 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: Spacing.xl,
   },
+  inputContainer: {
+    marginBottom: Spacing.lg,
+  },
+  inputBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: Colors.border,
+    borderRadius: BorderRadius.md,
+    paddingHorizontal: Spacing.md,
+    backgroundColor: Colors.white,
+  },
+  input: Platform.select({
+    web: {
+      flex: 1,
+      paddingVertical: Spacing.md,
+      marginLeft: Spacing.sm,
+      fontSize: FontSize.md,
+      color: Colors.text.primary,
+      outlineStyle: 'none',
+    } as any,
+    default: {
+      flex: 1,
+      paddingVertical: Spacing.md,
+      marginLeft: Spacing.sm,
+      fontSize: FontSize.md,
+      color: Colors.text.primary,
+    }
+  }),
   row: {
     flexDirection: 'row',
     alignItems: 'center',

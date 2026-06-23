@@ -25,41 +25,55 @@ interface AuthState {
   user: User | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  isOtpVerified: boolean;
 
   // Actions
   setUser: (user: User | null) => void;
+  updateUser: (user: User) => void;
   setLoading: (loading: boolean) => void;
+  verifyLoginOtp: () => void;
   logout: () => Promise<void>;
   restoreSession: () => Promise<void>;
-  persistSession: (user: User) => Promise<void>;
+  persistSession: (user: User, otpVerified?: boolean) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   isLoading: true,
   isAuthenticated: false,
+  isOtpVerified: false,
 
   setUser: (user) =>
-    set({ user, isAuthenticated: !!user, isLoading: false }),
+    set({ user, isAuthenticated: !!user, isLoading: false, isOtpVerified: false }), // Reset OTP on direct setUser
+
+  updateUser: (user) =>
+    set((state) => ({ user, isAuthenticated: state.isAuthenticated, isOtpVerified: state.isOtpVerified })),
 
   setLoading: (isLoading) => set({ isLoading }),
 
+  verifyLoginOtp: () => set({ isOtpVerified: true }),
+
   logout: async () => {
     await Storage.removeItem(SESSION_KEY);
-    set({ user: null, isAuthenticated: false, isLoading: false });
+    set({ user: null, isAuthenticated: false, isOtpVerified: false, isLoading: false });
   },
 
-  persistSession: async (user: User) => {
-    await Storage.setItem(SESSION_KEY, JSON.stringify(user));
-    set({ user, isAuthenticated: true, isLoading: false });
+  persistSession: async (user: User, otpVerified: boolean = false) => {
+    await Storage.setItem(SESSION_KEY, JSON.stringify({ user, otpVerified }));
+    set({ user, isAuthenticated: true, isOtpVerified: otpVerified, isLoading: false });
   },
 
   restoreSession: async () => {
     try {
       const raw = await Storage.getItem(SESSION_KEY);
       if (raw) {
-        const user: User = JSON.parse(raw);
-        set({ user, isAuthenticated: true, isLoading: false });
+        const parsed = JSON.parse(raw);
+        // Fallback for older sessions that were just the user object
+        if (parsed.user) {
+          set({ user: parsed.user as User, isAuthenticated: true, isOtpVerified: !!parsed.otpVerified, isLoading: false });
+        } else {
+          set({ user: parsed as User, isAuthenticated: true, isOtpVerified: true, isLoading: false });
+        }
       } else {
         set({ isLoading: false });
       }

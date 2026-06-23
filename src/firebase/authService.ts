@@ -40,6 +40,11 @@ import {
   updateDoc,
   serverTimestamp,
   increment,
+  collection,
+  query,
+  where,
+  getDocs,
+  limit,
 } from 'firebase/firestore';
 
 import { auth, db } from '@/firebase/config';
@@ -75,7 +80,8 @@ export async function fetchEmployeeProfile(uid: string): Promise<User | null> {
     const data = snap.data();
     return {
       uid,
-      email:       data.email       ?? null,
+      email:       data.email       ?? '',
+      username:    data.username    ?? '',
       phoneNumber: data.phoneNumber ?? null,
       displayName: data.displayName ?? null,
       role:        (data.role as UserRole) ?? 'employee',
@@ -180,6 +186,26 @@ async function clearFailedAttempts(email: string): Promise<void> {
 }
 
 // ─────────────────────────────────────────────────────────────────
+//  RESOLVE USERNAME TO EMAIL
+//  Queries Firestore to find the real email for a given username.
+// ─────────────────────────────────────────────────────────────────
+export async function resolveUsernameToEmail(input: string): Promise<string | null> {
+  const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
+  if (isEmail) return input;
+
+  const q = query(
+    collection(db, 'employees'),
+    where('username', '==', input.toLowerCase()),
+    limit(1)
+  );
+
+  const snapshot = await getDocs(q);
+  if (snapshot.empty) return null;
+
+  return snapshot.docs[0].data().email || null;
+}
+
+// ─────────────────────────────────────────────────────────────────
 //  LOGIN WITH EMAIL & PASSWORD (PRD §3.1)
 //  Returns the app User object (with role from Firestore) on success.
 //  Throws a friendly error message on failure.
@@ -212,7 +238,8 @@ export async function loginWithEmail(
       // Auto-repair missing Firestore profile (e.g. if previous write failed)
       const now = new Date().toISOString();
       const repairDoc = {
-        email: email.toLowerCase().trim(),
+        email: email.trim(),
+        username: email.split('@')[0].toLowerCase().trim(),
         phoneNumber: null,
         displayName: email.split('@')[0], // Fallback name
         role: 'employee',
@@ -241,55 +268,6 @@ export async function loginWithEmail(
     // 6. Map Firebase error codes to friendly messages
     throw new Error(mapFirebaseAuthError(error.code, newCount));
   }
-}
-
-// ─────────────────────────────────────────────────────────────────
-//  REGISTER NEW EMPLOYEE (PRD §3.1)
-//  Creates Firebase Auth account + Firestore employee document.
-//  Role is NOT set here — Admin assigns it later via Admin panel.
-// ─────────────────────────────────────────────────────────────────
-export async function registerWithEmail(params: {
-  fullName:   string;
-  email:      string;
-  phone:      string;
-  password:   string;
-  department?: string;
-  employeeId?: string;
-}): Promise<User> {
-
-  // 1. Create Firebase Auth account
-  const credential = await createUserWithEmailAndPassword(
-    auth,
-    params.email.trim(),
-    params.password
-  );
-
-  const firebaseUser = credential.user;
-
-  // 2. Update Firebase display name
-  await updateProfile(firebaseUser, { displayName: params.fullName.trim() });
-
-  // 3. Create employee document in Firestore
-  //    Admin will later update: role, siteId, managerId, isActive
-  const now = new Date().toISOString();
-  const employeeDoc: Omit<User, 'uid'> & Record<string, any> = {
-    email:       params.email.trim(),
-    phoneNumber: `+91${params.phone}`,
-    displayName: params.fullName.trim(),
-    role:        'employee',       // Default — Admin promotes later
-    department:  params.department ?? '',
-    employeeId:  params.employeeId ?? '',
-    isActive:    false,            // Inactive until Admin activates
-    createdAt:   now,
-    updatedAt:   now,
-  };
-
-  await setDoc(doc(db, 'employees', firebaseUser.uid), employeeDoc);
-
-  return {
-    uid: firebaseUser.uid,
-    ...employeeDoc,
-  } as User;
 }
 
 // ─────────────────────────────────────────────────────────────────
@@ -336,7 +314,8 @@ export async function verifyOtp(
     // Could be a new user registering via phone
     const newUser: User = {
       uid:         firebaseUser.uid,
-      email:       firebaseUser.email ?? null,
+      email:       firebaseUser.email ?? '',
+      username:    firebaseUser.email?.split('@')[0] ?? 'User',
       phoneNumber: firebaseUser.phoneNumber ?? null,
       displayName: firebaseUser.displayName ?? 'User',
       role:        'employee',
@@ -385,18 +364,18 @@ function mapFirebaseAuthError(code: string | undefined, attempts: number): strin
   const remaining = MAX_FAILED_ATTEMPTS - attempts;
 
   const messages: Record<string, string> = {
-    'auth/user-not-found':         'No account found with this email address.',
+    'auth/user-not-found':         'No account found with this username.',
     'auth/wrong-password':         remaining > 0
       ? `Incorrect password. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining before lockout.`
       : 'Incorrect password. Account will be locked.',
     'auth/invalid-credential':     remaining > 0
-      ? `Invalid credentials. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
-      : 'Invalid credentials. Account will be locked.',
-    'auth/invalid-email':          'Please enter a valid email address.',
+      ? `Invalid username or password. ${remaining} attempt${remaining !== 1 ? 's' : ''} remaining.`
+      : 'Invalid username or password. Account will be locked.',
+    'auth/invalid-email':          'Please enter a valid username (no spaces allowed).',
     'auth/user-disabled':          'This account has been disabled. Contact your Administrator.',
     'auth/too-many-requests':      'Too many attempts from this device. Try again later.',
     'auth/network-request-failed': 'No internet connection. Check your network and try again.',
-    'auth/email-already-in-use':   'An account already exists with this email address.',
+    'auth/email-already-in-use':   'An account already exists with this username.',
     'auth/weak-password':          'Password must be at least 8 characters.',
     'auth/operation-not-allowed':  'This sign-in method is not enabled. Contact Administrator.',
   };

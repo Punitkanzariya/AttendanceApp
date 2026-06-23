@@ -15,6 +15,7 @@ import ManagerNavigator from '@/navigation/ManagerNavigator';
 import AdminNavigator from '@/navigation/AdminNavigator';
 import FinanceNavigator from '@/navigation/FinanceNavigator';
 import PendingApprovalScreen from '@/screens/auth/PendingApprovalScreen';
+import TwoFactorOtpScreen from '@/screens/auth/TwoFactorOtpScreen';
 import NotificationScreen from '@/screens/main/shared/NotificationScreen';
 
 const Root = createNativeStackNavigator<RootStackParamList>();
@@ -27,7 +28,7 @@ const Root = createNativeStackNavigator<RootStackParamList>();
  * - Authenticated: routes to the role-specific navigator
  */
 export default function RootNavigator() {
-  const { isLoading, isAuthenticated, user, setUser, persistSession } = useAuthStore();
+  const { isLoading, isAuthenticated, isOtpVerified, user, setUser, persistSession } = useAuthStore();
 
   React.useEffect(() => {
     if (!isAuthenticated || !user?.uid) return;
@@ -70,6 +71,8 @@ export default function RootNavigator() {
     <Root.Navigator screenOptions={{ headerShown: false }}>
       {!isAuthenticated ? (
         <Root.Screen name="Auth" component={AuthNavigator} />
+      ) : !isOtpVerified ? (
+        <Root.Screen name="TwoFactorOtp" component={TwoFactorOtpScreen} />
       ) : (
         <>
           {/* If the user is authenticated but not active, block access unless they are the admin bypass */}

@@ -49,6 +49,7 @@ export const ExpenseModal = ({
     string | null
   >(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState("");
 
   // Initialize or Load Draft
   useEffect(() => {
@@ -94,6 +95,7 @@ export const ExpenseModal = ({
       setDescription("");
       setAttachment(null);
     }
+    setErrorMessage("");
     onClose();
   };
 
@@ -117,7 +119,6 @@ export const ExpenseModal = ({
   };
 
   const executeSubmit = async () => {
-    setIsSubmitting(true);
     try {
       if (expenseToEdit) {
         await updateExpenseRequest(
@@ -155,15 +156,27 @@ export const ExpenseModal = ({
   };
 
   const handleSubmit = async () => {
-    if (!amount || !description || !date) {
-      Alert.alert("Error", "Please fill all required fields");
+    if (isSubmitting) return;
+    
+    setErrorMessage("");
+
+    const missing = [];
+    if (!amount) missing.push("Amount");
+    if (!date) missing.push("Date");
+    if (!description) missing.push("Description");
+    if (!attachment && !existingAttachmentUrl) missing.push("Attachment (Bill/Photo)");
+
+    if (missing.length > 0) {
+      setErrorMessage(`Please provide: ${missing.join(", ")}`);
       return;
     }
 
     if (isNaN(parseFloat(amount))) {
-      Alert.alert("Error", "Amount must be a valid number");
+      setErrorMessage("Amount must be a valid number.");
       return;
     }
+
+    setIsSubmitting(true);
 
     if (!expenseToEdit) {
       // Check for duplicates
@@ -175,19 +188,20 @@ export const ExpenseModal = ({
       );
 
       if (isDuplicate) {
+        setIsSubmitting(false);
         Alert.alert(
           "Duplicate Detected",
           "An expense with the same amount, date, and category already exists. Are you sure you want to submit?",
           [
             { text: "Cancel", style: "cancel" },
-            { text: "Submit Anyway", onPress: executeSubmit },
+            { text: "Submit Anyway", onPress: () => { setIsSubmitting(true); executeSubmit(); } },
           ],
         );
         return;
       }
     }
 
-    executeSubmit();
+    await executeSubmit();
   };
 
   return (
@@ -279,7 +293,7 @@ export const ExpenseModal = ({
               textAlignVertical="top"
             />
 
-            <Text style={styles.inputLabel}>Attachment (Optional)</Text>
+            <Text style={styles.inputLabel}>Attachment (Required)</Text>
             <TouchableOpacity style={styles.uploadBtn} onPress={pickDocument}>
               <Ionicons
                 name="cloud-upload-outline"
@@ -294,6 +308,13 @@ export const ExpenseModal = ({
                     : "Upload Bill (PDF/JPG)"}
               </Text>
             </TouchableOpacity>
+
+            {errorMessage ? (
+              <View style={styles.errorContainer}>
+                <Ionicons name="alert-circle" size={16} color={Colors.error} />
+                <Text style={styles.errorText}>{errorMessage}</Text>
+              </View>
+            ) : null}
 
             <TouchableOpacity
               style={styles.submitBtn}
@@ -406,5 +427,21 @@ const styles = StyleSheet.create({
     color: Colors.white,
     fontWeight: FontWeight.bold,
     fontSize: FontSize.md,
+  },
+  errorContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FEF2F2",
+    padding: 12,
+    borderRadius: BorderRadius.md,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    gap: 8,
+  },
+  errorText: {
+    color: Colors.error,
+    fontSize: FontSize.sm,
+    flex: 1,
   },
 });

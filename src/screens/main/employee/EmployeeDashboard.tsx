@@ -12,6 +12,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, Spacing } from "@/theme";
 import { useAuthStore } from "@/store/authStore";
+import { Image } from "react-native";
 import GradientHeader from "@/components/shared/GradientHeader";
 import AnimatedSuccessModal from "@/components/shared/AnimatedSuccessModal";
 import { useNavigation } from "@react-navigation/native";
@@ -208,7 +209,7 @@ export default function EmployeeDashboard() {
           attendanceLoc,
           '',
           selfieUri,
-          user!.email
+          user!.username
         );
         setSuccessMessage('Successfully Clocked In');
         setSuccessModalVisible(true);
@@ -293,16 +294,20 @@ export default function EmployeeDashboard() {
                 <View style={styles.notificationDot} />
               </TouchableOpacity>
               <View style={styles.avatarWrap}>
-                <Text style={styles.avatarInitials}>
-                  {user?.displayName
-                    ? user.displayName
-                        .split(" ")
-                        .map((n) => n[0])
-                        .join("")
-                        .substring(0, 2)
-                        .toUpperCase()
-                    : "EM"}
-                </Text>
+                {user?.photoURL ? (
+                  <Image source={{ uri: user.photoURL }} style={{ width: 36, height: 36, borderRadius: 18 }} />
+                ) : (
+                  <Text style={styles.avatarInitials}>
+                    {user?.displayName
+                      ? user.displayName
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .substring(0, 2)
+                          .toUpperCase()
+                      : "EM"}
+                  </Text>
+                )}
               </View>
             </View>
           </View>

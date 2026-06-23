@@ -11,14 +11,16 @@ export type AuthMethod = 'phone' | 'email';
 
 export interface User {
   uid: string;
-  email: string | null;
+  email: string;
+  username: string;
   phoneNumber: string | null;
   displayName: string | null;
   role: UserRole;
   siteId?: string;
   managerId?: string;
-  department?: string;
+  dateOfBirth?: string;
   employeeId?: string;
+  photoURL?: string | null;
   createdAt: string;
   isActive: boolean;
 }
@@ -29,7 +31,6 @@ export type AuthStackParamList = {
   Login: undefined;
   PhoneLogin: undefined;
   OtpVerify: { phoneNumber: string; verificationId: string; isSignup?: boolean };
-  Signup: undefined;
   ForgotPassword: undefined;
 };
 
@@ -83,6 +84,7 @@ export type RootStackParamList = {
   ManagerApp: undefined;
   AdminApp: undefined;
   FinanceApp: undefined;
+  TwoFactorOtp: undefined;
   Notifications: undefined;
 };
 

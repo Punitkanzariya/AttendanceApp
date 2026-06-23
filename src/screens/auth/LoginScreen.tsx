@@ -16,13 +16,13 @@ import { z } from 'zod';
 
 import type { AuthStackParamList } from '@/types';
 import { useAuthStore } from '@/store/authStore';
-import { loginWithEmail, checkAccountLockout } from '@/firebase';
+import { loginWithEmail, checkAccountLockout, resolveUsernameToEmail } from '@/firebase';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
 const loginSchema = z.object({
-  email: z.string().min(1, 'Email is required').email('Invalid email address'),
-  password: z.string().min(1, 'Password is required').min(6, 'Minimum 6 characters'),
+  username: z.string().min(1, 'Username is required').regex(/^[^\s]+$/, 'Username cannot contain spaces'),
+  password: z.string().min(1, 'Password is required'),
 });
 
 type LoginFormValues = z.infer<typeof loginSchema>;
@@ -33,20 +33,23 @@ export default function LoginScreen() {
 
   const { control, handleSubmit, watch, formState: { errors } } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    defaultValues: { email: '', password: '' },
+    defaultValues: { username: '', password: '' },
   });
 
-  const emailValue = watch('email');
+  const usernameValue = watch('username');
   const passwordValue = watch('password');
 
-  const [showPass, setShowPass]   = useState(false);
+  const [username, setUsername]   = useState('');
+  const [password, setPassword] = useState('');
+  const [showPass, setShowPass] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
-  const [focused, setFocused]     = useState<string | null>(null);
+  const [focused, setFocused]   = useState<'username' | 'password' | null>(null);
   const [generalError, setGeneralError] = useState<string | null>(null);
 
   const [hasBiometrics, setHasBiometrics] = useState(false);
   const [lockout, setLockout]             = useState<{ locked: boolean; mins: number } | null>(null);
 
+  const usernameRef = useRef<TextInput>(null);
   const passwordRef = useRef<TextInput>(null);
   const lockAnim    = useRef(new Animated.Value(0)).current;
   const formOpacity = useRef(new Animated.Value(0)).current;
@@ -68,15 +71,16 @@ export default function LoginScreen() {
     })();
   }, []);
 
-  // 2. Pre-check lockout status if email changes (debounced)
+  // 2. Pre-check lockout status if username changes (debounced)
   useEffect(() => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailValue || !emailRegex.test(emailValue)) {
+    if (!username) {
       setLockout(null);
       return;
     }
     const timer = setTimeout(async () => {
-      const status = await checkAccountLockout(emailValue);
+      const inputVal = username.toLowerCase().trim();
+      const loginIdentifier = await resolveUsernameToEmail(inputVal) || inputVal;
+      const status = await checkAccountLockout(loginIdentifier);
       if (status.isLocked) {
         setLockout({ locked: true, mins: Math.ceil(status.remainingMs / 60000) });
         Animated.spring(lockAnim, { toValue: 1, useNativeDriver: true }).start();
@@ -85,7 +89,7 @@ export default function LoginScreen() {
       }
     }, 500);
     return () => clearTimeout(timer);
-  }, [emailValue]);
+  }, [username]);
 
   const onSubmit = async (data: LoginFormValues) => {
     if (lockout?.locked) return;
@@ -93,10 +97,13 @@ export default function LoginScreen() {
     setIsLoading(true);
     setGeneralError(null);
     try {
-      const result = await loginWithEmail(data.email, data.password);
+      const inputVal = data.username.toLowerCase().trim();
+      const loginIdentifier = await resolveUsernameToEmail(inputVal) || inputVal;
+      
+      const result = await loginWithEmail(loginIdentifier, data.password);
       // Save credentials for subsequent biometric logins
       await AsyncStorage.setItem('biometric_credentials', JSON.stringify({
-        email: data.email,
+        username: data.username,
         password: data.password
       }));
       await persistSession(result.user);
@@ -120,15 +127,17 @@ export default function LoginScreen() {
       if (!credsRaw) {
         Alert.alert(
           'Biometrics Not Configured',
-          'Please sign in with your email and password first to enable biometric login.'
+          'Please sign in with your username and password first to enable biometric login.'
         );
         return;
       }
 
       const creds = JSON.parse(credsRaw);
+      const credInput = creds.username.toLowerCase().trim();
+      const loginIdentifier = await resolveUsernameToEmail(credInput) || credInput;
       
       // 2. Pre-check lockout status
-      const status = await checkAccountLockout(creds.email);
+      const status = await checkAccountLockout(loginIdentifier);
       if (status.isLocked) {
         const mins = Math.ceil(status.remainingMs / 60000);
         setLockout({ locked: true, mins });
@@ -147,7 +156,7 @@ export default function LoginScreen() {
         setIsLoading(true);
         setGeneralError(null);
         try {
-          const loginResult = await loginWithEmail(creds.email, creds.password);
+          const loginResult = await loginWithEmail(loginIdentifier, creds.password);
           await persistSession(loginResult.user);
         } catch (err: any) {
           if (err.message?.startsWith('ACCOUNT_LOCKED')) {
@@ -163,7 +172,8 @@ export default function LoginScreen() {
       }
     } catch (err) {
       console.log('Biometric error', err);
-      Alert.alert('Error', 'Failed to authenticate with biometrics.');
+      Alert.alert('Validation Error', 'Please enter your username.');
+      return false;
     }
   };
 
@@ -203,34 +213,33 @@ export default function LoginScreen() {
 
             {/* Form */}
             <View style={styles.form}>
-              {/* Email */}
+              {/* Username */}
               <View style={styles.field}>
-                <Text style={styles.label}>Work Email</Text>
-                <View style={[styles.inputRow, { borderColor: border('email') }, lockout?.locked && styles.inputDisabled]}>
-                  <Ionicons name="mail-outline" size={18} color={focused === 'email' ? '#2563EB' : '#94A3B8'} style={styles.icon} />
+                <Text style={styles.label}>Username</Text>
+                <View style={[styles.inputRow, { borderColor: border('username') }, lockout?.locked && styles.inputDisabled]}>
+                  <Ionicons name="person-outline" size={18} color={focused === 'username' ? '#2563EB' : '#94A3B8'} style={styles.icon} />
                   <Controller
                     control={control}
-                    name="email"
+                    name="username"
                     render={({ field: { onChange, onBlur, value } }) => (
                       <TextInput
                         style={styles.input}
-                        placeholder="you@company.com"
+                        placeholder="Enter your username"
                         placeholderTextColor="#CBD5E1"
-                        keyboardType="email-address"
                         autoCapitalize="none"
                         returnKeyType="next"
                         editable={!lockout?.locked}
                         value={value}
-                        onChangeText={(v) => { onChange(v); setGeneralError(null); }}
-                        onFocus={() => setFocused('email')}
+                        onChangeText={(v) => { onChange(v); setUsername(v); setGeneralError(null); }}
+                        onFocus={() => setFocused('username')}
                         onBlur={() => { onBlur(); setFocused(null); }}
                         onSubmitEditing={() => passwordRef.current?.focus()}
                       />
                     )}
                   />
-                  {emailValue.length > 0 && !errors.email && <Ionicons name="checkmark-circle" size={18} color="#10B981" />}
+                  {usernameValue.length > 0 && !errors.username && <Ionicons name="checkmark-circle" size={18} color="#10B981" />}
                 </View>
-                {errors.email ? <Text style={styles.err}>{errors.email.message}</Text> : null}
+                {errors.username && <Text style={styles.err}>{errors.username.message}</Text>}
               </View>
 
               {/* Password */}
@@ -274,9 +283,9 @@ export default function LoginScreen() {
             {/* Sign In & Biometrics */}
             <View style={styles.btnRow}>
               <TouchableOpacity
-                style={[styles.btnPrimary, (!emailValue || !passwordValue || isLoading || lockout?.locked) && styles.btnDisabled]}
+                style={[styles.btnPrimary, (!usernameValue || !passwordValue || isLoading || lockout?.locked) && styles.btnDisabled]}
                 onPress={handleSubmit(onSubmit)}
-                disabled={!emailValue || !passwordValue || isLoading || lockout?.locked}
+                disabled={!usernameValue || !passwordValue || isLoading || lockout?.locked}
                 activeOpacity={0.88}
               >
                 {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPrimaryText}>Sign In</Text>}
@@ -304,13 +313,6 @@ export default function LoginScreen() {
               <Text style={styles.btnOutlineTxt}>Sign in with OTP</Text>
             </TouchableOpacity>
 
-            {/* Sign up */}
-            <View style={styles.signupRow}>
-              <Text style={styles.signupTxt}>Don't have an account?</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('Signup')}>
-                <Text style={styles.signupLink}> Create Account</Text>
-              </TouchableOpacity>
-            </View>
           </Animated.View>
         </ScrollView>
       </KeyboardAvoidingView>

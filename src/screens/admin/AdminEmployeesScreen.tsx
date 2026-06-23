@@ -38,7 +38,7 @@ export default function AdminEmployeesScreen() {
     // Realtime listener will automatically update the list
   };
 
-  const handleAddUser = async (params: { fullName: string; email: string; phone: string; role: UserRole; password?: string }) => {
+  const handleAddUser = async (params: { fullName: string; email: string; username: string; phone: string; role: UserRole; password?: string }) => {
     await createEmployeeByAdmin(params);
     // Realtime listener will automatically pick up the new user
   };
@@ -63,7 +63,7 @@ export default function AdminEmployeesScreen() {
         </View>
         <View style={styles.info}>
           <Text style={styles.name}>{item.displayName || 'Unnamed User'}</Text>
-          <Text style={styles.email}>{item.email}</Text>
+          <Text style={styles.email}>@{item.username}</Text>
           <View style={styles.badges}>
             <View style={[styles.badge, { backgroundColor: Colors.primaryLight }]}>
               <Text style={[styles.badgeTxt, { color: Colors.primary }]}>{item.role.replace('_', ' ')}</Text>

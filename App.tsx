@@ -6,14 +6,38 @@ import { StyleSheet } from 'react-native';
 
 import RootNavigator from './src/navigation/RootNavigator';
 import { useAuthStore } from './src/store/authStore';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from './src/firebase/config';
+import type { User } from './src/types';
 
 export default function App() {
   const restoreSession = useAuthStore((s) => s.restoreSession);
+  const user = useAuthStore((s) => s.user);
+  const updateUser = useAuthStore((s) => s.updateUser);
 
   // On mount, restore any persisted session from SecureStore
   useEffect(() => {
     restoreSession();
   }, []);
+
+  // Listen to profile updates in real-time
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = onSnapshot(doc(db, 'employees', user.uid), (snap) => {
+      if (snap.exists()) {
+        const data = snap.data();
+        const updatedUser: User = {
+          ...user,
+          ...data,
+          role: data.role || user.role,
+        };
+        // Update store with new data (like photoURL)
+        // using updateUser to preserve existing session state (like isOtpVerified)
+        updateUser(updatedUser);
+      }
+    });
+    return () => unsub();
+  }, [user?.uid]);
 
   return (
     <GestureHandlerRootView style={styles.root}>

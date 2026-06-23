@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Alert, TextInput, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, Alert, TextInput, ActivityIndicator, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import type { UserRole } from '@/types';
@@ -7,7 +7,8 @@ import type { UserRole } from '@/types';
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onAdd: (params: { fullName: string; email: string; phone: string; role: UserRole; password?: string }) => Promise<void>;
+  onAdd: (user: { fullName: string; email: string; username: string; phone: string; role: UserRole; password?: string }) => Promise<void>;
+  isSaving?: boolean;
 }
 
 const ROLES: { label: string; value: UserRole }[] = [
@@ -21,6 +22,7 @@ const ROLES: { label: string; value: UserRole }[] = [
 export default function EmployeeAddModal({ visible, onClose, onAdd }: Props) {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<UserRole>('employee');
@@ -31,6 +33,7 @@ export default function EmployeeAddModal({ visible, onClose, onAdd }: Props) {
     if (visible) {
       setFullName('');
       setEmail('');
+      setUsername('');
       setPhone('');
       setPassword('');
       setRole('employee');
@@ -38,8 +41,14 @@ export default function EmployeeAddModal({ visible, onClose, onAdd }: Props) {
   }, [visible]);
 
   const handleSave = async () => {
-    if (!fullName.trim() || !email.trim()) {
-      Alert.alert('Validation Error', 'Full Name and Email are required.');
+    if (!fullName.trim() || !username.trim() || !email.trim()) {
+      Alert.alert('Validation Error', 'Full Name, Email and Username are required.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email.trim())) {
+      Alert.alert('Error', 'Please enter a valid email address');
       return;
     }
 
@@ -48,6 +57,7 @@ export default function EmployeeAddModal({ visible, onClose, onAdd }: Props) {
       await onAdd({
         fullName,
         email,
+        username,
         phone,
         role,
         password: password.trim() ? password : undefined, // Will use default if empty
@@ -92,10 +102,23 @@ export default function EmployeeAddModal({ visible, onClose, onAdd }: Props) {
                 <Ionicons name="mail-outline" size={20} color={Colors.text.tertiary} />
                 <TextInput
                   style={styles.input}
-                  placeholder="john@techsture.com"
+                  placeholder="e.g. rahul@techsture.com"
                   value={email}
                   onChangeText={setEmail}
+                  autoCapitalize="none"
                   keyboardType="email-address"
+                  editable={!isSaving}
+                />
+              </View>
+
+              <Text style={styles.label}>Username *</Text>
+              <View style={styles.inputBox}>
+                <Ionicons name="person-circle-outline" size={20} color={Colors.text.tertiary} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="e.g. rahul_123"
+                  value={username}
+                  onChangeText={setUsername}
                   autoCapitalize="none"
                   editable={!isSaving}
                 />
@@ -233,13 +256,23 @@ const styles = StyleSheet.create({
     height: 48,
     marginBottom: Spacing.xs,
   },
-  input: {
-    flex: 1,
-    marginLeft: Spacing.sm,
-    fontSize: FontSize.md,
-    color: Colors.text.primary,
-    height: '100%',
-  },
+  input: Platform.select({
+    web: {
+      flex: 1,
+      marginLeft: Spacing.sm,
+      fontSize: FontSize.md,
+      color: Colors.text.primary,
+      height: '100%',
+      outlineStyle: 'none',
+    } as any,
+    default: {
+      flex: 1,
+      marginLeft: Spacing.sm,
+      fontSize: FontSize.md,
+      color: Colors.text.primary,
+      height: '100%',
+    }
+  }),
   roleGrid: {
     marginTop: Spacing.xs,
     gap: Spacing.sm,

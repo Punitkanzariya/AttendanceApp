@@ -5,20 +5,27 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Image,
+  ActivityIndicator,
+  Alert,
 } from "react-native";
+import * as ImagePicker from "expo-image-picker";
+import { updateProfile } from "firebase/auth";
+import { auth } from "@/firebase/config";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuthStore } from "@/store/authStore";
 import { Colors, Spacing, BorderRadius } from "@/theme";
 import GradientHeader from "@/components/shared/GradientHeader";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
 
 export default function ProfileScreen() {
   const { user, logout } = useAuthStore();
   const navigation = useNavigation<any>();
   const [managerName, setManagerName] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
 
   useEffect(() => {
     if (!user?.managerId) {
@@ -77,6 +84,39 @@ export default function ProfileScreen() {
     }
   };
 
+  const handlePickImage = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.5,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets[0].base64) {
+        setIsUploading(true);
+        const base64Uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+
+        if (auth.currentUser) {
+          // Update Firestore (Bypass Firebase Auth photoURL length limit)
+          await updateDoc(doc(db, "employees", user!.uid), {
+            photoURL: base64Uri,
+          });
+
+          // Update local state
+          const updatedUser = { ...user!, photoURL: base64Uri };
+          useAuthStore.setState({ user: updatedUser });
+        }
+      }
+    } catch (error) {
+      console.error("Error updating profile picture", error);
+      Alert.alert("Error", "Failed to update profile picture");
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea} edges={["top"]}>
       <View style={styles.root}>
@@ -105,18 +145,32 @@ export default function ProfileScreen() {
               <Ionicons name="arrow-back" size={20} color="#111" />
             </TouchableOpacity>
 
-            <View style={styles.avatar}>
-              <Text style={styles.avatarText}>
-                {getInitials(user?.displayName)}
-              </Text>
-            </View>
+            <TouchableOpacity 
+              style={styles.avatar} 
+              onPress={handlePickImage} 
+              activeOpacity={0.8}
+              disabled={isUploading}
+            >
+              {isUploading ? (
+                <ActivityIndicator color={Colors.primary} />
+              ) : user?.photoURL ? (
+                <Image source={{ uri: user.photoURL }} style={styles.avatarImage} />
+              ) : (
+                <Text style={styles.avatarText}>
+                  {getInitials(user?.displayName)}
+                </Text>
+              )}
+              <View style={styles.cameraBadge}>
+                <Ionicons name="camera" size={12} color="#FFFFFF" />
+              </View>
+            </TouchableOpacity>
             <Text style={styles.profileName}>
               {user?.displayName || "Your account"}
             </Text>
             <Text style={styles.profilePhone}>
               {user?.phoneNumber || "N/A"}
             </Text>
-            <Text style={styles.profilePhone}>{user?.email || "N/A"}</Text>
+            <Text style={styles.profilePhone}>@{user?.username || "N/A"}</Text>
           </View>
 
           {/* Profile Details */}
@@ -126,10 +180,9 @@ export default function ProfileScreen() {
                 "Employee Code",
                 user?.employeeId || user?.uid.slice(0, 8).toUpperCase() || "EMP001",
               )}
-              {renderRow("Department", user?.department || "N/A")}
+              {renderRow("Date of Birth", user?.dateOfBirth || "N/A")}
               {renderRow("Job Position", formatRole(user?.role))}
-              {renderRow("Manager", managerName || "Not Assigned")}
-              {renderRow("Joined Date", formatJoinedDate(user?.createdAt), true)}
+              {renderRow("Manager", managerName || "Not Assigned", true)}
             </View>
           </View>
 
@@ -216,6 +269,24 @@ const styles = StyleSheet.create({
     fontSize: 32,
     fontWeight: "bold",
     color: Colors.primary,
+  },
+  avatarImage: {
+    width: "100%",
+    height: "100%",
+    borderRadius: 40,
+  },
+  cameraBadge: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    backgroundColor: Colors.primary,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+    borderColor: Colors.white,
   },
   detailsContainer: {
     gap: 0,

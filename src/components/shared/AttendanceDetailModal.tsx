@@ -397,12 +397,18 @@ export default function AttendanceDetailModal({
                 
                 {/* Full GPS Watermark Overlay */}
                 <View style={styles.previewWatermark}>
-                  <Text style={styles.previewWatermarkAddress}>
-                    📍 {previewSelfie.location?.address || 'GPS Location'}
-                  </Text>
-                  <Text style={styles.previewWatermarkMeta}>
-                    🕒 {formatTime(previewSelfie.timestamp)} | Lat: {previewSelfie.location?.latitude?.toFixed(6) || 'N/A'}, Lon: {previewSelfie.location?.longitude?.toFixed(6) || 'N/A'}
-                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 4 }}>
+                    <Ionicons name="location" size={14} color="#F87171" style={{ marginTop: 1 }} />
+                    <Text style={[styles.previewWatermarkAddress, { flex: 1 }]}>
+                      {previewSelfie.location?.address || 'GPS Location'}
+                    </Text>
+                  </View>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Ionicons name="time-outline" size={14} color="#CBD5E1" />
+                    <Text style={[styles.previewWatermarkMeta, { marginTop: 0, flex: 1 }]}>
+                      {formatTime(previewSelfie.timestamp)} | Lat: {previewSelfie.location?.latitude?.toFixed(6) || 'N/A'}, Lon: {previewSelfie.location?.longitude?.toFixed(6) || 'N/A'}
+                    </Text>
+                  </View>
                 </View>
               </View>
             </View>
