@@ -49,7 +49,7 @@ export default function PhoneLoginScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="always" showsVerticalScrollIndicator={false}>
 
           {/* Static Logo */}
           <View style={{ alignItems: 'center' }}>
@@ -115,12 +115,13 @@ export default function PhoneLoginScreen() {
             <Text style={[styles.progressTxt, { color: isValid ? '#10B981' : '#94A3B8' }]}>{phone.length}/10</Text>
           </View>
 
-          {/* Send OTP */}
           <TouchableOpacity
-            style={[styles.btnPrimary, !isValid && styles.btnDisabled]}
-            onPress={handleSend} disabled={!isValid || isLoading} activeOpacity={0.88}
+                style={{ width: '100%' }}
+                onPress={handleSend} disabled={!isValid || isLoading} activeOpacity={0.88}
           >
-            {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPrimaryText}>Send OTP</Text>}
+            <View style={[styles.btnPrimary, !isValid && styles.btnDisabled]}>
+              {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPrimaryText}>Send OTP</Text>}
+            </View>
           </TouchableOpacity>
 
           {/* Or email */}
@@ -128,8 +129,8 @@ export default function PhoneLoginScreen() {
             <View style={styles.divLine} /><Text style={styles.divTxt}>or</Text><View style={styles.divLine} />
           </View>
           <TouchableOpacity style={styles.btnOutline} onPress={() => navigation.navigate('Login')} activeOpacity={0.88}>
-            <Ionicons name="mail-outline" size={18} color="#2563EB" />
-            <Text style={styles.btnOutlineTxt}>Sign In with Email</Text>
+            <Ionicons name="person-outline" size={18} color="#2563EB" />
+            <Text style={styles.btnOutlineTxt}>Sign in with Username / Email</Text>
           </TouchableOpacity>
 
           <Text style={styles.terms}>
@@ -191,6 +192,7 @@ const styles = StyleSheet.create({
   progressTxt: { fontSize: 11, fontWeight: '600', width: 28, textAlign: 'right' },
 
   btnPrimary: {
+    width: '100%',
     backgroundColor: '#2563EB', borderRadius: 14, height: 52,
     alignItems: 'center', justifyContent: 'center', marginBottom: 20,
     shadowColor: '#2563EB', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 8,
@@ -203,6 +205,7 @@ const styles = StyleSheet.create({
   divTxt: { fontSize: 12, color: '#94A3B8' },
 
   btnOutline: {
+    width: '100%',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
     borderWidth: 1.5, borderColor: '#DBEAFE', borderRadius: 14, height: 52,
     backgroundColor: '#EFF6FF', marginBottom: 24,

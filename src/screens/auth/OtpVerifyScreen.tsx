@@ -120,7 +120,7 @@ export default function OtpVerifyScreen() {
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <ScrollView
           contentContainerStyle={styles.scroll}
-          keyboardShouldPersistTaps="handled"
+          keyboardShouldPersistTaps="always"
           showsVerticalScrollIndicator={false}
         >
           {/* Static Logo */}
@@ -214,15 +214,17 @@ export default function OtpVerifyScreen() {
 
           {/* Verify Button */}
           <TouchableOpacity
-            style={[styles.btnPrimary, (!isComplete || lockedOut) && styles.btnDisabled]}
-            onPress={handleVerify}
-            disabled={!isComplete || isLoading || lockedOut}
-            activeOpacity={0.88}
+                style={{ width: '100%' }}
+                onPress={handleVerify}
+                disabled={!isComplete || isLoading || lockedOut}
+                activeOpacity={0.88}
           >
-            {isLoading
-              ? <ActivityIndicator color="#fff" />
-              : <Text style={styles.btnTxt}>Verify & Sign In</Text>
-            }
+            <View style={[styles.btnPrimary, (!isComplete || lockedOut) && styles.btnDisabled]}>
+              {isLoading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={styles.btnTxt}>Verify & Sign In</Text>
+              }
+            </View>
           </TouchableOpacity>
 
           {/* Change number */}
@@ -299,6 +301,7 @@ const styles = StyleSheet.create({
   attemptsTxt: { fontSize: 12, color: '#EF4444', marginTop: 10 },
 
   btnPrimary: {
+    width: '100%',
     backgroundColor: '#2563EB', borderRadius: 14, height: 52,
     alignItems: 'center', justifyContent: 'center', marginBottom: 16,
     shadowColor: '#2563EB', shadowOffset: { width: 0, height: 6 },

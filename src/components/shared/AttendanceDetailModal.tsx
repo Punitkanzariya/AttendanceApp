@@ -13,9 +13,12 @@ import {
   Linking,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, Spacing, BorderRadius } from '@/theme';
 import type { AttendanceRecord, AttendanceLocation } from '@/types';
+import { subscribeToUserAttendanceHistory } from '@/firebase';
+import UserMonthCalendar from './UserMonthCalendar';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -28,8 +31,13 @@ interface AttendanceDetailModalProps {
 export default function AttendanceDetailModal({
   visible,
   onClose,
-  record,
+  record: initialRecord,
 }: AttendanceDetailModalProps) {
+  const [activeRecord, setActiveRecord] = useState<AttendanceRecord | null>(null);
+
+  useEffect(() => {
+    setActiveRecord(initialRecord);
+  }, [initialRecord]);
   const [previewSelfie, setPreviewSelfie] = useState<{
     url: string;
     location: AttendanceLocation | null;
@@ -39,19 +47,35 @@ export default function AttendanceDetailModal({
   const [employeeEmail, setEmployeeEmail] = useState<string | null>(null);
   const [imageAspectRatio, setImageAspectRatio] = useState<number>(3 / 4);
 
+  const [userHistory, setUserHistory] = useState<AttendanceRecord[]>([]);
+
   useEffect(() => {
-    if (!record) {
+    if (!initialRecord?.employeeId) {
+      setUserHistory([]);
+      return;
+    }
+    
+    // Fetch full history for the calendar
+    const unsub = subscribeToUserAttendanceHistory(initialRecord.employeeId, (records) => {
+      setUserHistory(records);
+    });
+
+    return () => unsub();
+  }, [initialRecord?.employeeId]);
+
+  useEffect(() => {
+    if (!activeRecord) {
       setEmployeeEmail(null);
       return;
     }
-    if (record.employeeEmail) {
-      setEmployeeEmail(record.employeeEmail);
+    if (activeRecord.employeeEmail) {
+      setEmployeeEmail(activeRecord.employeeEmail);
       return;
     }
     
     const fetchEmail = async () => {
       try {
-        const userDocRef = doc(db, 'employees', record.employeeId);
+        const userDocRef = doc(db, 'employees', activeRecord.employeeId);
         const docSnap = await getDoc(userDocRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -64,7 +88,7 @@ export default function AttendanceDetailModal({
       }
     };
     fetchEmail();
-  }, [record]);
+  }, [activeRecord]);
 
   useEffect(() => {
     if (previewSelfie?.url) {
@@ -83,7 +107,7 @@ export default function AttendanceDetailModal({
     }
   }, [previewSelfie]);
 
-  if (!record) return null;
+  if (!activeRecord) return null;
 
   const formatTime = (isoString?: string) => {
     if (!isoString) return '--:--';
@@ -130,22 +154,29 @@ export default function AttendanceDetailModal({
     });
   };
 
-  const badge = getVerificationBadgeStyles(record.verificationStatus);
+  const badge = getVerificationBadgeStyles(activeRecord.verificationStatus);
+
+  const handleDateClick = (dateStr: string) => {
+    const found = userHistory.find(r => r.dateStr === dateStr);
+    if (found) {
+      setActiveRecord(found);
+    }
+  };
 
   return (
     <Modal
       visible={visible}
       animationType="slide"
-      transparent={true}
+      transparent={false}
       onRequestClose={onClose}
     >
-      <View style={styles.backdrop}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#FFFFFF' }}>
         <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
             <View>
               <Text style={styles.headerTitle}>Attendance Details</Text>
-              <Text style={styles.headerSubtitle}>{formatDate(record.dateStr)}</Text>
+              <Text style={styles.headerSubtitle}>{formatDate(activeRecord.dateStr)}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Ionicons name="close" size={24} color={Colors.text.primary} />
@@ -159,7 +190,7 @@ export default function AttendanceDetailModal({
             {/* Employee Name & Verification Status */}
             <View style={styles.metaRow}>
               <View style={{ flex: 1, marginRight: 10 }}>
-                <Text style={styles.empName}>{record.employeeName}</Text>
+                <Text style={styles.empName}>{activeRecord.employeeName}</Text>
                 {employeeEmail ? (
                   <Text style={styles.empIdLabel} numberOfLines={1} ellipsizeMode="tail">
                     {employeeEmail}
@@ -172,13 +203,26 @@ export default function AttendanceDetailModal({
             </View>
 
             {/* Total Work Hours Summary (Compact Row) */}
-            {record.checkOut && (
+            {activeRecord.checkOut && (
               <View style={styles.hoursCardCompact}>
                 <Ionicons name="time" size={16} color="#1565C0" />
                 <Text style={styles.hoursLabelCompact}>TOTAL WORKING HOURS:</Text>
-                <Text style={styles.hoursValueCompact}>{record.workingHours} hrs</Text>
+                <Text style={styles.hoursValueCompact}>{activeRecord.workingHours} hrs</Text>
               </View>
             )}
+
+            {/* Monthly Calendar View for User */}
+            <View style={{ marginBottom: Spacing.md }}>
+              <Text style={[styles.sectionTitle, { marginBottom: 8, color: '#334155' }]}>
+                Attendance Calendar
+              </Text>
+              <UserMonthCalendar 
+                records={userHistory} 
+                selectedDate={new Date(initialRecord?.dateStr || new Date().toISOString())} 
+                activeDateStr={activeRecord.dateStr}
+                onDateClick={handleDateClick}
+              />
+            </View>
 
             {/* Clock In Details */}
             <View style={styles.sectionCard}>
@@ -189,7 +233,7 @@ export default function AttendanceDetailModal({
                 <Text style={[styles.sectionTitle, { color: '#2E7D32' }]}>Clock In Details</Text>
               </View>
 
-              {record.checkIn ? (
+              {activeRecord.checkIn ? (
                 <View style={styles.compactRow}>
                   {/* Left Side: Info */}
                   <View style={styles.compactInfoCol}>
@@ -199,31 +243,31 @@ export default function AttendanceDetailModal({
                       </View>
                       <View style={styles.metaTextWrapper}>
                         <Text style={styles.compactMetaValue}>
-                          <Text style={styles.boldLabel}>Time: </Text>{formatTime(record.checkIn.timestamp)}
+                          <Text style={styles.boldLabel}>Time: </Text>{formatTime(activeRecord.checkIn.timestamp)}
                         </Text>
                         <View style={styles.deviceMetaInline}>
                           <Ionicons name="hardware-chip-outline" size={14} color={Colors.text.secondary} />
                           <Text style={[styles.compactMetaValue, { marginLeft: 4 }]} numberOfLines={1} ellipsizeMode="tail">
-                            {record.checkIn.deviceInfo || 'Unknown'}
+                            {activeRecord.checkIn.deviceInfo || 'Unknown'}
                           </Text>
                         </View>
                       </View>
                     </View>
 
                     {/* Address Line with Map Button */}
-                    {record.checkIn.location && (
+                    {activeRecord.checkIn.location && (
                       <View style={styles.compactAddressRow}>
                         <View style={styles.iconContainer18}>
                           <Ionicons name="location-outline" size={15} color={Colors.text.secondary} style={{ marginTop: 1 }} />
                         </View>
                         <View style={styles.addressTextWrapper}>
                           <Text style={styles.compactAddressText}>
-                            {record.checkIn.location.address}
+                            {activeRecord.checkIn.location.address}
                           </Text>
                           <TouchableOpacity
                             style={styles.mapBtn}
                             activeOpacity={0.7}
-                            onPress={() => openMap(record.checkIn!.location!.latitude, record.checkIn!.location!.longitude, 'Clock In Location')}
+                            onPress={() => openMap(activeRecord.checkIn!.location!.latitude, activeRecord.checkIn!.location!.longitude, 'Clock In Location')}
                           >
                             <Ionicons name="map-outline" size={14} color="#1E88E5" />
                             <Text style={styles.mapBtnTxt}>View on Map</Text>
@@ -234,18 +278,18 @@ export default function AttendanceDetailModal({
                   </View>
 
                   {/* Right Side: Selfie Thumbnail */}
-                  {record.checkIn.selfieUrl ? (
+                  {activeRecord.checkIn.selfieUrl ? (
                     <TouchableOpacity
                       activeOpacity={0.85}
                       onPress={() => setPreviewSelfie({
-                        url: record.checkIn!.selfieUrl!,
-                        location: record.checkIn!.location,
-                        timestamp: record.checkIn!.timestamp
+                        url: activeRecord.checkIn!.selfieUrl!,
+                        location: activeRecord.checkIn!.location,
+                        timestamp: activeRecord.checkIn!.timestamp
                       })}
                       style={styles.thumbnailWrapper}
                     >
                       <Image
-                        source={{ uri: record.checkIn.selfieUrl }}
+                        source={{ uri: activeRecord.checkIn.selfieUrl }}
                         style={styles.thumbnailImage}
                         resizeMode="cover"
                       />
@@ -265,10 +309,10 @@ export default function AttendanceDetailModal({
               )}
 
               {/* Remark */}
-              {record.checkIn && !!record.checkIn.remark && (
+              {activeRecord.checkIn && !!activeRecord.checkIn.remark && (
                 <View style={styles.remarkBoxCompact}>
                   <Text style={styles.remarkLabelCompact}>Remark: </Text>
-                  <Text style={styles.remarkTextCompact}>"{record.checkIn.remark}"</Text>
+                  <Text style={styles.remarkTextCompact}>"{activeRecord.checkIn.remark}"</Text>
                 </View>
               )}
             </View>
@@ -282,7 +326,7 @@ export default function AttendanceDetailModal({
                 <Text style={[styles.sectionTitle, { color: '#C62828' }]}>Clock Out Details</Text>
               </View>
 
-              {record.checkOut ? (
+              {activeRecord.checkOut ? (
                 <View style={styles.compactRow}>
                   {/* Left Side: Info */}
                   <View style={styles.compactInfoCol}>
@@ -292,31 +336,31 @@ export default function AttendanceDetailModal({
                       </View>
                       <View style={styles.metaTextWrapper}>
                         <Text style={styles.compactMetaValue}>
-                          <Text style={styles.boldLabel}>Time: </Text>{formatTime(record.checkOut.timestamp)}
+                          <Text style={styles.boldLabel}>Time: </Text>{formatTime(activeRecord.checkOut.timestamp)}
                         </Text>
                         <View style={styles.deviceMetaInline}>
                           <Ionicons name="hardware-chip-outline" size={14} color={Colors.text.secondary} />
                           <Text style={[styles.compactMetaValue, { marginLeft: 4 }]} numberOfLines={1} ellipsizeMode="tail">
-                            {record.checkOut.deviceInfo || 'Unknown'}
+                            {activeRecord.checkOut.deviceInfo || 'Unknown'}
                           </Text>
                         </View>
                       </View>
                     </View>
 
                     {/* Address Line with Map Button */}
-                    {record.checkOut.location && (
+                    {activeRecord.checkOut.location && (
                       <View style={styles.compactAddressRow}>
                         <View style={styles.iconContainer18}>
                           <Ionicons name="location-outline" size={15} color={Colors.text.secondary} style={{ marginTop: 1 }} />
                         </View>
                         <View style={styles.addressTextWrapper}>
                           <Text style={styles.compactAddressText}>
-                            {record.checkOut.location.address}
+                            {activeRecord.checkOut.location.address}
                           </Text>
                           <TouchableOpacity
                             style={styles.mapBtn}
                             activeOpacity={0.7}
-                            onPress={() => openMap(record.checkOut!.location!.latitude, record.checkOut!.location!.longitude, 'Clock Out Location')}
+                            onPress={() => openMap(activeRecord.checkOut!.location!.latitude, activeRecord.checkOut!.location!.longitude, 'Clock Out Location')}
                           >
                             <Ionicons name="map-outline" size={14} color="#1E88E5" />
                             <Text style={styles.mapBtnTxt}>View on Map</Text>
@@ -327,18 +371,18 @@ export default function AttendanceDetailModal({
                   </View>
 
                   {/* Right Side: Selfie Thumbnail */}
-                  {record.checkOut.selfieUrl ? (
+                  {activeRecord.checkOut.selfieUrl ? (
                     <TouchableOpacity
                       activeOpacity={0.85}
                       onPress={() => setPreviewSelfie({
-                        url: record.checkOut!.selfieUrl!,
-                        location: record.checkOut!.location,
-                        timestamp: record.checkOut!.timestamp
+                        url: activeRecord.checkOut!.selfieUrl!,
+                        location: activeRecord.checkOut!.location,
+                        timestamp: activeRecord.checkOut!.timestamp
                       })}
                       style={styles.thumbnailWrapper}
                     >
                       <Image
-                        source={{ uri: record.checkOut.selfieUrl }}
+                        source={{ uri: activeRecord.checkOut.selfieUrl }}
                         style={styles.thumbnailImage}
                         resizeMode="cover"
                       />
@@ -355,21 +399,21 @@ export default function AttendanceDetailModal({
                 </View>
               ) : (
                 <Text style={styles.emptySectionText}>
-                  {record.checkIn ? 'Shift still in progress (Active)' : 'No Clock Out record'}
+                  {activeRecord.checkIn ? 'Shift still in progress (Active)' : 'No Clock Out record'}
                 </Text>
               )}
 
               {/* Remark */}
-              {record.checkOut && !!record.checkOut.remark && (
+              {activeRecord.checkOut && !!activeRecord.checkOut.remark && (
                 <View style={styles.remarkBoxCompact}>
                   <Text style={styles.remarkLabelCompact}>Remark: </Text>
-                  <Text style={styles.remarkTextCompact}>"{record.checkOut.remark}"</Text>
+                  <Text style={styles.remarkTextCompact}>"{activeRecord.checkOut.remark}"</Text>
                 </View>
               )}
             </View>
           </ScrollView>
         </View>
-      </View>
+      </SafeAreaView>
 
       {/* Fullscreen Selfie Preview Modal */}
       {previewSelfie && (
@@ -427,9 +471,7 @@ const styles = StyleSheet.create({
   },
   container: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: BorderRadius.xl,
-    borderTopRightRadius: BorderRadius.xl,
-    height: '80%', // Made slightly shorter and more compact
+    flex: 1,
     width: '100%',
   },
   header: {

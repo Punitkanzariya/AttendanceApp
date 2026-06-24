@@ -95,6 +95,108 @@ export default function EmployeeAttendanceScreen() {
     return d.getMonth() === selectedDate.getMonth() && d.getFullYear() === selectedDate.getFullYear();
   });
 
+  const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+
+  const getDayStatus = (year: number, month: number, day: number) => {
+    const dateObj = new Date(year, month, day);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    if (dateObj > today) return 'future';
+    
+    // Local date string in format YYYY-MM-DD
+    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+    const record = filteredRecords.find(r => r.dateStr === dateStr);
+    
+    if (record) return 'present';
+    if (dateObj.getDay() === 0) return 'weekend'; // Sunday
+    
+    return 'absent';
+  };
+
+  const renderCalendar = () => {
+    const year = selectedDate.getFullYear();
+    const month = selectedDate.getMonth();
+    
+    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    const firstDay = new Date(year, month, 1).getDay(); // 0 (Sun) to 6 (Sat)
+    
+    const days: (number | null)[] = [];
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    for (let i = 1; i <= daysInMonth; i++) days.push(i);
+    
+    const weeks: (number | null)[][] = [];
+    let currentWeek: (number | null)[] = [];
+    days.forEach((day, index) => {
+      currentWeek.push(day);
+      if (currentWeek.length === 7 || index === days.length - 1) {
+        while (currentWeek.length < 7) currentWeek.push(null);
+        weeks.push(currentWeek);
+        currentWeek = [];
+      }
+    });
+
+    return (
+      <View style={styles.calendarContainer}>
+        {/* Weekday Header */}
+        <View style={styles.calendarHeader}>
+          {WEEKDAYS.map((wd, i) => (
+            <Text key={i} style={styles.calendarHeaderText}>{wd}</Text>
+          ))}
+        </View>
+        
+        {/* Weeks */}
+        {weeks.map((week, wIdx) => (
+          <View key={wIdx} style={styles.calendarRow}>
+            {week.map((day, dIdx) => {
+              if (!day) return <View key={dIdx} style={styles.calendarCell} />;
+              
+              const status = getDayStatus(year, month, day);
+              let bgColor = 'transparent';
+              let textColor = '#0F172A';
+              
+              if (status === 'present') {
+                bgColor = '#DCFCE7'; // light green
+                textColor = '#166534';
+              } else if (status === 'absent') {
+                bgColor = '#FEE2E2'; // light red
+                textColor = '#991B1B';
+              } else if (status === 'weekend') {
+                textColor = '#94A3B8';
+              } else if (status === 'future') {
+                textColor = '#CBD5E1';
+              }
+
+              return (
+                <View key={dIdx} style={styles.calendarCell}>
+                  <View style={[styles.dayCircle, { backgroundColor: bgColor }]}>
+                    <Text style={[styles.dayText, { color: textColor }]}>{day}</Text>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        ))}
+        
+        {/* Legend */}
+        <View style={styles.legendRow}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#166534' }]} />
+            <Text style={styles.legendText}>Present</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#991B1B' }]} />
+            <Text style={styles.legendText}>Absent</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#94A3B8' }]} />
+            <Text style={styles.legendText}>Holiday/Off</Text>
+          </View>
+        </View>
+      </View>
+    );
+  };
+
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
       <View style={styles.root}>
@@ -137,6 +239,9 @@ export default function EmployeeAttendanceScreen() {
               />
             </TouchableOpacity>
           </View>
+
+          {/* Calendar View */}
+          {renderCalendar()}
 
           {/* List */}
           {loadingRecord ? (
@@ -393,5 +498,72 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: Colors.text.tertiary,
     fontWeight: "600",
+  },
+  calendarContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    ...Shadow.sm,
+  },
+  calendarHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  calendarHeaderText: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  calendarRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  calendarCell: {
+    flex: 1,
+    aspectRatio: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dayText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  legendRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 16,
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#E2E8F0',
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+  },
+  legendText: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '500',
   },
 });

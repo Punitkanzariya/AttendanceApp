@@ -183,7 +183,7 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="always" showsVerticalScrollIndicator={false}>
 
           {/* Animated Logo */}
           <Animated.View style={{ alignItems: 'center', transform: [{ translateY: logoTranslateY }] }}>
@@ -283,12 +283,14 @@ export default function LoginScreen() {
             {/* Sign In & Biometrics */}
             <View style={styles.btnRow}>
               <TouchableOpacity
-                style={[styles.btnPrimary, (!usernameValue || !passwordValue || isLoading || lockout?.locked) && styles.btnDisabled]}
+                style={[{ flex: 1 }, (!usernameValue || !passwordValue || isLoading || lockout?.locked) && { opacity: 0.7 }]}
                 onPress={handleSubmit(onSubmit)}
                 disabled={!usernameValue || !passwordValue || isLoading || lockout?.locked}
                 activeOpacity={0.88}
               >
-                {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPrimaryText}>Sign In</Text>}
+                <View style={[styles.btnPrimary, (!usernameValue || !passwordValue || isLoading || lockout?.locked) && styles.btnDisabled]}>
+                  {isLoading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnPrimaryText}>Sign In</Text>}
+                </View>
               </TouchableOpacity>
 
               {hasBiometrics && (
@@ -347,7 +349,7 @@ const styles = StyleSheet.create({
 
   btnRow: { flexDirection: 'row', gap: 16, marginBottom: 28 },
   btnPrimary: {
-    flex: 1, backgroundColor: '#3B82F6', borderRadius: 16, height: 56,
+    width: '100%', backgroundColor: '#3B82F6', borderRadius: 16, height: 56,
     alignItems: 'center', justifyContent: 'center',
     shadowColor: '#3B82F6', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.25, shadowRadius: 12, elevation: 8,
   },
@@ -366,6 +368,7 @@ const styles = StyleSheet.create({
   divTxt: { fontSize: 14, color: '#94A3B8', fontWeight: '500' },
 
   btnOutline: {
+    width: '100%',
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10,
     borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 16,
     height: 56, backgroundColor: '#ffffff', marginBottom: 32,
