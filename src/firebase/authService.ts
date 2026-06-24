@@ -45,6 +45,7 @@ import {
   where,
   getDocs,
   limit,
+  collectionGroup,
 } from 'firebase/firestore';
 
 import { auth, db } from '@/firebase/config';
@@ -73,9 +74,13 @@ export function subscribeToAuthState(
 //  collection. The role determines which navigator is shown.
 // ─────────────────────────────────────────────────────────────────
 export async function fetchEmployeeProfile(uid: string): Promise<User | null> {
+  const roles = ['employee', 'project_manager', 'project_coordinator', 'hr_manager', 'administrator', 'finance'];
   try {
-    const snap = await getDoc(doc(db, 'employees', uid));
-    if (!snap.exists()) return null;
+    const promises = roles.map(role => getDoc(doc(db, 'users', role, 'profiles', uid)));
+    const snaps = await Promise.all(promises);
+    const snap = snaps.find(s => s.exists());
+    
+    if (!snap) return null;
 
     const data = snap.data();
     return {
@@ -194,7 +199,7 @@ export async function resolveUsernameToEmail(input: string): Promise<string | nu
   if (isEmail) return input;
 
   const q = query(
-    collection(db, 'employees'),
+    collectionGroup(db, 'profiles'),
     where('username', '==', input.toLowerCase()),
     limit(1)
   );
@@ -247,7 +252,7 @@ export async function loginWithEmail(
         createdAt: now,
         updatedAt: now,
       };
-      await setDoc(doc(db, 'employees', firebaseUid), repairDoc);
+      await setDoc(doc(db, 'users', 'employee', 'profiles', firebaseUid), repairDoc);
       profile = { uid: firebaseUid, ...repairDoc } as User;
     }
 
@@ -323,7 +328,7 @@ export async function verifyOtp(
       createdAt:   new Date().toISOString(),
     };
     // Create basic Firestore record
-    await setDoc(doc(db, 'employees', firebaseUser.uid), {
+    await setDoc(doc(db, 'users', 'employee', 'profiles', firebaseUser.uid), {
       ...newUser,
       updatedAt: new Date().toISOString(),
     });

@@ -2,6 +2,7 @@ import React, { createElement, useState } from "react";
 import { Platform, View, Text, TouchableOpacity, StyleSheet, Modal } from "react-native";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { Ionicons } from "@expo/vector-icons";
+import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 
 export const DateInput = ({
   value,
@@ -56,11 +57,7 @@ export const DateInput = ({
     if (!value) return "";
     try {
       const dateObj = new Date(value);
-      return dateObj.toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "short",
-        year: "numeric",
-      });
+      return formatDateDDMMYYYY(dateObj);
     } catch {
       return value;
     }

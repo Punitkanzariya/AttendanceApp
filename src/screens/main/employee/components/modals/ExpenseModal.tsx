@@ -124,6 +124,7 @@ export const ExpenseModal = ({
         await updateExpenseRequest(
           expenseToEdit.id,
           user!.uid,
+          user!.role,
           category,
           parseFloat(amount),
           date,
@@ -134,6 +135,7 @@ export const ExpenseModal = ({
       } else {
         await submitExpenseRequest(
           user!.uid,
+          user!.role,
           user!.displayName || "Employee",
           category,
           parseFloat(amount),

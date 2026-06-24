@@ -97,7 +97,7 @@ export default function EmployeeDashboard() {
   // Subscribe to today's attendance
   useEffect(() => {
     if (!user?.uid) return;
-    return subscribeToTodayAttendance(user.uid, (record) => {
+    return subscribeToTodayAttendance(user.uid, user.role, (record) => {
       setTodayRecord(record);
     });
   }, [user?.uid]);
@@ -204,7 +204,8 @@ export default function EmployeeDashboard() {
       if (!todayRecord) {
         // Clock In
         await checkInEmployee(
-          user!.uid,
+          user.uid,
+          user.role,
           user!.displayName || 'Employee',
           attendanceLoc,
           '',
@@ -217,6 +218,7 @@ export default function EmployeeDashboard() {
         // Clock Out
         await checkOutEmployee(
           user!.uid,
+          user.role,
           attendanceLoc,
           '',
           selfieUri

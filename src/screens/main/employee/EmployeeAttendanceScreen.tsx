@@ -40,13 +40,14 @@ export default function EmployeeAttendanceScreen() {
   useEffect(() => {
     if (!user?.uid) return;
 
-    const unsubToday = subscribeToTodayAttendance(user.uid, (record) => {
+    const unsubToday = subscribeToTodayAttendance(user.uid, user.role, (record) => {
       setTodayRecord(record);
       setLoadingRecord(false);
     });
 
     const unsubHistory = subscribeToUserAttendanceHistory(
       user.uid,
+      user.role,
       (records) => {
         const todayStr = getLocalDateString();
         const filtered = records.filter((r) => r.dateStr !== todayStr);
@@ -527,7 +528,7 @@ const styles = StyleSheet.create({
   },
   calendarCell: {
     flex: 1,
-    aspectRatio: 1,
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -62,7 +62,7 @@ export default function SupervisorExpenseScreen() {
     try {
       // Supervisor approval moves it to pending_manager
       const newStatus = status === 'pending_manager' ? 'pending_manager' : 'rejected';
-      await updateExpenseStatus(selectedExpense.id, newStatus, user.uid, reviewNotes);
+      await updateExpenseStatus(selectedExpense.id, selectedExpense.employeeId, selectedExpense.role, newStatus, user.uid, reviewNotes);
       setSelectedExpense(null);
       setReviewNotes('');
     } catch (error) {

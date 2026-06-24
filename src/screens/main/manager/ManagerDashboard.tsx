@@ -16,6 +16,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { ManagerTabParamList, AttendanceRecord, LeaveRequest, ExpenseRequest } from '@/types';
 import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
+import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import {
   subscribeToAllAttendance,
   subscribeToAllLeaves,
@@ -129,11 +130,11 @@ export default function ManagerDashboard() {
     setProcessingId(item.id);
     try {
       if (item.type === 'leave') {
-        await updateLeaveStatus(item.id, 'approved', user.uid, 'Quick approved from Dashboard');
+        await updateLeaveStatus(item.id, item.employeeId, item.role, 'approved', user.uid, 'Quick approved from Dashboard');
         Alert.alert('Approved', 'Leave request approved!');
       } else {
         // Manager approval pushes expense to pending_finance status
-        await updateExpenseStatus(item.id, 'pending_finance', user.uid);
+        await updateExpenseStatus(item.id, item.employeeId, item.role, 'pending_finance', user.uid);
         Alert.alert('Approved', 'Expense request approved and sent to Finance!');
       }
     } catch (err: any) {
@@ -159,10 +160,10 @@ export default function ManagerDashboard() {
             setProcessingId(item.id);
             try {
               if (item.type === 'leave') {
-                await updateLeaveStatus(item.id, 'rejected', user.uid, 'Rejected from Dashboard');
+                await updateLeaveStatus(item.id, item.employeeId, item.role, 'rejected', user.uid, 'Rejected from Dashboard');
                 Alert.alert('Rejected', 'Leave request rejected.');
               } else {
-                await updateExpenseStatus(item.id, 'rejected', user.uid, 'Rejected from Dashboard');
+                await updateExpenseStatus(item.id, item.employeeId, item.role, 'rejected', user.uid, 'Rejected from Dashboard');
                 Alert.alert('Rejected', 'Expense request rejected.');
               }
             } catch (err: any) {
@@ -206,7 +207,7 @@ export default function ManagerDashboard() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Team Summary</Text>
             <Text style={styles.dateText}>
-              {new Date().toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
+              {formatDateDDMMYYYY(new Date())}
             </Text>
           </View>
 

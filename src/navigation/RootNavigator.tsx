@@ -33,7 +33,7 @@ export default function RootNavigator() {
   React.useEffect(() => {
     if (!isAuthenticated || !user?.uid) return;
 
-    const userRef = doc(db, 'employees', user.uid);
+    const userRef = doc(db, 'users', user.role, 'profiles', user.uid);
     const unsubscribe = onSnapshot(userRef, async (docSnap) => {
       if (!docSnap.exists()) {
         // The user's document was deleted from Firestore (e.g. by an Admin).
@@ -83,10 +83,10 @@ export default function RootNavigator() {
               {user?.role === 'employee' && (
                 <Root.Screen name="EmployeeApp" component={EmployeeNavigator} />
               )}
-          {user?.role === 'site_supervisor' && (
+          {(user?.role === 'project_manager' || user?.role === 'project_coordinator') && (
             <Root.Screen name="SiteSupervisorApp" component={SiteSupervisorNavigator} />
           )}
-          {user?.role === 'manager' && (
+          {user?.role === 'hr_manager' && (
             <Root.Screen name="ManagerApp" component={ManagerNavigator} />
           )}
           {user?.role === 'administrator' && (

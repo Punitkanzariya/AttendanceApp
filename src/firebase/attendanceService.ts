@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, updateDoc, query, where, onSnapshot, getDoc } from 'firebase/firestore';
+import { collection, collectionGroup, doc, setDoc, updateDoc, query, where, onSnapshot, getDoc } from 'firebase/firestore';
 import { db, storage } from '@/firebase/config';
 import type { AttendanceRecord, AttendanceLocation } from '@/types';
 import { Platform } from 'react-native';
@@ -25,11 +25,12 @@ export function checkIsLate(date = new Date()): boolean {
 
 export function subscribeToTodayAttendance(
   employeeId: string,
+  role: string,
   callback: (record: AttendanceRecord | null) => void
 ): () => void {
   const todayStr = getLocalDateString();
   const docId = `${employeeId}_${todayStr}`;
-  const docRef = doc(db, 'attendance', docId);
+  const docRef = doc(db, 'users', role, 'profiles', employeeId, 'attendance', docId);
 
   return onSnapshot(docRef, (docSnap) => {
     if (docSnap.exists()) {
@@ -66,6 +67,7 @@ async function uploadImageToStorage(uri: string, path: string): Promise<string> 
 
 export async function checkInEmployee(
   employeeId: string,
+  role: string,
   employeeName: string,
   location: AttendanceLocation | null,
   remark?: string,
@@ -74,7 +76,7 @@ export async function checkInEmployee(
 ): Promise<void> {
   const todayStr = getLocalDateString();
   const docId = `${employeeId}_${todayStr}`;
-  const docRef = doc(db, 'attendance', docId);
+  const docRef = doc(db, 'users', role, 'profiles', employeeId, 'attendance', docId);
   const now = new Date();
   const nowIso = now.toISOString();
 
@@ -91,6 +93,7 @@ export async function checkInEmployee(
   const attendanceData: Omit<AttendanceRecord, 'id'> = {
     employeeId,
     employeeName,
+    role,
     employeeEmail: employeeEmail || null,
     dateStr: todayStr,
     checkIn: {
@@ -112,13 +115,14 @@ export async function checkInEmployee(
 
 export async function checkOutEmployee(
   employeeId: string,
+  role: string,
   location: AttendanceLocation | null,
   remark?: string,
   selfieUri?: string | null
 ): Promise<void> {
   const todayStr = getLocalDateString();
   const docId = `${employeeId}_${todayStr}`;
-  const docRef = doc(db, 'attendance', docId);
+  const docRef = doc(db, 'users', role, 'profiles', employeeId, 'attendance', docId);
   const now = new Date();
   const nowIso = now.toISOString();
 
@@ -162,10 +166,11 @@ export async function checkOutEmployee(
 
 export function subscribeToUserAttendanceHistory(
   employeeId: string,
+  role: string,
   callback: (records: AttendanceRecord[]) => void
 ): () => void {
-  const attendanceRef = collection(db, 'attendance');
-  const q = query(attendanceRef, where('employeeId', '==', employeeId));
+  const attendanceRef = collection(db, 'users', role, 'profiles', employeeId, 'attendance');
+  const q = query(attendanceRef); // no need for where('employeeId') since it's user scoped
 
   return onSnapshot(q, (snapshot) => {
     const history: AttendanceRecord[] = [];
@@ -183,7 +188,7 @@ export function subscribeToUserAttendanceHistory(
 export function subscribeToAllAttendance(
   callback: (records: AttendanceRecord[]) => void
 ): () => void {
-  const attendanceRef = collection(db, 'attendance');
+  const attendanceRef = collectionGroup(db, 'attendance');
   const q = query(attendanceRef);
 
   return onSnapshot(q, (snapshot) => {
@@ -207,10 +212,13 @@ export function subscribeToAllAttendance(
 
 export async function updateVerificationStatus(
   attendanceId: string,
+  role: string,
   verificationStatus: 'verified' | 'rejected',
   verifiedBy: string
 ): Promise<void> {
-  const docRef = doc(db, 'attendance', attendanceId);
+  // Wait, we need employeeId to update verification status. We will extract it from the docId.
+  const employeeId = attendanceId.split('_')[0];
+  const docRef = doc(db, 'users', role, 'profiles', employeeId, 'attendance', attendanceId);
   await updateDoc(docRef, {
     verificationStatus,
     verifiedBy,

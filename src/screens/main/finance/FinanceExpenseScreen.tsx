@@ -50,7 +50,7 @@ export default function FinanceExpenseScreen() {
     try {
       // Finance approval moves it to reimbursed
       const newStatus = status === 'reimbursed' ? 'reimbursed' : 'rejected';
-      await updateExpenseStatus(selectedExpense.id, newStatus, user.uid, reviewNotes);
+      await updateExpenseStatus(selectedExpense.id, selectedExpense.employeeId, selectedExpense.role, newStatus, user.uid, reviewNotes);
       setSelectedExpense(null);
       setReviewNotes('');
     } catch (error) {

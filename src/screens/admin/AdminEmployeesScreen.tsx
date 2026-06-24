@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
@@ -38,7 +38,7 @@ export default function AdminEmployeesScreen() {
     // Realtime listener will automatically update the list
   };
 
-  const handleAddUser = async (params: { fullName: string; email: string; username: string; phone: string; role: UserRole; password?: string }) => {
+  const handleAddUser = async (params: { fullName: string; email: string; username: string; phone: string; role: UserRole; password?: string; dateOfBirth?: string }) => {
     await createEmployeeByAdmin(params);
     // Realtime listener will automatically pick up the new user
   };
@@ -88,9 +88,11 @@ export default function AdminEmployeesScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Employees</Text>
-        <TouchableOpacity style={styles.addBtn} onPress={() => setIsAddModalVisible(true)}>
-          <Ionicons name="person-add" size={20} color={Colors.white} />
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 10 }}>
+          <TouchableOpacity style={styles.addBtn} onPress={() => setIsAddModalVisible(true)}>
+            <Ionicons name="person-add" size={20} color={Colors.white} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Filters */}

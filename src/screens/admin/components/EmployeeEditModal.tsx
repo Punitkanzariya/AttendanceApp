@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, Switch, ScrollView, Alert, TextInput, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import type { User, UserRole } from '@/types';
 
@@ -12,11 +13,12 @@ interface Props {
 }
 
 const ROLES: { label: string; value: UserRole }[] = [
-  { label: 'Employee', value: 'employee' },
-  { label: 'Site Supervisor', value: 'site_supervisor' },
-  { label: 'Manager', value: 'manager' },
   { label: 'Administrator', value: 'administrator' },
   { label: 'Finance', value: 'finance' },
+  { label: 'HR Manager', value: 'hr_manager' },
+  { label: 'Project Manager', value: 'project_manager' },
+  { label: 'Project Co-ordinator', value: 'project_coordinator' },
+  { label: 'Employee', value: 'employee' },
 ];
 
 export default function EmployeeEditModal({ visible, user, onClose, onSave }: Props) {
@@ -24,6 +26,8 @@ export default function EmployeeEditModal({ visible, user, onClose, onSave }: Pr
   const [role, setRole] = useState<UserRole>('employee');
   const [email, setEmail] = useState('');
   const [username, setUsername] = useState('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
   // Sync state when user changes
@@ -33,6 +37,7 @@ export default function EmployeeEditModal({ visible, user, onClose, onSave }: Pr
       setRole(user.role);
       setEmail(user.email || '');
       setUsername(user.username || '');
+      setDateOfBirth(user.dateOfBirth || '');
     }
   }, [user]);
 
@@ -56,7 +61,8 @@ export default function EmployeeEditModal({ visible, user, onClose, onSave }: Pr
         isActive,
         role,
         email: email.trim(),
-        username: username.trim()
+        username: username.trim(),
+        dateOfBirth: dateOfBirth.trim() ? dateOfBirth.trim() : null
       });
       onClose();
     } catch (err: any) {
@@ -119,6 +125,73 @@ export default function EmployeeEditModal({ visible, user, onClose, onSave }: Pr
                   editable={!isSaving}
                 />
               </View>
+            </View>
+
+            {/* Date of Birth Input */}
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Date of Birth</Text>
+              {Platform.OS === 'web' ? (
+                <View style={styles.inputBox}>
+                  <Ionicons name="calendar-outline" size={20} color={Colors.text.tertiary} />
+                  <input
+                    type="date"
+                    value={dateOfBirth ? dateOfBirth.split('-').reverse().join('-') : ''}
+                    onChange={(e) => {
+                      const val = e.target.value; // YYYY-MM-DD
+                      if (val) {
+                        const [y, m, d] = val.split('-');
+                        setDateOfBirth(`${d}-${m}-${y}`);
+                      } else {
+                        setDateOfBirth('');
+                      }
+                    }}
+                    disabled={isSaving}
+                    style={{
+                      flex: 1,
+                      border: 'none',
+                      outline: 'none',
+                      backgroundColor: 'transparent',
+                      fontSize: 14,
+                      color: Colors.text.primary,
+                      fontFamily: 'inherit',
+                      paddingTop: 12,
+                      paddingBottom: 12,
+                      marginLeft: 12,
+                    }}
+                  />
+                </View>
+              ) : (
+                <>
+                  <TouchableOpacity 
+                    style={styles.inputBox}
+                    onPress={() => setShowDatePicker(true)}
+                    disabled={isSaving}
+                  >
+                    <Ionicons name="calendar-outline" size={20} color={Colors.text.tertiary} />
+                    <Text style={[styles.input, { color: dateOfBirth ? Colors.text.primary : Colors.text.tertiary }]}>
+                      {dateOfBirth || 'DD-MM-YYYY'}
+                    </Text>
+                  </TouchableOpacity>
+
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={dateOfBirth ? new Date(dateOfBirth.split('-').reverse().join('-')) : new Date()}
+                      mode="date"
+                      display="default"
+                      maximumDate={new Date()}
+                      onChange={(event, date) => {
+                        setShowDatePicker(Platform.OS === 'ios');
+                        if (date) {
+                          const day = String(date.getDate()).padStart(2, '0');
+                          const month = String(date.getMonth() + 1).padStart(2, '0');
+                          const year = date.getFullYear();
+                          setDateOfBirth(`${day}-${month}-${year}`);
+                        }
+                      }}
+                    />
+                  )}
+                </>
+              )}
             </View>
 
             {/* Status Toggle */}

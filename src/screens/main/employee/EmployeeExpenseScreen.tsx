@@ -36,7 +36,7 @@ export default function EmployeeExpenseScreen() {
     if (!user?.uid) return;
 
     // Fetch real-time expenses
-    const unsubscribe = subscribeToUserExpenses(user.uid, (data) => {
+    const unsubscribe = subscribeToUserExpenses(user.uid, user.role, (data) => {
       setExpenses(data);
       setIsLoading(false);
     });

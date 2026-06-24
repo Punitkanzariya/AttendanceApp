@@ -49,7 +49,7 @@ export default function LeaveApprovalsScreen() {
     
     setIsProcessing(true);
     try {
-      await updateLeaveStatus(selectedLeave.id, status, user.uid, reviewNotes);
+      await updateLeaveStatus(selectedLeave.id, selectedLeave.employeeId, selectedLeave.role, status, user.uid, reviewNotes);
       setSelectedLeave(null);
       setReviewNotes('');
     } catch (error) {

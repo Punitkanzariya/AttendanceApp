@@ -50,7 +50,8 @@ export const LeaveModal = ({ isVisible, onClose }: LeaveModalProps) => {
     try {
       await submitLeaveRequest(
         user!.uid,
-        user!.displayName || "Unknown Employee",
+        user!.role,
+        user!.displayName || user!.username,
         leaveType,
         startDate,
         endDate,

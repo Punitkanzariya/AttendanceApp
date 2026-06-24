@@ -1,4 +1,4 @@
-import { collection, addDoc, updateDoc, doc, onSnapshot, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
+import { collection, collectionGroup, addDoc, updateDoc, doc, onSnapshot, query, where, getDocs, Timestamp, orderBy } from 'firebase/firestore';
 import { db, storage } from './config';
 import type { ExpenseRequest, ExpenseStatus } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -6,13 +6,14 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { Platform } from 'react-native';
 
-const EXPENSE_COLLECTION = 'Expenses';
+const EXPENSE_COLLECTION = 'expenses'; // Used just for collectionGroup name
 const DRAFT_KEY = '@expense_draft';
 
 // --- Firebase Operations ---
 
 export const submitExpenseRequest = async (
   employeeId: string,
+  role: string,
   employeeName: string,
   category: string,
   amount: number,
@@ -61,6 +62,7 @@ export const submitExpenseRequest = async (
   const expenseData: Omit<ExpenseRequest, 'id'> = {
     employeeId,
     employeeName,
+    role,
     category,
     amount,
     date,
@@ -71,7 +73,7 @@ export const submitExpenseRequest = async (
     updatedAt: now,
   };
 
-  const docRef = await addDoc(collection(db, EXPENSE_COLLECTION), expenseData);
+  const docRef = await addDoc(collection(db, 'users', role, 'profiles', employeeId, EXPENSE_COLLECTION), expenseData);
   
   // Clear draft if successful
   await clearExpenseDraft();
@@ -82,6 +84,7 @@ export const submitExpenseRequest = async (
 export const updateExpenseRequest = async (
   expenseId: string,
   employeeId: string,
+  role: string,
   category: string,
   amount: number,
   date: string,
@@ -122,7 +125,7 @@ export const updateExpenseRequest = async (
     }
   }
 
-  const expenseRef = doc(db, EXPENSE_COLLECTION, expenseId);
+  const expenseRef = doc(db, 'users', role, 'profiles', employeeId, EXPENSE_COLLECTION, expenseId);
   await updateDoc(expenseRef, {
     category,
     amount,
@@ -138,11 +141,11 @@ export const updateExpenseRequest = async (
 
 export const subscribeToUserExpenses = (
   employeeId: string,
+  role: string,
   onUpdate: (expenses: ExpenseRequest[]) => void
 ) => {
   const q = query(
-    collection(db, EXPENSE_COLLECTION),
-    where('employeeId', '==', employeeId)
+    collection(db, 'users', role, 'profiles', employeeId, EXPENSE_COLLECTION)
   );
 
   return onSnapshot(q, (snapshot) => {
@@ -160,13 +163,13 @@ export const subscribeToUserExpenses = (
 
 export const checkDuplicateExpense = async (
   employeeId: string,
+  role: string,
   amount: number,
   date: string,
   category: string
 ): Promise<boolean> => {
   const q = query(
-    collection(db, EXPENSE_COLLECTION),
-    where('employeeId', '==', employeeId),
+    collection(db, 'users', role, 'profiles', employeeId, EXPENSE_COLLECTION),
     where('date', '==', date),
     where('category', '==', category),
     where('amount', '==', amount)
@@ -183,8 +186,8 @@ export const subscribeToAllExpenses = (
   onUpdate: (expenses: ExpenseRequest[]) => void
 ) => {
   const q = statuses.length > 0
-    ? query(collection(db, EXPENSE_COLLECTION), where('status', 'in', statuses))
-    : query(collection(db, EXPENSE_COLLECTION));
+    ? query(collectionGroup(db, EXPENSE_COLLECTION), where('status', 'in', statuses))
+    : query(collectionGroup(db, EXPENSE_COLLECTION));
 
   return onSnapshot(q, (snapshot) => {
     const expenses: ExpenseRequest[] = [];
@@ -201,11 +204,13 @@ export const subscribeToAllExpenses = (
 
 export const updateExpenseStatus = async (
   expenseId: string,
+  employeeId: string,
+  role: string,
   status: ExpenseStatus,
   reviewerId: string,
   rejectionReason?: string
 ): Promise<void> => {
-  const expenseRef = doc(db, EXPENSE_COLLECTION, expenseId);
+  const expenseRef = doc(db, 'users', role, 'profiles', employeeId, EXPENSE_COLLECTION, expenseId);
   const updateData: any = {
     status,
     reviewedBy: reviewerId,

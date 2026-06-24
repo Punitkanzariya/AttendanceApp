@@ -16,6 +16,7 @@ import {
   Spacing,
   BorderRadius,
 } from "@/theme";
+import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { subscribeToUserLeaves } from "@/firebase/leaveService";
 import type { LeaveRequest } from "@/types";
 import { LeaveModal } from "./components/modals/LeaveModal";
@@ -30,7 +31,7 @@ export default function EmployeeLeaveScreen() {
   useEffect(() => {
     if (!user?.uid) return;
 
-    const unsubscribe = subscribeToUserLeaves(user.uid, (data) => {
+    const unsubscribe = subscribeToUserLeaves(user.uid, user.role, (data) => {
       setLeaves(data);
       setIsLoading(false);
     });
@@ -71,7 +72,7 @@ export default function EmployeeLeaveScreen() {
               color={Colors.text.secondary}
             />
             <Text style={styles.dateText}>
-              {item.startDate} to {item.endDate} ({item.totalDays || 1} Days)
+              {formatDateDDMMYYYY(item.startDate)} to {formatDateDDMMYYYY(item.endDate)} ({item.totalDays || 1} Days)
             </Text>
           </View>
         </View>
@@ -112,7 +113,7 @@ export default function EmployeeLeaveScreen() {
 
       <View style={styles.cardFooter}>
         <Text style={styles.appliedDate}>
-          Applied on {new Date(item.createdAt).toLocaleDateString()}
+          Applied on {formatDateDDMMYYYY(item.createdAt)}
         </Text>
       </View>
     </View>

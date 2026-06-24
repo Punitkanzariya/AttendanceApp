@@ -1,9 +1,10 @@
-import { collection, doc, addDoc, updateDoc, query, orderBy, where, onSnapshot } from 'firebase/firestore';
+import { collection, collectionGroup, doc, addDoc, updateDoc, query, orderBy, where, onSnapshot } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import type { LeaveRequest, LeaveStatus } from '@/types';
 
 export async function submitLeaveRequest(
   employeeId: string,
+  role: string,
   employeeName: string,
   leaveType: string,
   startDate: string,
@@ -11,12 +12,13 @@ export async function submitLeaveRequest(
   totalDays: number,
   reason: string
 ): Promise<void> {
-  const leavesRef = collection(db, 'leaves');
+  const leavesRef = collection(db, 'users', role, 'profiles', employeeId, 'leaves');
   const now = new Date().toISOString();
   
   await addDoc(leavesRef, {
     employeeId,
     employeeName,
+    role,
     leaveType,
     startDate,
     endDate,
@@ -30,13 +32,11 @@ export async function submitLeaveRequest(
 
 export function subscribeToUserLeaves(
   employeeId: string,
+  role: string,
   callback: (leaves: LeaveRequest[]) => void
 ): () => void {
-  const leavesRef = collection(db, 'leaves');
-  const q = query(
-    leavesRef, 
-    where('employeeId', '==', employeeId)
-  );
+  const leavesRef = collection(db, 'users', role, 'profiles', employeeId, 'leaves');
+  const q = query(leavesRef); // no need for where() since it's user scoped
 
   return onSnapshot(q, (snapshot) => {
     const leaves: LeaveRequest[] = [];
@@ -54,7 +54,7 @@ export function subscribeToUserLeaves(
 export function subscribeToAllLeaves(
   callback: (leaves: LeaveRequest[]) => void
 ): () => void {
-  const leavesRef = collection(db, 'leaves');
+  const leavesRef = collectionGroup(db, 'leaves');
   const q = query(leavesRef, orderBy('createdAt', 'desc'));
 
   return onSnapshot(q, (snapshot) => {
@@ -70,11 +70,13 @@ export function subscribeToAllLeaves(
 
 export async function updateLeaveStatus(
   leaveId: string,
+  employeeId: string,
+  role: string,
   status: LeaveStatus,
   reviewedBy: string,
   reviewNotes?: string
 ): Promise<void> {
-  const leaveRef = doc(db, 'leaves', leaveId);
+  const leaveRef = doc(db, 'users', role, 'profiles', employeeId, 'leaves', leaveId);
   await updateDoc(leaveRef, {
     status,
     reviewedBy,

@@ -16,7 +16,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuthStore } from "@/store/authStore";
-import { Colors, Spacing, BorderRadius } from "@/theme";
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
+import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import GradientHeader from "@/components/shared/GradientHeader";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { db } from "@/firebase/config";
@@ -34,7 +35,7 @@ export default function ProfileScreen() {
     }
     const fetchManager = async () => {
       try {
-        const docSnap = await getDoc(doc(db, "employees", user.managerId!));
+        const docSnap = await getDoc(doc(db, "users", user.managerId!));
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (data && data.displayName) {
@@ -74,11 +75,7 @@ export default function ProfileScreen() {
     if (!isoString) return "N/A";
     try {
       const dateObj = new Date(isoString);
-      return dateObj.toLocaleDateString("en-US", {
-        day: "numeric",
-        month: "long",
-        year: "numeric",
-      });
+      return formatDateDDMMYYYY(dateObj);
     } catch {
       return "N/A";
     }
@@ -100,7 +97,7 @@ export default function ProfileScreen() {
 
         if (auth.currentUser) {
           // Update Firestore (Bypass Firebase Auth photoURL length limit)
-          await updateDoc(doc(db, "employees", user!.uid), {
+          await updateDoc(doc(db, "users", user!.uid), {
             photoURL: base64Uri,
           });
 

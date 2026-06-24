@@ -15,6 +15,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { SiteSupervisorTabParamList, AttendanceRecord, LeaveRequest, ExpenseRequest } from '@/types';
 import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
+import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import {
   subscribeToAllAttendance,
   subscribeToAllLeaves,
@@ -123,7 +124,7 @@ export default function SupervisorDashboard() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Today's Site Overview</Text>
             <Text style={styles.dateText}>
-              {new Date().toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}
+              {formatDateDDMMYYYY(new Date())}
             </Text>
           </View>
 

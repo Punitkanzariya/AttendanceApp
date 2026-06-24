@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
+import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { subscribeToAllAttendance, getLocalDateString } from '@/firebase';
 import type { AttendanceRecord } from '@/types';
 import AttendanceDetailModal from '@/components/shared/AttendanceDetailModal';
@@ -178,12 +179,7 @@ export default function TeamAttendanceScreen() {
         <View style={styles.dateLabelContainer}>
           <Ionicons name="calendar-outline" size={16} color={Colors.secondary} />
           <Text style={styles.dateLabel}>
-            {selectedDate.toLocaleDateString([], {
-              weekday: 'short',
-              day: 'numeric',
-              month: 'short',
-              year: 'numeric',
-            })}
+            {formatDateDDMMYYYY(selectedDate)}
           </Text>
         </View>
         <TouchableOpacity style={styles.arrowBtn} onPress={() => changeDate(1)}>

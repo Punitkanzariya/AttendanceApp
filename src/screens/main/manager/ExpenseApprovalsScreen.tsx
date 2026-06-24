@@ -62,7 +62,7 @@ export default function ExpenseApprovalsScreen() {
     try {
       // Manager approval moves it to pending_finance
       const newStatus = status === 'pending_finance' ? 'pending_finance' : 'rejected';
-      await updateExpenseStatus(selectedExpense.id, newStatus, user.uid, reviewNotes);
+      await updateExpenseStatus(selectedExpense.id, selectedExpense.employeeId, selectedExpense.role, newStatus, user.uid, reviewNotes);
       setSelectedExpense(null);
       setReviewNotes('');
     } catch (error) {

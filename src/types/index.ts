@@ -1,8 +1,9 @@
 // ─── User Roles ───────────────────────────────────────────────────────────────
 export type UserRole =
   | 'employee'
-  | 'site_supervisor'
-  | 'manager'
+  | 'project_manager'
+  | 'project_coordinator'
+  | 'hr_manager'
   | 'administrator'
   | 'finance';
 
@@ -96,6 +97,7 @@ export interface LeaveRequest {
   id: string;
   employeeId: string;
   employeeName: string;
+  role: string;
   leaveType: string;
   startDate: string; // ISO date
   endDate: string;   // ISO date
@@ -115,6 +117,7 @@ export interface ExpenseRequest {
   id: string;
   employeeId: string;
   employeeName: string;
+  role: string;
   category: string;
   amount: number;
   date: string; // ISO date
@@ -146,6 +149,7 @@ export interface AttendanceRecord {
   id: string; // doc ID format: employeeId_YYYY-MM-DD
   employeeId: string;
   employeeName: string;
+  role: string;
   employeeEmail?: string | null;
   dateStr: string; // YYYY-MM-DD
   checkIn: AttendanceDetails | null;

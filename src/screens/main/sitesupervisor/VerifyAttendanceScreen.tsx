@@ -11,8 +11,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
+import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { subscribeToAllAttendance, updateVerificationStatus } from '@/firebase';
 import type { AttendanceRecord } from '@/types';
 import AttendanceDetailModal from '@/components/shared/AttendanceDetailModal';
@@ -67,7 +67,7 @@ export default function VerifyAttendanceScreen() {
     if (!user?.uid) return;
     setProcessingId(id);
     try {
-      await updateVerificationStatus(id, 'verified', user.uid);
+      await updateVerificationStatus(id, activeRecord.role, 'verified', user.uid);
       Alert.alert('Verified', 'Employee attendance verified successfully!');
     } catch (err: any) {
       console.error(err);
@@ -91,7 +91,7 @@ export default function VerifyAttendanceScreen() {
           onPress: async () => {
             setProcessingId(id);
             try {
-              await updateVerificationStatus(id, 'rejected', user.uid);
+              await updateVerificationStatus(id, activeRecord.role, 'rejected', user.uid);
               Alert.alert('Rejected', 'Employee attendance marked as rejected.');
             } catch (err: any) {
               console.error(err);
@@ -142,11 +142,7 @@ export default function VerifyAttendanceScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.empName}>{item.employeeName}</Text>
             <Text style={styles.logDate}>
-              {new Date(item.dateStr).toLocaleDateString([], {
-                weekday: 'short',
-                day: 'numeric',
-                month: 'short',
-              })}
+              {formatDateDDMMYYYY(item.dateStr)}
             </Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: badge.bg, borderColor: badge.border }]}>

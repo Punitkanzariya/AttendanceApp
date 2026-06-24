@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { Colors, Spacing, BorderRadius } from '@/theme';
 import type { AttendanceRecord, AttendanceLocation } from '@/types';
 import { subscribeToUserAttendanceHistory } from '@/firebase';
@@ -75,7 +76,7 @@ export default function AttendanceDetailModal({
     
     const fetchEmail = async () => {
       try {
-        const userDocRef = doc(db, 'employees', activeRecord.employeeId);
+        const userDocRef = doc(db, 'users', activeRecord.employeeId);
         const docSnap = await getDoc(userDocRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
@@ -119,12 +120,7 @@ export default function AttendanceDetailModal({
 
   const formatDate = (dateStr: string) => {
     const dateObj = new Date(dateStr);
-    return dateObj.toLocaleDateString('en-US', {
-      weekday: 'long',
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
+    return formatDateDDMMYYYY(dateObj);
   };
 
   const getVerificationBadgeStyles = (status: string) => {
