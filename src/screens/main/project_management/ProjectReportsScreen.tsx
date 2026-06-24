@@ -519,10 +519,10 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.md,
   },
   headerTitle: {
-    fontSize: 25,
+    fontSize: FontSize.xl,
     fontWeight: FontWeight.bold,
     color: Colors.text.primary,
-    lineHeight: 34,
+    marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: FontSize.sm,

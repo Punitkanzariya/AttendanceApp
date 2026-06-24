@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import { useAuthStore } from '@/store/authStore';
 import {
@@ -25,7 +26,8 @@ type ManagerReportTab = 'attendance' | 'leaves' | 'expenses';
 
 export default function ManagerReportsScreen() {
   const { user } = useAuthStore();
-  const [activeTab, setActiveTab] = useState<ManagerReportTab>('attendance');
+  const navigation = useNavigation();
+  const [activeTab, setActiveTab] = useState<'attendance' | 'leaves' | 'expenses'>('attendance');
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -431,7 +433,7 @@ export default function ManagerReportsScreen() {
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Team Reports</Text>
         <Text style={styles.headerSubtitle}>
-          Manager view for {teamEmployees.length} active employees
+          {user?.role === 'hr_manager' ? 'Company-wide view for' : 'Manager view for'} {teamEmployees.length} active employees
         </Text>
       </View>
 
@@ -671,21 +673,18 @@ const styles = StyleSheet.create({
   container: { padding: 20, paddingBottom: 40 },
 
   header: {
-    paddingHorizontal: Spacing.xl,
-    paddingTop: Spacing.xl,
+    padding: Spacing.xl,
     paddingBottom: Spacing.md,
   },
   headerTitle: {
-    fontSize: 25,
+    fontSize: FontSize.xl,
     fontWeight: FontWeight.bold,
     color: Colors.text.primary,
-    lineHeight: 34,
+    marginBottom: 4,
   },
   headerSubtitle: {
     fontSize: FontSize.sm,
     color: Colors.text.secondary,
-    fontWeight: FontWeight.medium,
-    marginTop: 4,
   },
 
   tabRow: {

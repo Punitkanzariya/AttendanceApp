@@ -1,8 +1,8 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, TextInput, Modal, Linking, Image } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, Alert, TextInput, Modal, Linking, Image, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import { formatDisplayStatus } from '@/utils/statusUtils';
@@ -11,6 +11,7 @@ import type { ExpenseRequest, ExpenseStatus } from '@/types';
 
 export default function ProjectExpenseScreen() {
   const { user } = useAuthStore();
+  const navigation = useNavigation();
   const [expenses, setExpenses] = useState<ExpenseRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<string>('');
@@ -357,12 +358,23 @@ export default function ProjectExpenseScreen() {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: Colors.background },
-  header: { padding: Spacing.xl, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border },
+  root: { flex: 1, backgroundColor: Colors.employeeBg },
+  header: {
+    padding: Spacing.xl,
+    paddingBottom: Spacing.md,
+  },
   headerTitle: { fontSize: FontSize.xl, fontWeight: FontWeight.bold, color: Colors.text.primary },
-  filterRow: { flexDirection: 'row', paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, backgroundColor: Colors.white, borderBottomWidth: 1, borderBottomColor: Colors.border, gap: Spacing.sm },
-  filterTab: { flexDirection: 'row', paddingVertical: 6, paddingHorizontal: 12, borderRadius: BorderRadius.full, backgroundColor: Colors.background },
-  filterTabActive: { backgroundColor: Colors.primary },
+  filterRow: { flexDirection: 'row', paddingHorizontal: Spacing.xl, paddingVertical: Spacing.md, gap: Spacing.sm },
+  filterTab: { 
+    flexDirection: 'row', 
+    paddingVertical: 6, 
+    paddingHorizontal: 12, 
+    borderRadius: BorderRadius.full, 
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  filterTabActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
   filterTxt: { fontSize: FontSize.sm, fontWeight: FontWeight.medium, color: Colors.text.secondary },
   filterTxtActive: { color: Colors.white },
   notificationDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.error, marginLeft: 4, marginTop: 2 },

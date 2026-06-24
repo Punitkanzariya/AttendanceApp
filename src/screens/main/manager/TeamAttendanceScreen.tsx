@@ -11,13 +11,17 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { subscribeToAllAttendance, getLocalDateString } from '@/firebase';
 import type { AttendanceRecord } from '@/types';
 import AttendanceDetailModal from '@/components/shared/AttendanceDetailModal';
+import { useAuthStore } from '@/store/authStore';
 
 export default function TeamAttendanceScreen() {
+  const { user } = useAuthStore();
+  const navigation = useNavigation();
   const [records, setRecords] = useState<AttendanceRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -259,10 +263,9 @@ const styles = StyleSheet.create({
     paddingBottom: Spacing.md,
   },
   headerTitle: {
-    fontSize: 25,
+    fontSize: FontSize.xl,
     fontWeight: FontWeight.bold,
     color: Colors.text.primary,
-    lineHeight: 34,
   },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 

@@ -120,7 +120,7 @@ export default function ProfileScreen() {
   const handlePickImage = async () => {
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.5,
@@ -131,9 +131,9 @@ export default function ProfileScreen() {
         setIsUploading(true);
         const base64Uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
 
-        if (auth.currentUser) {
+        if (auth.currentUser && user?.role) {
           // Update Firestore (Bypass Firebase Auth photoURL length limit)
-          await updateDoc(doc(db, "users", user!.uid), {
+          await updateDoc(doc(db, "users", user.role, "profiles", user.uid), {
             photoURL: base64Uri,
           });
 

@@ -7,6 +7,7 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +16,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { ProjectManagementTabParamList, AttendanceRecord, LeaveRequest, ExpenseRequest } from '@/types';
 import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
+import GradientHeader from '@/components/shared/GradientHeader';
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { subscribeToAllAttendance } from '@/firebase/attendanceService';
 import { subscribeToLeavesForRole } from '@/firebase/leaveService';
@@ -97,8 +99,10 @@ export default function ProjectDashboard() {
   };
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
-      {isLoading ? (
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.root}>
+        <GradientHeader />
+        {isLoading ? (
         <View style={styles.center}>
           <ActivityIndicator size="large" color={Colors.accent} />
         </View>
@@ -112,12 +116,39 @@ export default function ProjectDashboard() {
         >
           {/* Welcome Header */}
           <View style={styles.header}>
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={styles.greeting}>Welcome back,</Text>
               <Text style={styles.name}>{user?.displayName ?? 'Supervisor'}</Text>
             </View>
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleText}>Site Supervisor</Text>
+            <View style={styles.headerRight}>
+              <TouchableOpacity
+                style={styles.bellBtn}
+                activeOpacity={0.7}
+                onPress={() => (navigation as any).navigate("Notifications")}
+              >
+                <Ionicons
+                  name="notifications-outline"
+                  size={18}
+                  color={Colors.text.primary}
+                />
+                <View style={styles.notificationDot} />
+              </TouchableOpacity>
+              <View style={styles.avatarWrap}>
+                {user?.photoURL ? (
+                  <Image source={{ uri: user.photoURL }} style={{ width: 36, height: 36, borderRadius: 18 }} />
+                ) : (
+                  <Text style={styles.avatarInitials}>
+                    {user?.displayName
+                      ? user.displayName
+                          .split(" ")
+                          .map((n) => n[0])
+                          .join("")
+                          .substring(0, 2)
+                          .toUpperCase()
+                      : "SU"}
+                  </Text>
+                )}
+              </View>
             </View>
           </View>
 
@@ -225,11 +256,13 @@ export default function ProjectDashboard() {
           </View>
         </ScrollView>
       )}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#BFDBFE" },
   root: { flex: 1, backgroundColor: Colors.employeeBg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: { padding: 20, paddingBottom: 40 },
@@ -242,15 +275,33 @@ const styles = StyleSheet.create({
   },
   greeting: { fontSize: 14, color: Colors.text.secondary, fontWeight: FontWeight.medium },
   name: { fontSize: 22, fontWeight: FontWeight.bold, color: Colors.text.primary, marginTop: 2 },
-  roleBadge: {
-    backgroundColor: Colors.accent + '15',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: Colors.accent + '30',
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 12 },
+  bellBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.white,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  roleText: { color: Colors.accent, fontSize: 11, fontWeight: FontWeight.bold },
+  notificationDot: {
+    position: "absolute",
+    top: 8,
+    right: 10,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.error,
+  },
+  avatarWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#475569",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitials: { color: Colors.white, fontSize: 12, fontWeight: "700" },
 
   sectionHeader: {
     flexDirection: 'row',

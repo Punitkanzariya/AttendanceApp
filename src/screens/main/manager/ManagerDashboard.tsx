@@ -8,10 +8,12 @@ import {
   ActivityIndicator,
   Alert,
   RefreshControl,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import GradientHeader from '@/components/shared/GradientHeader';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { ManagerTabParamList, AttendanceRecord, LeaveRequest, ExpenseRequest } from '@/types';
 import { useAuthStore } from '@/store/authStore';
@@ -160,158 +162,189 @@ export default function ManagerDashboard() {
   };
 
   return (
-    <SafeAreaView style={styles.root} edges={['top']}>
-      {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={Colors.secondary} />
-        </View>
-      ) : (
-        <ScrollView
-          contentContainerStyle={styles.container}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.secondary]} />
-          }
-        >
-          {/* Welcome Header */}
-          <View style={styles.header}>
-            <View>
-              <Text style={styles.greeting}>Welcome back,</Text>
-              <Text style={styles.name}>{user?.displayName ?? 'Manager'}</Text>
-            </View>
-            <View style={styles.roleBadge}>
-              <Text style={styles.roleText}>Manager</Text>
-            </View>
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <View style={styles.root}>
+        <GradientHeader />
+        {isLoading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={Colors.secondary} />
           </View>
-
-          {/* Stats Title */}
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Team Summary</Text>
-            <Text style={styles.dateText}>
-              {formatDateDDMMYYYY(new Date())}
-            </Text>
-          </View>
-
-          {/* Stats Grid */}
-          <View style={styles.statsGrid}>
-            <View style={styles.statCard}>
-              <View style={[styles.statIconBg, { backgroundColor: '#E0F2FE' }]}>
-                <Ionicons name="people" size={18} color="#0284C7" />
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.container}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[Colors.secondary]} />
+            }
+          >
+            {/* Welcome Header */}
+            <View style={styles.header}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.greeting}>Welcome back,</Text>
+                <Text style={styles.name}>{user?.displayName ?? 'Manager'}</Text>
               </View>
-              <Text style={styles.statNum}>{stats.presentCount}</Text>
-              <Text style={styles.statLabel}>Present Today</Text>
-              {stats.lateCount > 0 && (
-                <Text style={styles.statSubText}>{stats.lateCount} Late In</Text>
-              )}
+              <View style={styles.headerRight}>
+                <TouchableOpacity
+                  style={styles.bellBtn}
+                  activeOpacity={0.7}
+                  onPress={() => (navigation as any).navigate("Notifications")}
+                >
+                  <Ionicons
+                    name="notifications-outline"
+                    size={18}
+                    color={Colors.text.primary}
+                  />
+                  <View style={styles.notificationDot} />
+                </TouchableOpacity>
+                <View style={styles.avatarWrap}>
+                  {user?.photoURL ? (
+                    <Image source={{ uri: user.photoURL }} style={{ width: 36, height: 36, borderRadius: 18 }} />
+                  ) : (
+                    <Text style={styles.avatarInitials}>
+                      {user?.displayName
+                        ? user.displayName
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .substring(0, 2)
+                            .toUpperCase()
+                        : "MA"}
+                    </Text>
+                  )}
+                </View>
+              </View>
             </View>
 
-            <View style={styles.statCard}>
-              <View style={[styles.statIconBg, { backgroundColor: '#F3E8FF' }]}>
-                <Ionicons name="calendar" size={18} color="#9333EA" />
-              </View>
-              <Text style={styles.statNum}>{stats.pendingLeavesCount}</Text>
-              <Text style={styles.statLabel}>Pending Leaves</Text>
+            {/* Stats Title */}
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Team Summary</Text>
+              <Text style={styles.dateText}>
+                {formatDateDDMMYYYY(new Date())}
+              </Text>
             </View>
-          </View>
 
-          {/* Quick Actions Shortcuts */}
-          <Text style={styles.sectionTitle}>Quick Shortcuts</Text>
-          <View style={styles.shortcutsGrid}>
-            <TouchableOpacity
-              style={styles.shortcutBtn}
-              onPress={() => navigation.navigate('TeamAttendance')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="people-outline" size={24} color={Colors.secondary} />
-              <Text style={styles.shortcutLabel}>Team Attendance</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.shortcutBtn}
-              onPress={() => navigation.navigate('Leave')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="calendar-outline" size={24} color={Colors.secondary} />
-              <Text style={styles.shortcutLabel}>Approve Leaves</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Quick Approvals Feed */}
-          <View style={styles.feedSection}>
-            <Text style={styles.sectionTitle}>Quick Approvals Queue</Text>
-            {stats.feedPreview.length === 0 ? (
-              <View style={styles.emptyCard}>
-                <Ionicons name="checkbox-outline" size={32} color={Colors.text.tertiary} />
-                <Text style={styles.emptyText}>All caught up! No pending approvals.</Text>
+            {/* Stats Grid */}
+            <View style={styles.statsGrid}>
+              <View style={styles.statCard}>
+                <View style={[styles.statIconBg, { backgroundColor: '#E0F2FE' }]}>
+                  <Ionicons name="people" size={18} color="#0284C7" />
+                </View>
+                <Text style={styles.statNum}>{stats.presentCount}</Text>
+                <Text style={styles.statLabel}>Present Today</Text>
+                {stats.lateCount > 0 && (
+                  <Text style={styles.statSubText}>{stats.lateCount} Late In</Text>
+                )}
               </View>
-            ) : (
-              stats.feedPreview.map((item) => {
-                const isProcessing = processingId === item.id;
-                const isLeave = item.type === 'leave';
 
-                return (
-                  <View key={item.id} style={styles.feedCard}>
-                    {/* Header */}
-                    <View style={styles.feedHeader}>
-                      <View style={styles.feedMeta}>
-                        <View
-                          style={[
-                            styles.typeBadge,
-                            { backgroundColor: '#F3E8FF' },
-                          ]}
-                        >
-                          <Text
+              <View style={styles.statCard}>
+                <View style={[styles.statIconBg, { backgroundColor: '#F3E8FF' }]}>
+                  <Ionicons name="calendar" size={18} color="#9333EA" />
+                </View>
+                <Text style={styles.statNum}>{stats.pendingLeavesCount}</Text>
+                <Text style={styles.statLabel}>Pending Leaves</Text>
+              </View>
+            </View>
+
+            {/* Quick Actions Shortcuts */}
+            <Text style={styles.sectionTitle}>Quick Shortcuts</Text>
+            <View style={styles.shortcutsGrid}>
+              <TouchableOpacity
+                style={styles.shortcutBtn}
+                onPress={() => navigation.navigate('TeamAttendance')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="people-outline" size={24} color={Colors.secondary} />
+                <Text style={styles.shortcutLabel}>Team Attendance</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.shortcutBtn}
+                onPress={() => navigation.navigate('Leave')}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="calendar-outline" size={24} color={Colors.secondary} />
+                <Text style={styles.shortcutLabel}>Approve Leaves</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Quick Approvals Feed */}
+            <View style={styles.feedSection}>
+              <Text style={styles.sectionTitle}>Quick Approvals Queue</Text>
+              {stats.feedPreview.length === 0 ? (
+                <View style={styles.emptyCard}>
+                  <Ionicons name="checkbox-outline" size={32} color={Colors.text.tertiary} />
+                  <Text style={styles.emptyText}>All caught up! No pending approvals.</Text>
+                </View>
+              ) : (
+                stats.feedPreview.map((item) => {
+                  const isProcessing = processingId === item.id;
+                  const isLeave = item.type === 'leave';
+
+                  return (
+                    <View key={item.id} style={styles.feedCard}>
+                      {/* Header */}
+                      <View style={styles.feedHeader}>
+                        <View style={styles.feedMeta}>
+                          <View
                             style={[
-                              styles.typeText,
-                              { color: isLeave ? '#9333EA' : '#EA580C' },
+                              styles.typeBadge,
+                              { backgroundColor: '#F3E8FF' },
                             ]}
                           >
-                            {item.type.toUpperCase()}
-                          </Text>
+                            <Text
+                              style={[
+                                styles.typeText,
+                                { color: isLeave ? '#9333EA' : '#EA580C' },
+                              ]}
+                            >
+                              {item.type.toUpperCase()}
+                            </Text>
+                          </View>
+                          <Text style={styles.employeeName}>{item.name}</Text>
                         </View>
-                        <Text style={styles.employeeName}>{item.name}</Text>
+                      </View>
+
+                      {/* Content */}
+                      <Text style={styles.feedTitle}>{item.title}</Text>
+                      <Text style={styles.feedSubtitle}>{item.subtitle}</Text>
+                      <Text style={styles.feedDate}>{item.date}</Text>
+
+                      {/* Actions */}
+                      <View style={styles.feedActions}>
+                        {isProcessing ? (
+                          <ActivityIndicator size="small" color={Colors.secondary} />
+                        ) : (
+                          <>
+                            <TouchableOpacity
+                              style={[styles.feedBtn, styles.feedBtnReject]}
+                              onPress={() => handleReject(item)}
+                            >
+                              <Text style={styles.rejectText}>Reject</Text>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                              style={[styles.feedBtn, styles.feedBtnApprove]}
+                              onPress={() => handleApprove(item)}
+                            >
+                              <Text style={styles.approveText}>Approve</Text>
+                            </TouchableOpacity>
+                          </>
+                        )}
                       </View>
                     </View>
-
-                    {/* Content */}
-                    <Text style={styles.feedTitle}>{item.title}</Text>
-                    <Text style={styles.feedSubtitle}>{item.subtitle}</Text>
-                    <Text style={styles.feedDate}>{item.date}</Text>
-
-                    {/* Actions */}
-                    <View style={styles.feedActions}>
-                      {isProcessing ? (
-                        <ActivityIndicator size="small" color={Colors.secondary} />
-                      ) : (
-                        <>
-                          <TouchableOpacity
-                            style={[styles.feedBtn, styles.feedBtnReject]}
-                            onPress={() => handleReject(item)}
-                          >
-                            <Text style={styles.rejectText}>Reject</Text>
-                          </TouchableOpacity>
-
-                          <TouchableOpacity
-                            style={[styles.feedBtn, styles.feedBtnApprove]}
-                            onPress={() => handleApprove(item)}
-                          >
-                            <Text style={styles.approveText}>Approve</Text>
-                          </TouchableOpacity>
-                        </>
-                      )}
-                    </View>
-                  </View>
-                );
-              })
-            )}
-          </View>
-        </ScrollView>
-      )}
+                  );
+                })
+              )}
+            </View>
+          </ScrollView>
+        )}
+      </View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: "#BFDBFE" },
   root: { flex: 1, backgroundColor: Colors.employeeBg },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   container: { padding: 20, paddingBottom: 40 },
@@ -324,15 +357,33 @@ const styles = StyleSheet.create({
   },
   greeting: { fontSize: 14, color: Colors.text.secondary, fontWeight: FontWeight.medium },
   name: { fontSize: 22, fontWeight: FontWeight.bold, color: Colors.text.primary, marginTop: 2 },
-  roleBadge: {
-    backgroundColor: Colors.secondary + '15',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
-    borderColor: Colors.secondary + '30',
+  headerRight: { flexDirection: "row", alignItems: "center", gap: 12 },
+  bellBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: Colors.white,
+    alignItems: "center",
+    justifyContent: "center",
   },
-  roleText: { color: Colors.secondary, fontSize: 11, fontWeight: FontWeight.bold },
+  notificationDot: {
+    position: "absolute",
+    top: 8,
+    right: 10,
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.error,
+  },
+  avatarWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#475569",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  avatarInitials: { color: Colors.white, fontSize: 12, fontWeight: "700" },
 
   sectionHeader: {
     flexDirection: 'row',
