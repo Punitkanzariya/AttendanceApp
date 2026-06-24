@@ -107,7 +107,7 @@ export default function TwoFactorOtpScreen() {
             </View>
             <Text style={styles.title}>Two-Step Verification</Text>
             <Text style={styles.subtitle}>
-              An OTP has been sent to your registered mobile number ending in {user?.phoneNumber?.slice(-4) || 'XXXX'}.
+              An OTP has been sent to your registered mobile number ending in {user?.phoneNumber ? String(user.phoneNumber).slice(-4) : 'XXXX'}.
             </Text>
           </View>
 

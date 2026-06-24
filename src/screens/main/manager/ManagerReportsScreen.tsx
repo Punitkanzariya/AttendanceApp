@@ -439,7 +439,10 @@ export default function ManagerReportsScreen() {
 
       {/* Reports Tab Selector */}
       <View style={styles.tabRow}>
-        {(['attendance', 'leaves', 'expenses'] as const).map((tab) => (
+        {(user?.role === 'hr_manager' 
+          ? (['attendance', 'leaves'] as const) 
+          : (['attendance', 'leaves', 'expenses'] as const)
+        ).map((tab) => (
           <TouchableOpacity
             key={tab}
             style={[styles.tab, activeTab === tab && styles.tabActive]}

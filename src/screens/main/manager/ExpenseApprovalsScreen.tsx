@@ -399,8 +399,8 @@ const styles = StyleSheet.create({
   textArea: { height: 80, marginBottom: Spacing.sm },
   
   actionRow: { flexDirection: 'row', gap: Spacing.md },
-  actionBtn: { flex: 1, padding: Spacing.md, borderRadius: BorderRadius.md, alignItems: 'center' },
-  actionBtnText: { color: Colors.white, fontWeight: FontWeight.bold, fontSize: FontSize.md },
+  actionBtn: { flex: 1, padding: Spacing.md, borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center' },
+  actionBtnText: { color: Colors.white, fontWeight: FontWeight.bold, fontSize: FontSize.md, textAlign: 'center' },
   
   imageViewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
   closeImageBtn: { position: 'absolute', top: 40, right: 20, zIndex: 10 },
