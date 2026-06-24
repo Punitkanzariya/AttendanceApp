@@ -90,6 +90,11 @@ export async function createEmployeeByAdmin(params: {
   role: UserRole;
   password?: string;
   dateOfBirth?: string;
+  panCard?: string;
+  aadharCard?: string;
+  panCardPhotoUrl?: string | null;
+  aadharCardPhotoUrl?: string | null;
+  aadharCardBackPhotoUrl?: string | null;
 }): Promise<void> {
   // Create a secondary app specifically for auth operations
   const secondaryApp = getApps().find(app => app.name === 'SecondaryAdminApp') 
@@ -120,7 +125,12 @@ export async function createEmployeeByAdmin(params: {
     displayName: params.fullName.trim(),
     role: params.role,
     dateOfBirth: params.dateOfBirth || null,
-    isActive: true, // Created by admin, so it's active by default
+    panCard: params.panCard || null,
+    aadharCard: params.aadharCard || null,
+    panCardPhotoUrl: params.panCardPhotoUrl || null,
+    aadharCardPhotoUrl: params.aadharCardPhotoUrl || null,
+    aadharCardBackPhotoUrl: params.aadharCardBackPhotoUrl || null,
+    isActive: true, // Created by admin/HR, so it's active by default
     createdAt: now,
     updatedAt: now,
   });

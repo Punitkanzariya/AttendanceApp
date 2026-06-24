@@ -7,8 +7,10 @@ import { subscribeToAllEmployees, updateEmployeeProfile, createEmployeeByAdmin }
 import type { User, UserRole } from '@/types';
 import EmployeeEditModal from '@/screens/admin/components/EmployeeEditModal';
 import EmployeeAddModal from '@/screens/admin/components/EmployeeAddModal';
+import { useAuthStore } from '@/store/authStore';
 
 export default function AdminEmployeesScreen() {
+  const { user: currentUser } = useAuthStore();
   const [employees, setEmployees] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -38,18 +40,21 @@ export default function AdminEmployeesScreen() {
     // Realtime listener will automatically update the list
   };
 
-  const handleAddUser = async (params: { fullName: string; email: string; username: string; phone: string; role: UserRole; password?: string; dateOfBirth?: string }) => {
+  const handleAddUser = async (params: { fullName: string; email: string; username: string; phone: string; role: UserRole; password?: string; dateOfBirth?: string; panCard?: string; aadharCard?: string; panCardPhotoUrl?: string | null; aadharCardPhotoUrl?: string | null; aadharCardBackPhotoUrl?: string | null; }) => {
     await createEmployeeByAdmin(params);
     // Realtime listener will automatically pick up the new user
   };
 
   const filteredEmployees = useMemo(() => {
     return employees.filter(emp => {
+      // HR Managers should not see Administrator accounts
+      if (currentUser?.role === 'hr_manager' && emp.role === 'administrator') return false;
+      
       if (filter === 'pending') return !emp.isActive;
       if (filter === 'active') return emp.isActive;
       return true;
     });
-  }, [employees, filter]);
+  }, [employees, filter, currentUser?.role]);
 
   const renderItem = useCallback(({ item }: { item: User }) => (
     <TouchableOpacity 

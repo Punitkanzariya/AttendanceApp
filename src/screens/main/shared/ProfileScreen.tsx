@@ -8,6 +8,7 @@ import {
   Image,
   ActivityIndicator,
   Alert,
+  Modal,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
 import { updateProfile } from "firebase/auth";
@@ -28,6 +29,7 @@ export default function ProfileScreen() {
   const navigation = useNavigation<any>();
   const [managerName, setManagerName] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDocModalVisible, setIsDocModalVisible] = useState(false);
   const [assignedProject, setAssignedProject] = useState<string | null>(null);
   const [assignedShift, setAssignedShift] = useState<string | null>(null);
   const [projectManager, setProjectManager] = useState<string | null>(null);
@@ -219,6 +221,14 @@ export default function ProfileScreen() {
               {user?.role === 'employee' && renderRow("Shift", assignedShift || "Not Assigned")}
               {user?.role === 'employee' && renderRow("Project Manager", projectManager || "Not Assigned")}
               {user?.role === 'employee' && renderRow("Project Coordinator", projectCoordinator || "Not Assigned", true)}
+              {(user?.panCard || user?.aadharCard) && (
+                <View style={[styles.row, { borderBottomWidth: 0, paddingBottom: 0 }]}>
+                  <Text style={styles.label}>Documents</Text>
+                  <TouchableOpacity onPress={() => setIsDocModalVisible(true)} style={{ backgroundColor: Colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
+                    <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>View Details</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
           </View>
 
@@ -233,6 +243,54 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </ScrollView>
       </View>
+
+      {/* Document Modal */}
+      <Modal visible={isDocModalVisible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>My Documents</Text>
+              <TouchableOpacity onPress={() => setIsDocModalVisible(false)} style={styles.closeBtn}>
+                <Ionicons name="close" size={24} color={Colors.text.primary} />
+              </TouchableOpacity>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: Spacing.md }}>
+              {user?.panCard && (
+                <View style={styles.docSection}>
+                  <Text style={styles.docLabel}>PAN Card Number</Text>
+                  <Text style={styles.docValue}>{user.panCard}</Text>
+                  {user.panCardPhotoUrl && (
+                    <Image source={{ uri: user.panCardPhotoUrl }} style={styles.docImage} resizeMode="contain" />
+                  )}
+                </View>
+              )}
+              
+              {user?.aadharCard && (
+                <View style={styles.docSection}>
+                  <Text style={styles.docLabel}>Aadhar Card Number</Text>
+                  <Text style={styles.docValue}>{user.aadharCard}</Text>
+                  
+                  <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+                    {user.aadharCardPhotoUrl && (
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.docLabel, { fontSize: 11, marginBottom: 2 }]}>Front Side</Text>
+                        <Image source={{ uri: user.aadharCardPhotoUrl }} style={[styles.docImage, { height: 120 }]} resizeMode="contain" />
+                      </View>
+                    )}
+                    {user.aadharCardBackPhotoUrl && (
+                      <View style={{ flex: 1 }}>
+                        <Text style={[styles.docLabel, { fontSize: 11, marginBottom: 2 }]}>Back Side</Text>
+                        <Image source={{ uri: user.aadharCardBackPhotoUrl }} style={[styles.docImage, { height: 120 }]} resizeMode="contain" />
+                      </View>
+                    )}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -368,5 +426,59 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#EF4444",
     marginLeft: 8,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: BorderRadius.lg,
+    borderTopRightRadius: BorderRadius.lg,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
+  },
+  modalTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: "bold",
+    color: Colors.text.primary,
+  },
+  closeBtn: {
+    padding: 4,
+  },
+  docSection: {
+    marginBottom: Spacing.lg,
+    backgroundColor: '#F8FAFC',
+    padding: Spacing.md,
+    borderRadius: BorderRadius.md,
+    borderWidth: 1,
+    borderColor: Colors.border,
+  },
+  docLabel: {
+    fontSize: FontSize.sm,
+    color: Colors.text.secondary,
+    marginBottom: 4,
+  },
+  docValue: {
+    fontSize: FontSize.md,
+    fontWeight: '700',
+    color: Colors.text.primary,
+    marginBottom: Spacing.sm,
+    letterSpacing: 1,
+  },
+  docImage: {
+    width: '100%',
+    height: 180,
+    borderRadius: 8,
+    backgroundColor: '#E2E8F0',
+    marginTop: Spacing.xs,
   },
 });

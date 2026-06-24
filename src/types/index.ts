@@ -21,6 +21,11 @@ export interface User {
   managerId?: string;
   dateOfBirth?: string;
   employeeId?: string;
+  panCard?: string;
+  panCardPhotoUrl?: string | null;
+  aadharCard?: string;
+  aadharCardPhotoUrl?: string | null;
+  aadharCardBackPhotoUrl?: string | null;
   photoURL?: string | null;
   createdAt: string;
   isActive: boolean;
@@ -54,6 +59,7 @@ export type ProjectManagementTabParamList = {
 
 export type ManagerTabParamList = {
   Dashboard: undefined;
+  Employees: undefined;
   TeamAttendance: undefined;
   Expenses: undefined;
   Leave: undefined;
