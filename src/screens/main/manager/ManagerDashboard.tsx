@@ -19,7 +19,7 @@ import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/t
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import {
   subscribeToAllAttendance,
-  subscribeToAllLeaves,
+  subscribeToLeavesForRole,
   subscribeToAllExpenses,
   updateLeaveStatus,
   updateExpenseStatus,
@@ -51,20 +51,14 @@ export default function ManagerDashboard() {
     });
 
     // 2. Subscribe to Leaves
-    const unsubLeaves = subscribeToAllLeaves((data: LeaveRequest[]) => {
+    const unsubLeaves = subscribeToLeavesForRole(user?.role || '', user?.uid || '', (data: LeaveRequest[]) => {
       setLeaves(data);
-    });
-
-    // 3. Subscribe to Expenses
-    const unsubExpenses = subscribeToAllExpenses(['pending_manager'], (data: ExpenseRequest[]) => {
-      setExpenses(data);
       setIsLoading(false);
     });
 
     return () => {
       unsubAttendance();
       unsubLeaves();
-      unsubExpenses();
     };
   }, []);
 
@@ -82,8 +76,7 @@ export default function ManagerDashboard() {
     const presentCount = todayAttendance.length;
     const lateCount = todayAttendance.filter((r) => r.status === 'late').length;
 
-    const pendingLeaves = leaves.filter((l) => l.status === 'pending');
-    const pendingExpenses = expenses;
+    const pendingLeaves = leaves.filter((l) => l.status === 'pending_hr' || l.status === 'pending');
 
     // Build consolidated Quick Approvals feed (max 3 items)
     const feed: FeedItem[] = [];
@@ -100,18 +93,6 @@ export default function ManagerDashboard() {
       });
     });
 
-    pendingExpenses.forEach((e) => {
-      feed.push({
-        type: 'expense',
-        id: e.id,
-        name: e.employeeName,
-        title: `Expense: ${e.category} (₹${e.amount})`,
-        subtitle: `Desc: ${e.description}`,
-        date: e.date,
-        raw: e,
-      });
-    });
-
     // Sort by timestamp if available, otherwise just slice first 3
     const feedPreview = feed.slice(0, 3);
 
@@ -119,10 +100,9 @@ export default function ManagerDashboard() {
       presentCount,
       lateCount,
       pendingLeavesCount: pendingLeaves.length,
-      pendingExpensesCount: pendingExpenses.length,
       feedPreview,
     };
-  }, [attendance, leaves, expenses, todayStr]);
+  }, [attendance, leaves, todayStr]);
 
   // Inline Quick Approvals Handlers
   const handleApprove = async (item: FeedItem) => {
@@ -130,12 +110,16 @@ export default function ManagerDashboard() {
     setProcessingId(item.id);
     try {
       if (item.type === 'leave') {
-        await updateLeaveStatus(item.id, item.employeeId, item.role, 'approved', user.uid, 'Quick approved from Dashboard');
-        Alert.alert('Approved', 'Leave request approved!');
-      } else {
-        // Manager approval pushes expense to pending_finance status
-        await updateExpenseStatus(item.id, item.employeeId, item.role, 'pending_finance', user.uid);
-        Alert.alert('Approved', 'Expense request approved and sent to Finance!');
+        let newStatus: import('@/types').LeaveStatus = item.raw.status;
+        if (user.role === 'project_coordinator') {
+          newStatus = (item.raw.managerIds && item.raw.managerIds.length > 0) ? 'pending_manager' : 'pending_hr';
+        } else if (user.role === 'project_manager') {
+          newStatus = 'pending_hr';
+        } else {
+          newStatus = 'approved';
+        }
+        await updateLeaveStatus(item.id, item.raw.employeeId, item.raw.role, newStatus, user.uid, 'Quick approved from Dashboard');
+        Alert.alert('Approved', 'Leave request forwarded/approved!');
       }
     } catch (err: any) {
       console.error(err);
@@ -160,11 +144,8 @@ export default function ManagerDashboard() {
             setProcessingId(item.id);
             try {
               if (item.type === 'leave') {
-                await updateLeaveStatus(item.id, item.employeeId, item.role, 'rejected', user.uid, 'Rejected from Dashboard');
+                await updateLeaveStatus(item.id, item.raw.employeeId, item.raw.role, 'rejected', user.uid, 'Rejected from Dashboard');
                 Alert.alert('Rejected', 'Leave request rejected.');
-              } else {
-                await updateExpenseStatus(item.id, item.employeeId, item.role, 'rejected', user.uid, 'Rejected from Dashboard');
-                Alert.alert('Rejected', 'Expense request rejected.');
               }
             } catch (err: any) {
               console.error(err);
@@ -231,14 +212,6 @@ export default function ManagerDashboard() {
               <Text style={styles.statNum}>{stats.pendingLeavesCount}</Text>
               <Text style={styles.statLabel}>Pending Leaves</Text>
             </View>
-
-            <View style={styles.statCard}>
-              <View style={[styles.statIconBg, { backgroundColor: '#FFF7ED' }]}>
-                <Ionicons name="cash" size={18} color="#EA580C" />
-              </View>
-              <Text style={styles.statNum}>{stats.pendingExpensesCount}</Text>
-              <Text style={styles.statLabel}>Pending Expenses</Text>
-            </View>
           </View>
 
           {/* Quick Actions Shortcuts */}
@@ -260,15 +233,6 @@ export default function ManagerDashboard() {
             >
               <Ionicons name="calendar-outline" size={24} color={Colors.secondary} />
               <Text style={styles.shortcutLabel}>Approve Leaves</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.shortcutBtn}
-              onPress={() => navigation.navigate('Expenses')}
-              activeOpacity={0.8}
-            >
-              <Ionicons name="receipt-outline" size={24} color={Colors.secondary} />
-              <Text style={styles.shortcutLabel}>Approve Expenses</Text>
             </TouchableOpacity>
           </View>
 
@@ -293,7 +257,7 @@ export default function ManagerDashboard() {
                         <View
                           style={[
                             styles.typeBadge,
-                            { backgroundColor: isLeave ? '#F3E8FF' : '#FFF7ED' },
+                            { backgroundColor: '#F3E8FF' },
                           ]}
                         >
                           <Text

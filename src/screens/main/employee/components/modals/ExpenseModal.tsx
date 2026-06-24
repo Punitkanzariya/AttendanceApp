@@ -184,6 +184,7 @@ export const ExpenseModal = ({
       // Check for duplicates
       const isDuplicate = await checkDuplicateExpense(
         user!.uid,
+        user!.role,
         parseFloat(amount),
         date,
         category,

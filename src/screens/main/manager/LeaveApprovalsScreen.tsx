@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
-import { subscribeToAllLeaves, updateLeaveStatus } from '@/firebase/leaveService';
+import { formatDisplayStatus } from '@/utils/statusUtils';
+import { subscribeToLeavesForRole, updateLeaveStatus } from '@/firebase/leaveService';
 import type { LeaveRequest, LeaveStatus } from '@/types';
 
 export default function LeaveApprovalsScreen() {
@@ -20,18 +21,27 @@ export default function LeaveApprovalsScreen() {
   const [isProcessing, setIsProcessing] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = subscribeToAllLeaves((data) => {
+    if (!user) return;
+    const unsubscribe = subscribeToLeavesForRole(user.role, user.uid, (data) => {
       setLeaves(data);
       setIsLoading(false);
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [user]);
 
   // Auto-switch filter to 'all' if no pending leaves are found on initial load
   useEffect(() => {
     if (!isLoading && !hasAutoSwitched) {
-      const pendingCount = leaves.filter(l => l.status === 'pending').length;
+      let pendingCount = 0;
+      if (user?.role === 'project_coordinator') {
+        pendingCount = leaves.filter(l => l.status === 'pending_coordinator').length;
+      } else if (user?.role === 'project_manager') {
+        pendingCount = leaves.filter(l => l.status === 'pending_manager').length;
+      } else {
+        pendingCount = leaves.filter(l => l.status === 'pending_hr' || l.status === 'pending').length;
+      }
+
       if (pendingCount === 0) {
         setFilter('all');
       }
@@ -41,15 +51,38 @@ export default function LeaveApprovalsScreen() {
 
   const filteredLeaves = useMemo(() => {
     if (filter === 'all') return leaves;
+    if (filter === 'pending') {
+      if (user?.role === 'project_coordinator') return leaves.filter(l => l.status === 'pending_coordinator');
+      if (user?.role === 'project_manager') return leaves.filter(l => l.status === 'pending_manager');
+      return leaves.filter(l => l.status === 'pending_hr' || l.status === 'pending');
+    }
+    if (filter === 'approved') {
+      if (user?.role === 'project_coordinator') return leaves.filter(l => l.status === 'pending_manager' || l.status === 'pending_hr' || l.status === 'approved');
+      if (user?.role === 'project_manager') return leaves.filter(l => l.status === 'pending_hr' || l.status === 'approved');
+      return leaves.filter(l => l.status === 'approved');
+    }
     return leaves.filter(l => l.status === filter);
-  }, [leaves, filter]);
+  }, [leaves, filter, user?.role]);
 
-  const handleReviewAction = async (status: LeaveStatus) => {
+  const handleReviewAction = async (action: 'approve' | 'reject') => {
     if (!selectedLeave || !user?.uid) return;
     
     setIsProcessing(true);
     try {
-      await updateLeaveStatus(selectedLeave.id, selectedLeave.employeeId, selectedLeave.role, status, user.uid, reviewNotes);
+      let newStatus: LeaveStatus = selectedLeave.status;
+      if (action === 'reject') {
+        newStatus = 'rejected';
+      } else {
+        if (user.role === 'project_coordinator') {
+          newStatus = (selectedLeave.managerIds && selectedLeave.managerIds.length > 0) ? 'pending_manager' : 'pending_hr';
+        } else if (user.role === 'project_manager') {
+          newStatus = 'pending_hr';
+        } else {
+          newStatus = 'approved';
+        }
+      }
+
+      await updateLeaveStatus(selectedLeave.id, selectedLeave.employeeId, selectedLeave.role, newStatus, user.uid, reviewNotes);
       setSelectedLeave(null);
       setReviewNotes('');
     } catch (error) {
@@ -66,18 +99,17 @@ export default function LeaveApprovalsScreen() {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'approved': return Colors.success;
-      case 'rejected': return Colors.error;
-      default: return Colors.warning;
-    }
+    if (status.includes('pending')) return Colors.warning;
+    if (status === 'approved' || status === 'reimbursed' || status === 'verified') return Colors.success;
+    if (status === 'rejected') return Colors.error;
+    return Colors.text.tertiary;
   };
 
   const renderItem = ({ item }: { item: LeaveRequest }) => (
     <TouchableOpacity 
       style={styles.card} 
       activeOpacity={0.7}
-      onPress={() => item.status === 'pending' ? openReviewModal(item) : null}
+      onPress={() => openReviewModal(item)}
     >
       <View style={styles.cardHeader}>
         <View>
@@ -86,7 +118,7 @@ export default function LeaveApprovalsScreen() {
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status.toUpperCase()}
+            {formatDisplayStatus(item.status)}
           </Text>
         </View>
       </View>
@@ -99,9 +131,23 @@ export default function LeaveApprovalsScreen() {
       <Text style={styles.reasonLabel}>Reason:</Text>
       <Text style={styles.reasonText} numberOfLines={2}>{item.reason}</Text>
 
-      {item.status === 'pending' && (
-        <Text style={styles.actionHint}>Tap to Review &rarr;</Text>
-      )}
+      {(() => {
+        const isMyTurn = user?.role === 'project_coordinator' 
+          ? item.status === 'pending_coordinator' 
+          : user?.role === 'project_manager' 
+            ? item.status === 'pending_manager' 
+            : item.status === 'pending_hr' || item.status === 'pending';
+
+        if (isMyTurn) {
+          return <Text style={styles.actionHint}>Tap to Review &rarr;</Text>;
+        } else if (item.status === 'rejected') {
+          return <Text style={[styles.actionHint, { color: Colors.error }]}>View Rejection Details &rarr;</Text>;
+        } else if (item.status === 'approved') {
+          return <Text style={[styles.actionHint, { color: Colors.success }]}>View Approved Leave &rarr;</Text>;
+        } else {
+          return <Text style={[styles.actionHint, { color: Colors.success }]}>Verified & Forwarded &rarr;</Text>;
+        }
+      })()}
     </TouchableOpacity>
   );
 
@@ -112,7 +158,19 @@ export default function LeaveApprovalsScreen() {
       </View>
 
       <View style={styles.filterRow}>
-        {(['pending', 'approved', 'rejected', 'all'] as const).map(f => (
+        <TouchableOpacity 
+          style={[styles.filterTab, filter === 'pending' && styles.filterTabActive]}
+          onPress={() => setFilter('pending')}
+        >
+          <Text style={[styles.filterTxt, filter === 'pending' && styles.filterTxtActive]}>
+            Pending
+          </Text>
+          {leaves.filter(l => l.status === (user?.role === 'project_coordinator' ? 'pending_coordinator' : user?.role === 'project_manager' ? 'pending_manager' : 'pending_hr')).length > 0 && (
+            <View style={styles.notificationDot} />
+          )}
+        </TouchableOpacity>
+        
+        {(['approved', 'rejected', 'all'] as const).map(f => (
           <TouchableOpacity 
             key={f}
             style={[styles.filterTab, filter === f && styles.filterTabActive]}
@@ -121,9 +179,6 @@ export default function LeaveApprovalsScreen() {
             <Text style={[styles.filterTxt, filter === f && styles.filterTxtActive]}>
               {f.charAt(0).toUpperCase() + f.slice(1)}
             </Text>
-            {f === 'pending' && leaves.filter(l => l.status === 'pending').length > 0 && (
-              <View style={styles.notificationDot} />
-            )}
           </TouchableOpacity>
         ))}
       </View>
@@ -141,7 +196,7 @@ export default function LeaveApprovalsScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="checkmark-done-circle-outline" size={48} color={Colors.text.tertiary} />
-              <Text style={styles.emptyText}>No {filter !== 'all' ? filter : ''} leave requests found</Text>
+              <Text style={styles.emptyText}>No leaves found for this filter</Text>
             </View>
           }
         />
@@ -172,34 +227,50 @@ export default function LeaveApprovalsScreen() {
                 <Text style={styles.detailLabel}>Reason:</Text>
                 <Text style={styles.detailValue}>{selectedLeave.reason}</Text>
 
-                <Text style={styles.inputLabel}>Manager Notes (Optional)</Text>
-                <TextInput
-                  style={[styles.input, styles.textArea]}
-                  placeholder="Add notes for the employee..."
-                  value={reviewNotes}
-                  onChangeText={setReviewNotes}
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                />
-
-                <View style={styles.actionRow}>
-                  <TouchableOpacity 
-                    style={[styles.actionBtn, { backgroundColor: Colors.error }]} 
-                    onPress={() => handleReviewAction('rejected')}
-                    disabled={isProcessing}
-                  >
-                    <Text style={styles.actionBtnText}>Reject</Text>
-                  </TouchableOpacity>
+                {(() => {
+                  const isMyTurn = user?.role === 'project_coordinator' 
+                    ? selectedLeave.status === 'pending_coordinator' 
+                    : user?.role === 'project_manager' 
+                      ? selectedLeave.status === 'pending_manager' 
+                      : selectedLeave.status === 'pending_hr' || selectedLeave.status === 'pending';
                   
-                  <TouchableOpacity 
-                    style={[styles.actionBtn, { backgroundColor: Colors.success }]} 
-                    onPress={() => handleReviewAction('approved')}
-                    disabled={isProcessing}
-                  >
-                    <Text style={styles.actionBtnText}>Approve</Text>
-                  </TouchableOpacity>
-                </View>
+                  if (!isMyTurn) return null;
+
+                  return (
+                    <>
+                      <Text style={styles.inputLabel}>Manager Notes (Optional)</Text>
+                      <TextInput
+                        style={[styles.input, styles.textArea]}
+                        placeholder="Add notes for the employee..."
+                        value={reviewNotes}
+                        onChangeText={setReviewNotes}
+                        multiline
+                        numberOfLines={3}
+                        textAlignVertical="top"
+                      />
+
+                      <View style={styles.actionRow}>
+                        <TouchableOpacity 
+                          style={[styles.actionBtn, { backgroundColor: Colors.success }]} 
+                          onPress={() => handleReviewAction('approve')}
+                          disabled={isProcessing}
+                        >
+                          <Text style={styles.actionBtnText}>
+                            {user?.role === 'project_coordinator' ? 'Approve & Forward' : user?.role === 'project_manager' ? 'Approve & Forward to HR' : 'Approve'}
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity 
+                          style={[styles.actionBtnOutline, { borderColor: Colors.error }]} 
+                          onPress={() => handleReviewAction('reject')}
+                          disabled={isProcessing}
+                        >
+                          <Text style={[styles.actionBtnText, { color: Colors.error }]}>Reject</Text>
+                        </TouchableOpacity>
+                      </View>
+                    </>
+                  );
+                })()}
               </>
             )}
           </View>
@@ -286,7 +357,8 @@ const styles = StyleSheet.create({
   input: { borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.md, padding: Spacing.md, fontSize: FontSize.md, color: Colors.text.primary },
   textArea: { height: 80, marginBottom: Spacing.xl },
   
-  actionRow: { flexDirection: 'row', gap: Spacing.md },
-  actionBtn: { flex: 1, padding: Spacing.md, borderRadius: BorderRadius.md, alignItems: 'center' },
-  actionBtnText: { color: Colors.white, fontWeight: FontWeight.bold, fontSize: FontSize.md },
+  actionRow: { flexDirection: 'column', gap: Spacing.md, marginTop: Spacing.sm },
+  actionBtn: { padding: Spacing.md, borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center' },
+  actionBtnOutline: { padding: Spacing.md, borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  actionBtnText: { color: Colors.white, fontWeight: FontWeight.bold, fontSize: FontSize.md, textAlign: 'center' },
 });

@@ -43,10 +43,11 @@ export type EmployeeTabParamList = {
   Profile: undefined;
 };
 
-export type SiteSupervisorTabParamList = {
+export type ProjectManagementTabParamList = {
   Dashboard: undefined;
   Employees: undefined;
   Expenses: undefined;
+  Leave: undefined;
   Reports: undefined;
   Profile: undefined;
 };
@@ -63,7 +64,7 @@ export type ManagerTabParamList = {
 export type AdminTabParamList = {
   Dashboard: undefined;
   Employees: undefined;
-  Sites: undefined;
+  Projects: undefined;
   Roles: undefined;
   Settings: undefined;
   Reports: undefined;
@@ -81,7 +82,7 @@ export type RootStackParamList = {
   Auth: undefined;
   PendingApproval: undefined;
   EmployeeApp: undefined;
-  SiteSupervisorApp: undefined;
+  ProjectManagementApp: undefined;
   ManagerApp: undefined;
   AdminApp: undefined;
   FinanceApp: undefined;
@@ -89,9 +90,8 @@ export type RootStackParamList = {
   Notifications: undefined;
 };
 
-
 // ─── Leave Management ────────────────────────────────────────────────────────
-export type LeaveStatus = 'pending' | 'approved' | 'rejected';
+export type LeaveStatus = 'pending_coordinator' | 'pending_manager' | 'pending_hr' | 'pending' | 'approved' | 'rejected';
 
 export interface LeaveRequest {
   id: string;
@@ -108,10 +108,13 @@ export interface LeaveRequest {
   updatedAt: string; // ISO date
   reviewedBy?: string; // UID of the manager/admin
   reviewNotes?: string;
+  projectIds?: string[]; // Projects the employee was part of at the time
+  coordinatorIds?: string[]; // Coordinators who need to approve
+  managerIds?: string[]; // Managers who need to approve
 }
 
 // ─── Expense Management ────────────────────────────────────────────────────────
-export type ExpenseStatus = 'pending_supervisor' | 'pending_manager' | 'pending_finance' | 'reimbursed' | 'rejected' | 'draft';
+export type ExpenseStatus = 'pending_coordinator' | 'pending_manager' | 'pending_finance' | 'reimbursed' | 'rejected' | 'draft';
 
 export interface ExpenseRequest {
   id: string;
@@ -126,6 +129,9 @@ export interface ExpenseRequest {
   attachmentUrl?: string | null;
   createdAt: string; // ISO date
   updatedAt: string; // ISO date
+  projectIds?: string[];
+  coordinatorIds?: string[];
+  managerIds?: string[];
   reviewedBy?: string; // UID of the manager/finance
   rejectionReason?: string;
 }
@@ -160,4 +166,50 @@ export interface AttendanceRecord {
   verifiedBy?: string | null;
   verifiedAt?: string | null;
   updatedAt: string; // ISO date
+}
+
+// ─── Project Management ────────────────────────────────────────────────────────
+
+export type ProjectShift = 'Day' | 'Night';
+export type ProjectType = 'Type 1' | 'Type 2' | 'Type 3';
+
+export interface ProjectEmployee {
+  employeeId: string;
+  employeeName: string;
+  shift: ProjectShift;
+}
+
+export interface GeoFencingConfig {
+  enabled: boolean;
+  latitude?: number;
+  longitude?: number;
+  radiusMeters?: number; // Default 200m
+}
+
+export interface Project {
+  id: string;
+  projectName: string;
+  projectAlias?: string;
+  isClosed: boolean;
+  projectManagerId?: string;
+  projectManagerName?: string;
+  projectCoordinatorId?: string;
+  projectCoordinatorName?: string;
+  siteEmployees: ProjectEmployee[];
+  projectType: ProjectType;
+  geoFencing: GeoFencingConfig;
+  createdAt: string; // ISO date
+  updatedAt: string; // ISO date
+}
+
+export interface ProjectHistory {
+  id: string;
+  projectId: string;
+  projectName: string;
+  employeeId: string;
+  employeeName: string;
+  action: 'added' | 'removed' | 'shift_changed';
+  shift?: ProjectShift;
+  timestamp: string; // ISO date
+  performedBy: string; // Admin UID who made the change
 }

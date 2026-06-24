@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
+import { formatDisplayStatus } from '@/utils/statusUtils';
 import { subscribeToAllExpenses, updateExpenseStatus } from '@/firebase/expenseService';
 import type { ExpenseRequest, ExpenseStatus } from '@/types';
 
@@ -83,11 +84,10 @@ export default function FinanceExpenseScreen() {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'reimbursed': return Colors.success;
-      case 'rejected': return Colors.error;
-      default: return Colors.warning;
-    }
+    if (status.includes('pending')) return Colors.warning;
+    if (status === 'approved' || status === 'reimbursed' || status === 'verified') return Colors.success;
+    if (status === 'rejected') return Colors.error;
+    return Colors.text.tertiary;
   };
 
   const renderItem = ({ item }: { item: ExpenseRequest }) => (
@@ -112,7 +112,7 @@ export default function FinanceExpenseScreen() {
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status.replace('_', ' ').toUpperCase()}
+            {formatDisplayStatus(item.status)}
           </Text>
         </View>
       </View>
@@ -129,9 +129,16 @@ export default function FinanceExpenseScreen() {
         </View>
       )}
 
-      {item.status === 'pending_finance' && (
-        <Text style={styles.actionHint}>Tap to Process Reimbursement &rarr;</Text>
-      )}
+      {(() => {
+        if (item.status === 'pending_finance') {
+          return <Text style={styles.actionHint}>Tap to Process Reimbursement &rarr;</Text>;
+        } else if (item.status === 'rejected') {
+          return <Text style={[styles.actionHint, { color: Colors.error }]}>View Rejection Details &rarr;</Text>;
+        } else if (item.status === 'reimbursed') {
+          return <Text style={[styles.actionHint, { color: Colors.success }]}>View Reimbursed Expense &rarr;</Text>;
+        }
+        return null;
+      })()}
     </TouchableOpacity>
   );
 
@@ -198,7 +205,7 @@ export default function FinanceExpenseScreen() {
                       <Text style={styles.detailLabel}>Status:</Text>
                       <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedExpense.status) + '20', alignSelf: 'flex-start', marginTop: 2 }]}>
                         <Text style={[styles.statusText, { color: getStatusColor(selectedExpense.status), fontSize: 11 }]}>
-                          {selectedExpense.status.replace('_', ' ').toUpperCase()}
+                          {formatDisplayStatus(selectedExpense.status)}
                         </Text>
                       </View>
                     </View>

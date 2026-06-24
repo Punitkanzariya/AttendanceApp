@@ -7,10 +7,11 @@ import {
   TouchableOpacity,
   RefreshControl,
   Alert,
+  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import { Colors, Spacing } from "@/theme";
+import { Colors, Spacing, FontSize } from "@/theme";
 import { useAuthStore } from "@/store/authStore";
 import { Image } from "react-native";
 import GradientHeader from "@/components/shared/GradientHeader";
@@ -19,15 +20,26 @@ import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { EmployeeTabParamList, AttendanceRecord } from "@/types";
 import { subscribeToTodayAttendance, checkInEmployee, checkOutEmployee } from "@/firebase";
+import { getEmployeeActiveProject } from "@/firebase/projectService";
 import { useLiveWorkingHours } from "@/hooks/useLiveWorkingHours";
+import { calculateDistanceMeters } from "@/utils/locationUtils";
+import GeoFenceMap from "@/components/shared/GeoFenceMap";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
 
 async function getShortAddress(latitude: number, longitude: number): Promise<string> {
   let address = '';
-  // 1. Try Native Geocoder
+  // Helper for timeout
+  function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+    return Promise.race([
+      promise,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))
+    ]);
+  }
+
+  // 1. Try Native Geocoder with 2.5s timeout
   try {
-    const geocode = await Location.reverseGeocodeAsync({ latitude, longitude });
+    const geocode = await withTimeout(Location.reverseGeocodeAsync({ latitude, longitude }), 2500);
     if (geocode && geocode.length > 0) {
       const item = geocode[0];
       address = [item.name, item.street, item.district, item.city, item.postalCode]
@@ -35,33 +47,29 @@ async function getShortAddress(latitude: number, longitude: number): Promise<str
         .join(', ');
     }
   } catch (err) {
-    console.warn('Native geocoding failed, trying fallback...', err);
+    console.warn('Native geocoding failed', err);
   }
 
-  // 2. Try OpenStreetMap Nominatim Fallback
+  // 2. Try OpenStreetMap Nominatim Fallback with 2.5s timeout
   if (!address) {
     try {
-      const response = await fetch(
+      const fetchPromise = fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
-        {
-          headers: {
-            'User-Agent': 'AttendanceApp/1.0',
-          },
-        }
+        { headers: { 'User-Agent': 'AttendanceApp/1.0' } }
       );
-      const data = await response.json();
-      if (data && data.address) {
-        const road = data.address.road || data.address.street || data.address.pedestrian;
-        const suburb = data.address.suburb || data.address.neighbourhood || data.address.city_district;
-        const city = data.address.city || data.address.town || data.address.village || data.address.county;
-        const postcode = data.address.postcode;
-        
-        address = [road, suburb, city, postcode]
-          .filter(Boolean)
-          .join(', ');
-      }
-      if (!address && data && data.display_name) {
-        address = data.display_name;
+      const response = await withTimeout(fetchPromise, 2500);
+      
+      if (response && response.ok) {
+        const data = await response.json();
+        if (data && data.address) {
+          const road = data.address.road || data.address.street || data.address.pedestrian;
+          const suburb = data.address.suburb || data.address.neighbourhood || data.address.city_district;
+          const city = data.address.city || data.address.town || data.address.village || data.address.county;
+          address = [road, suburb, city].filter(Boolean).join(', ');
+        }
+        if (!address && data && data.display_name) {
+          address = data.display_name;
+        }
       }
     } catch (fallbackErr) {
       console.warn('Fallback geocoding failed:', fallbackErr);
@@ -93,6 +101,7 @@ export default function EmployeeDashboard() {
   // Success Modal State
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
+  const [geofenceViolationData, setGeofenceViolationData] = useState<any>(null);
 
   // Subscribe to today's attendance
   useEffect(() => {
@@ -137,57 +146,139 @@ export default function EmployeeDashboard() {
   }, [fetchLocation]);
 
   const handleClockAction = async () => {
+    if (!user) return;
     if (isClocking) return;
     setIsClocking(true);
 
+    // Helper: real timeout wrapper (Expo Location doesn't support timeout param!)
+    function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+      return Promise.race([
+        promise,
+        new Promise<T>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms)),
+      ]);
+    }
+
     try {
-      // 1. Request location permissions and get position
-      const { status: locStatus } = await Location.requestForegroundPermissionsAsync();
-      if (locStatus !== 'granted') {
+      // 1. Request BOTH permissions in parallel
+      const [locPerm, camPerm] = await Promise.all([
+        Location.requestForegroundPermissionsAsync(),
+        ImagePicker.requestCameraPermissionsAsync(),
+      ]);
+
+      if (locPerm.status !== 'granted') {
         Alert.alert('Permission Required', 'Location permission is required to clock in/out.');
         setIsClocking(false);
         return;
       }
-
-      // 2. Request camera permissions
-      const { status: camStatus } = await ImagePicker.requestCameraPermissionsAsync();
-      if (camStatus !== 'granted') {
+      if (camPerm.status !== 'granted') {
         Alert.alert('Permission Required', 'Camera permission is required to capture a verification selfie.');
         setIsClocking(false);
         return;
       }
 
-      // 3. Start fetching fresh location in the background BEFORE opening the camera
-      // This ensures 100% accuracy but 0 wait time, since GPS runs while user poses!
-      const locationPromise = (async () => {
-        try {
-          const freshLoc = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          const newAddress = await getShortAddress(freshLoc.coords.latitude, freshLoc.coords.longitude);
-          return {
-            latitude: freshLoc.coords.latitude,
-            longitude: freshLoc.coords.longitude,
-            address: newAddress,
-          };
-        } catch (err) {
-          // Fallback to cached only if fresh fetch fails completely
-          if (currentLocationCoords && currentAddress && currentAddress !== "Fetching location...") {
-            return {
-              latitude: currentLocationCoords.latitude,
-              longitude: currentLocationCoords.longitude,
-              address: currentAddress,
-            };
-          }
-          throw err;
-        }
-      })();
+      // 2. Fetch cached location + activeProject IN PARALLEL
+      const [lastKnownLoc, activeProject] = await Promise.all([
+        Location.getLastKnownPositionAsync(),
+        getEmployeeActiveProject(user.uid),
+      ]);
 
-      // 4. Capture selfie (While this is open, the background GPS is finishing up!)
+      // 3. Geofence validation helper (pure math, instant)
+      const validateGeofence = (lat: number, lng: number) => {
+        if (!activeProject?.geoFencing?.enabled || !activeProject.geoFencing.latitude || !activeProject.geoFencing.longitude) return true;
+        const distance = calculateDistanceMeters(lat, lng, activeProject.geoFencing.latitude, activeProject.geoFencing.longitude);
+        const radius = activeProject.geoFencing.radiusMeters || 200;
+        if (distance > radius) return { distance, radius, failed: true };
+        return true;
+      };
+
+      const showViolation = (userLat: number, userLng: number, distance: number, radius: number) => {
+        setGeofenceViolationData({
+          type: 'GEO_FENCE_VIOLATION',
+          distance: Math.round(distance),
+          radius,
+          userLat, userLng,
+          siteLat: activeProject!.geoFencing!.latitude,
+          siteLng: activeProject!.geoFencing!.longitude,
+        });
+        setIsClocking(false);
+      };
+
+      // 4. Determine location
+      let useLoc: { latitude: number; longitude: number } | null = null;
+
+      if (lastKnownLoc) {
+        const geoResult = validateGeofence(lastKnownLoc.coords.latitude, lastKnownLoc.coords.longitude);
+        if (geoResult === true) {
+          // Cached location is inside geofence — use it instantly!
+          useLoc = { latitude: lastKnownLoc.coords.latitude, longitude: lastKnownLoc.coords.longitude };
+        } else if (typeof geoResult === 'object' && geoResult.failed) {
+          // Cached location is OUTSIDE geofence — try fresh GPS with strict 4s timeout
+          try {
+            const freshLoc = await withTimeout(
+              Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
+              4000
+            );
+            const freshResult = validateGeofence(freshLoc.coords.latitude, freshLoc.coords.longitude);
+            if (freshResult === true) {
+              useLoc = { latitude: freshLoc.coords.latitude, longitude: freshLoc.coords.longitude };
+            } else if (typeof freshResult === 'object' && freshResult.failed) {
+              showViolation(freshLoc.coords.latitude, freshLoc.coords.longitude, freshResult.distance, freshResult.radius);
+              return;
+            }
+          } catch {
+            // GPS timed out — show violation with the cached coords we already have
+            showViolation(lastKnownLoc.coords.latitude, lastKnownLoc.coords.longitude, geoResult.distance, geoResult.radius);
+            return;
+          }
+        }
+      }
+
+      // 5. No cached location at all — must fetch fresh
+      if (!useLoc) {
+        try {
+          const freshLoc = await withTimeout(
+            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
+            4000
+          );
+          const geoResult = validateGeofence(freshLoc.coords.latitude, freshLoc.coords.longitude);
+          if (typeof geoResult === 'object' && geoResult.failed) {
+            showViolation(freshLoc.coords.latitude, freshLoc.coords.longitude, geoResult.distance, geoResult.radius);
+            return;
+          }
+          useLoc = { latitude: freshLoc.coords.latitude, longitude: freshLoc.coords.longitude };
+        } catch {
+          // Fresh GPS also failed — try dashboard cached coords
+          if (currentLocationCoords && currentAddress && currentAddress !== "Fetching location...") {
+            const geoResult = validateGeofence(currentLocationCoords.latitude, currentLocationCoords.longitude);
+            if (typeof geoResult === 'object' && geoResult.failed) {
+              showViolation(currentLocationCoords.latitude, currentLocationCoords.longitude, geoResult.distance, geoResult.radius);
+              return;
+            }
+            useLoc = { latitude: currentLocationCoords.latitude, longitude: currentLocationCoords.longitude };
+          } else {
+            Alert.alert('Location Error', 'Unable to determine your location. Please try again.');
+            setIsClocking(false);
+            return;
+          }
+        }
+      }
+
+      // 6. Use cached address or GPS coords (don't block on reverse geocoding)
+      let address = currentAddress && currentAddress !== "Fetching location..." ? currentAddress : '';
+      if (!address) {
+        address = `Lat: ${useLoc.latitude.toFixed(4)}, Lon: ${useLoc.longitude.toFixed(4)}`;
+        getShortAddress(useLoc.latitude, useLoc.longitude).then(addr => {
+          if (addr) setCurrentAddress(addr);
+        }).catch(() => {});
+      }
+
+      const attendanceLoc = { latitude: useLoc.latitude, longitude: useLoc.longitude, address };
+
+      // 7. Capture selfie
       const cameraResult = await ImagePicker.launchCameraAsync({
         cameraType: ImagePicker.CameraType.front,
         allowsEditing: false,
-        quality: 0.4,
+        quality: 0.3,
       });
 
       if (cameraResult.canceled || !cameraResult.assets || cameraResult.assets.length === 0) {
@@ -198,37 +289,25 @@ export default function EmployeeDashboard() {
 
       const selfieUri = cameraResult.assets[0].uri;
 
-      // 5. Await the location promise. By the time the camera is closed, this will already be 100% done!
-      const attendanceLoc = await locationPromise;
-
+      // 8. Execute Check In/Out
       if (!todayRecord) {
-        // Clock In
         await checkInEmployee(
-          user.uid,
-          user.role,
-          user!.displayName || 'Employee',
-          attendanceLoc,
-          '',
-          selfieUri,
-          user!.username
+          user.uid, user.role, user!.displayName || 'Employee',
+          attendanceLoc, '', selfieUri, user!.username
         );
         setSuccessMessage('Successfully Clocked In');
         setSuccessModalVisible(true);
       } else if (!todayRecord.checkOut) {
-        // Clock Out
         await checkOutEmployee(
-          user!.uid,
-          user.role,
-          attendanceLoc,
-          '',
-          selfieUri
+          user!.uid, user.role, attendanceLoc, '', selfieUri
         );
         setSuccessMessage('Successfully Clocked Out');
         setSuccessModalVisible(true);
       }
-    } catch (error: any) {
-      console.error(error);
-      Alert.alert('Error', error.message || 'An error occurred while registering attendance');
+    } catch (err: any) {
+      setIsClocking(false);
+      console.error(err);
+      Alert.alert('Error', err.message || 'An error occurred');
     } finally {
       setIsClocking(false);
     }
@@ -534,6 +613,45 @@ export default function EmployeeDashboard() {
           </View>
         </ScrollView>
       </View>
+
+      {/* Geofence Violation Modal */}
+      <Modal visible={!!geofenceViolationData} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalIconContainer}>
+                <Ionicons name="warning" size={28} color="#EF4444" />
+              </View>
+              <Text style={styles.modalTitle}>Out of Range</Text>
+            </View>
+            
+            <Text style={styles.modalDesc}>
+              You are <Text style={{ fontWeight: 'bold', color: '#EF4444' }}>{geofenceViolationData?.distance}m</Text> away from the site. You must be within <Text style={{ fontWeight: 'bold' }}>{geofenceViolationData?.radius}m</Text> to {(!todayRecord || todayRecord.checkOut) ? 'Clock In' : 'Clock Out'}.
+            </Text>
+
+            {geofenceViolationData && (
+              <View style={{ height: 250, width: '100%', marginVertical: 15, borderRadius: 12, overflow: 'hidden' }}>
+                <GeoFenceMap 
+                  latitude={geofenceViolationData.siteLat.toString()} 
+                  longitude={geofenceViolationData.siteLng.toString()} 
+                  radius={geofenceViolationData.radius.toString()} 
+                  userLatitude={geofenceViolationData.userLat.toString()}
+                  userLongitude={geofenceViolationData.userLng.toString()}
+                />
+              </View>
+            )}
+
+            <TouchableOpacity 
+              style={styles.modalBtn}
+              onPress={() => setGeofenceViolationData(null)}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.modalBtnTxt}>Got it</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -722,6 +840,65 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: Colors.text.primary,
     marginBottom: 2,
+  },
+  emptyStateSubtext: {
+    fontSize: FontSize.sm,
+    color: Colors.text.secondary,
+    textAlign: "center",
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: Spacing.xl,
+  },
+  modalContent: {
+    width: '100%',
+    backgroundColor: Colors.white,
+    borderRadius: 20,
+    padding: Spacing.xl,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.1,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  modalHeader: {
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  modalIconContainer: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: Spacing.md,
+  },
+  modalTitle: {
+    fontSize: FontSize.xl,
+    fontWeight: 'bold',
+    color: Colors.text.primary,
+  },
+  modalDesc: {
+    fontSize: FontSize.md,
+    color: Colors.text.secondary,
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  modalBtn: {
+    backgroundColor: '#0F172A',
+    paddingVertical: Spacing.md,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: Spacing.sm,
+  },
+  modalBtnTxt: {
+    color: Colors.white,
+    fontSize: FontSize.md,
+    fontWeight: 'bold',
   },
   leaveTotalTxt: {
     fontSize: 10,

@@ -16,6 +16,7 @@ import {
   Spacing,
   BorderRadius,
 } from "@/theme";
+import { formatDisplayStatus } from "@/utils/statusUtils";
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { subscribeToUserLeaves } from "@/firebase/leaveService";
 import type { LeaveRequest } from "@/types";
@@ -50,14 +51,10 @@ export default function EmployeeLeaveScreen() {
 
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case "approved":
-        return Colors.success;
-      case "rejected":
-        return Colors.error;
-      default:
-        return Colors.warning;
-    }
+    if (status.includes('pending')) return Colors.warning;
+    if (status === 'approved' || status === 'reimbursed' || status === 'verified') return Colors.success;
+    if (status === 'rejected') return Colors.error;
+    return Colors.text.tertiary;
   };
 
   const renderItem = ({ item }: { item: LeaveRequest }) => (
@@ -76,19 +73,9 @@ export default function EmployeeLeaveScreen() {
             </Text>
           </View>
         </View>
-        <View
-          style={[
-            styles.statusBadge,
-            {
-              backgroundColor: getStatusColor(item.status) + "15",
-              borderColor: getStatusColor(item.status) + "40",
-            },
-          ]}
-        >
-          <Text
-            style={[styles.statusText, { color: getStatusColor(item.status) }]}
-          >
-            {item.status.toUpperCase()}
+        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + "20" }]}>
+          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+            {item.status.includes('pending') ? 'Pending' : formatDisplayStatus(item.status)}
           </Text>
         </View>
       </View>
@@ -96,7 +83,7 @@ export default function EmployeeLeaveScreen() {
       <Text style={styles.reasonLabel}>Reason</Text>
       <Text style={styles.reasonText}>{item.reason}</Text>
 
-      {!!item.reviewNotes && (
+      {!!item.reviewNotes?.trim() && (
         <View style={styles.notesContainer}>
           <Ionicons
             name="chatbubble-ellipses-outline"

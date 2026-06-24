@@ -47,8 +47,8 @@ async function uploadImageToStorage(uri: string, path: string): Promise<string> 
   try {
     const manipResult = await ImageManipulator.manipulateAsync(
       uri,
-      [{ resize: { width: 600 } }],
-      { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
+      [{ resize: { width: 400 } }],
+      { compress: 0.4, format: ImageManipulator.SaveFormat.JPEG }
     );
 
     const base64 = await FileSystem.readAsStringAsync(manipResult.uri, {

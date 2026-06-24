@@ -5,15 +5,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
-import { subscribeToAllExpenses, updateExpenseStatus } from '@/firebase/expenseService';
+import { formatDisplayStatus } from '@/utils/statusUtils';
+import { subscribeToExpensesForRole, updateExpenseStatus } from '@/firebase/expenseService';
 import type { ExpenseRequest, ExpenseStatus } from '@/types';
 
-export default function SupervisorExpenseScreen() {
+export default function ProjectExpenseScreen() {
   const { user } = useAuthStore();
   const [expenses, setExpenses] = useState<ExpenseRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [filter, setFilter] = useState<string>('pending_supervisor');
+  const [filter, setFilter] = useState<string>('');
   const [hasAutoSwitched, setHasAutoSwitched] = useState(false);
+
+  // Set initial filter based on role once
+  useEffect(() => {
+    if (!filter && user) {
+      setFilter(user.role === 'project_coordinator' ? 'pending_coordinator' : 'pending_manager');
+    }
+  }, [user, filter]);
 
   // Review Modal State
   const [selectedExpense, setSelectedExpense] = useState<ExpenseRequest | null>(null);
@@ -22,8 +30,10 @@ export default function SupervisorExpenseScreen() {
   const [isAttachmentVisible, setIsAttachmentVisible] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = subscribeToAllExpenses(
-      ['pending_supervisor', 'pending_manager', 'pending_finance', 'reimbursed', 'rejected'],
+    if (!user) return;
+    const unsubscribe = subscribeToExpensesForRole(
+      user.role,
+      user.uid,
       (data) => {
         setExpenses(data);
         setIsLoading(false);
@@ -33,20 +43,26 @@ export default function SupervisorExpenseScreen() {
     return () => unsubscribe();
   }, []);
 
-  // Auto-switch filter to 'all' if no pending supervisor expenses are found on initial load
+  // Auto-switch filter to 'all' if no pending expenses are found on initial load
   useEffect(() => {
-    if (!isLoading && !hasAutoSwitched) {
-      const pendingCount = expenses.filter(e => e.status === 'pending_supervisor').length;
-      if (pendingCount === 0) {
+    if (!isLoading && !hasAutoSwitched && filter) {
+      const pendingCount = expenses.filter(e => e.status === filter).length;
+      if (pendingCount === 0 && expenses.length > 0) {
         setFilter('all');
       }
       setHasAutoSwitched(true);
     }
-  }, [expenses, isLoading, hasAutoSwitched]);
+  }, [isLoading, expenses, filter, hasAutoSwitched]);
 
   const filteredExpenses = useMemo(() => {
     if (filter === 'all') return expenses;
-    if (filter === 'approved') return expenses.filter(e => e.status === 'pending_manager' || e.status === 'pending_finance' || e.status === 'reimbursed');
+    if (filter === 'approved') {
+      if (user?.role === 'project_coordinator') {
+        return expenses.filter(e => e.status === 'pending_manager' || e.status === 'pending_finance' || e.status === 'reimbursed');
+      } else {
+        return expenses.filter(e => e.status === 'pending_finance' || e.status === 'reimbursed');
+      }
+    }
     return expenses.filter(e => e.status === filter);
   }, [expenses, filter]);
 
@@ -60,9 +76,10 @@ export default function SupervisorExpenseScreen() {
     
     setIsProcessing(true);
     try {
-      // Supervisor approval moves it to pending_manager
-      const newStatus = status === 'pending_manager' ? 'pending_manager' : 'rejected';
+      // Coordinator pushes to Manager, Manager pushes to Finance
+      const newStatus = status === 'rejected' ? 'rejected' : (user.role === 'project_coordinator' ? 'pending_manager' : 'pending_finance');
       await updateExpenseStatus(selectedExpense.id, selectedExpense.employeeId, selectedExpense.role, newStatus, user.uid, reviewNotes);
+      Alert.alert('Success', `Expense forwarded to ${user.role === 'project_coordinator' ? 'Project Manager' : 'Finance'} successfully.`);
       setSelectedExpense(null);
       setReviewNotes('');
     } catch (error) {
@@ -95,13 +112,10 @@ export default function SupervisorExpenseScreen() {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending_manager': return Colors.success;
-      case 'pending_finance': return Colors.success;
-      case 'reimbursed': return Colors.success;
-      case 'rejected': return Colors.error;
-      default: return Colors.warning;
-    }
+    if (status.includes('pending')) return Colors.warning;
+    if (status === 'approved' || status === 'reimbursed' || status === 'verified') return Colors.success;
+    if (status === 'rejected') return Colors.error;
+    return Colors.text.tertiary;
   };
 
   const renderItem = ({ item }: { item: ExpenseRequest }) => (
@@ -126,7 +140,7 @@ export default function SupervisorExpenseScreen() {
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status.replace('_', ' ').toUpperCase()}
+            {formatDisplayStatus(item.status)}
           </Text>
         </View>
       </View>
@@ -143,9 +157,23 @@ export default function SupervisorExpenseScreen() {
         </View>
       )}
 
-      {item.status === 'pending_supervisor' && (
-        <Text style={styles.actionHint}>Tap to Review &rarr;</Text>
-      )}
+      {(() => {
+        const isMyTurn = user?.role === 'project_coordinator' 
+          ? item.status === 'pending_coordinator' 
+          : user?.role === 'project_manager' 
+            ? item.status === 'pending_manager' 
+            : item.status === 'pending_finance';
+
+        if (isMyTurn) {
+          return <Text style={styles.actionHint}>Tap to Review &rarr;</Text>;
+        } else if (item.status === 'rejected') {
+          return <Text style={[styles.actionHint, { color: Colors.error }]}>View Rejection Details &rarr;</Text>;
+        } else if (item.status === 'reimbursed') {
+          return <Text style={[styles.actionHint, { color: Colors.success }]}>View Reimbursed Expense &rarr;</Text>;
+        } else {
+          return <Text style={[styles.actionHint, { color: Colors.success }]}>Verified & Forwarded &rarr;</Text>;
+        }
+      })()}
     </TouchableOpacity>
   );
 
@@ -156,18 +184,31 @@ export default function SupervisorExpenseScreen() {
       </View>
 
       <View style={styles.filterRow}>
-        {(['pending_supervisor', 'approved', 'rejected', 'all'] as const).map(f => (
+        <TouchableOpacity 
+          style={[styles.filterTab, filter === (user?.role === 'project_coordinator' ? 'pending_coordinator' : 'pending_manager') && styles.filterTabActive]}
+          onPress={() => setFilter(user?.role === 'project_coordinator' ? 'pending_coordinator' : 'pending_manager')}
+        >
+          <Text style={[styles.filterTxt, filter === (user?.role === 'project_coordinator' ? 'pending_coordinator' : 'pending_manager') && styles.filterTxtActive]}>
+            Pending
+          </Text>
+          {expenses.filter(e => e.status === (user?.role === 'project_coordinator' ? 'pending_coordinator' : 'pending_manager')).length > 0 && (
+            <View style={styles.badge}>
+              <Text style={styles.badgeTxt}>
+                {expenses.filter(e => e.status === (user?.role === 'project_coordinator' ? 'pending_coordinator' : 'pending_manager')).length}
+              </Text>
+            </View>
+          )}
+        </TouchableOpacity>
+
+        {['approved', 'rejected', 'all'].map((f) => (
           <TouchableOpacity 
             key={f}
             style={[styles.filterTab, filter === f && styles.filterTabActive]}
             onPress={() => setFilter(f)}
           >
             <Text style={[styles.filterTxt, filter === f && styles.filterTxtActive]}>
-              {f === 'pending_supervisor' ? 'Pending' : f.charAt(0).toUpperCase() + f.slice(1)}
+              {f.charAt(0).toUpperCase() + f.slice(1)}
             </Text>
-            {f === 'pending_supervisor' && expenses.filter(e => e.status === 'pending_supervisor').length > 0 && (
-              <View style={styles.notificationDot} />
-            )}
           </TouchableOpacity>
         ))}
       </View>
@@ -197,7 +238,7 @@ export default function SupervisorExpenseScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
-                {selectedExpense?.status === 'pending_supervisor' ? 'Verify Expense' : 'Expense Details'}
+                {selectedExpense?.status === (user?.role === 'project_coordinator' ? 'pending_coordinator' : 'pending_manager') ? 'Review Expense' : 'Expense Details'}
               </Text>
               <TouchableOpacity onPress={() => setSelectedExpense(null)}>
                 <Ionicons name="close" size={24} color={Colors.text.secondary} />
@@ -212,7 +253,7 @@ export default function SupervisorExpenseScreen() {
                       <Text style={styles.detailLabel}>Status:</Text>
                       <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedExpense.status) + '20', alignSelf: 'flex-start', marginTop: 2 }]}>
                         <Text style={[styles.statusText, { color: getStatusColor(selectedExpense.status), fontSize: 11 }]}>
-                          {selectedExpense.status.replace('_', ' ').toUpperCase()}
+                          {formatDisplayStatus(selectedExpense.status)}
                         </Text>
                       </View>
                     </View>
@@ -246,7 +287,7 @@ export default function SupervisorExpenseScreen() {
                     </TouchableOpacity>
                   )}
 
-                  {selectedExpense.status === 'pending_supervisor' ? (
+                  {selectedExpense.status === (user?.role === 'project_coordinator' ? 'pending_coordinator' : 'pending_manager') ? (
                     <>
                       <Text style={styles.inputLabel}>Rejection / Review Notes</Text>
                       <TextInput
@@ -260,7 +301,7 @@ export default function SupervisorExpenseScreen() {
                       />
                     </>
                   ) : (
-                    selectedExpense.rejectionReason ? (
+                    selectedExpense.rejectionReason?.trim() ? (
                       <View style={{ marginTop: Spacing.md }}>
                         <Text style={styles.detailLabel}>Rejection Reason / Notes:</Text>
                         <Text style={[styles.detailValue, { color: Colors.error }]}>{selectedExpense.rejectionReason}</Text>
@@ -269,22 +310,24 @@ export default function SupervisorExpenseScreen() {
                   )}
                 </View>
 
-                {selectedExpense.status === 'pending_supervisor' && (
+                {selectedExpense.status === (user?.role === 'project_coordinator' ? 'pending_coordinator' : 'pending_manager') && (
                   <View style={styles.actionRow}>
                     <TouchableOpacity 
-                      style={[styles.actionBtn, { backgroundColor: Colors.error }]} 
-                      onPress={() => handleReviewAction('rejected')}
-                      disabled={isProcessing}
-                    >
-                      <Text style={styles.actionBtnText}>Reject</Text>
-                    </TouchableOpacity>
-                    
-                    <TouchableOpacity 
-                      style={[styles.actionBtn, { backgroundColor: Colors.success }]} 
+                      style={[styles.actionBtn, { backgroundColor: Colors.success, opacity: isProcessing ? 0.7 : 1 }]} 
                       onPress={() => handleReviewAction('pending_manager')}
                       disabled={isProcessing}
                     >
-                      <Text style={styles.actionBtnText}>Verify & Approve</Text>
+                      <Text style={styles.actionBtnText}>
+                        {user?.role === 'project_coordinator' ? 'Verify & Forward to Manager' : 'Verify & Forward to Finance'}
+                      </Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                      style={[styles.actionBtnOutline, { borderColor: Colors.error, opacity: isProcessing ? 0.7 : 1 }]} 
+                      onPress={() => handleReviewAction('rejected')}
+                      disabled={isProcessing}
+                    >
+                      <Text style={[styles.actionBtnText, { color: Colors.error }]}>Reject</Text>
                     </TouchableOpacity>
                   </View>
                 )}
@@ -323,6 +366,8 @@ const styles = StyleSheet.create({
   filterTxt: { fontSize: FontSize.sm, fontWeight: FontWeight.medium, color: Colors.text.secondary },
   filterTxtActive: { color: Colors.white },
   notificationDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.error, marginLeft: 4, marginTop: 2 },
+  badge: { backgroundColor: Colors.error, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, marginLeft: 6 },
+  badgeTxt: { color: Colors.white, fontSize: 10, fontWeight: 'bold' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContainer: { padding: Spacing.lg, gap: Spacing.md },
   card: { backgroundColor: Colors.white, padding: Spacing.lg, borderRadius: BorderRadius.lg, ...Shadow.sm, borderWidth: 1, borderColor: Colors.border },
@@ -353,9 +398,10 @@ const styles = StyleSheet.create({
   inputLabel: { fontSize: FontSize.sm, fontWeight: FontWeight.medium, color: Colors.text.secondary, marginBottom: Spacing.xs },
   input: { borderWidth: 1, borderColor: Colors.border, borderRadius: BorderRadius.md, padding: Spacing.md, fontSize: FontSize.md, color: Colors.text.primary },
   textArea: { height: 80, marginBottom: Spacing.sm },
-  actionRow: { flexDirection: 'row', gap: Spacing.md },
-  actionBtn: { flex: 1, padding: Spacing.md, borderRadius: BorderRadius.md, alignItems: 'center' },
-  actionBtnText: { color: Colors.white, fontWeight: FontWeight.bold, fontSize: FontSize.md },
+  actionRow: { flexDirection: 'column', gap: Spacing.md, marginTop: Spacing.sm },
+  actionBtn: { padding: Spacing.md, borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center' },
+  actionBtnOutline: { padding: Spacing.md, borderRadius: BorderRadius.md, alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  actionBtnText: { color: Colors.white, fontWeight: FontWeight.bold, fontSize: FontSize.md, textAlign: 'center' },
   imageViewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
   closeImageBtn: { position: 'absolute', top: 40, right: 20, zIndex: 10 },
   fullImage: { width: '100%', height: '80%' },

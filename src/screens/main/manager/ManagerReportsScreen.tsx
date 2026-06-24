@@ -187,7 +187,7 @@ export default function ManagerReportsScreen() {
       totalSpent,
       categoryDistribution,
       totalRequests: teamExpenses.length,
-      pendingSupervisor: teamExpenses.filter(e => e.status === 'pending_supervisor').length,
+      pendingSupervisor: teamExpenses.filter(e => e.status === 'pending_coordinator').length,
       pendingManager: teamExpenses.filter(e => e.status === 'pending_manager').length,
       reimbursed: teamExpenses.filter(e => e.status === 'reimbursed').length,
     };

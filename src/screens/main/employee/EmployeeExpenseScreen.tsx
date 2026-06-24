@@ -14,7 +14,8 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import { Colors, FontSize, Spacing, BorderRadius } from "@/theme";
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from "@/theme";
+import { formatDisplayStatus } from "@/utils/statusUtils";
 import { useAuthStore } from "@/store/authStore";
 import { subscribeToUserExpenses } from "@/firebase/expenseService";
 import type { ExpenseRequest, ExpenseStatus } from "@/types";
@@ -75,15 +76,11 @@ export default function EmployeeExpenseScreen() {
     }
   };
 
-  const getStatusColor = (status: ExpenseStatus) => {
-    switch (status) {
-      case "reimbursed":
-        return Colors.success;
-      case "rejected":
-        return Colors.error;
-      default:
-        return Colors.warning;
-    }
+  const getStatusColor = (status: string) => {
+    if (status.includes('pending')) return Colors.warning;
+    if (status === 'approved' || status === 'reimbursed' || status === 'verified') return Colors.success;
+    if (status === 'rejected') return Colors.error;
+    return Colors.text.tertiary;
   };
 
   const renderItem = ({ item }: { item: ExpenseRequest }) => (
@@ -149,10 +146,8 @@ export default function EmployeeExpenseScreen() {
             },
           ]}
         >
-          <Text
-            style={[styles.statusText, { color: getStatusColor(item.status) }]}
-          >
-            {item.status.replace("_", " ").toUpperCase()}
+          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
+            {item.status.includes('pending') ? 'Pending' : formatDisplayStatus(item.status)}
           </Text>
         </View>
 
@@ -272,7 +267,7 @@ export default function EmployeeExpenseScreen() {
                     <Text style={styles.detailLabel}>Status:</Text>
                     <View style={[styles.statusBadge, { backgroundColor: getStatusColor(expenseToView.status) + '20', alignSelf: 'flex-start', marginTop: 2, borderWidth: 0 }]}>
                       <Text style={[styles.statusText, { color: getStatusColor(expenseToView.status), fontSize: 11 }]}>
-                        {expenseToView.status.replace('_', ' ').toUpperCase()}
+                        {expenseToView.status.includes('pending') ? 'PENDING' : formatDisplayStatus(expenseToView.status).toUpperCase()}
                       </Text>
                     </View>
                   </View>
@@ -303,7 +298,7 @@ export default function EmployeeExpenseScreen() {
                   </TouchableOpacity>
                 )}
 
-                {expenseToView.rejectionReason && (
+                {!!expenseToView.rejectionReason?.trim() && (
                   <View style={{ marginTop: Spacing.md }}>
                     <Text style={styles.detailLabel}>Rejection Reason / Notes:</Text>
                     <Text style={[styles.detailValue, { color: Colors.error }]}>{expenseToView.rejectionReason}</Text>

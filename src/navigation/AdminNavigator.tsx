@@ -5,6 +5,7 @@ import { Colors, FontSize } from '@/theme';
 import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
 
 import AdminEmployeesScreen from '@/screens/admin/AdminEmployeesScreen';
+import AdminProjectsScreen from '@/screens/admin/AdminProjectsScreen';
 
 import { Platform } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -16,7 +17,7 @@ type IoniconsName = React.ComponentProps<typeof Ionicons>['name'];
 const TAB_ICONS: Record<keyof AdminTabParamList, { active: IoniconsName; inactive: IoniconsName }> = {
   Dashboard: { active: 'home',           inactive: 'home-outline'          },
   Employees: { active: 'people',         inactive: 'people-outline'        },
-  Sites:     { active: 'business',       inactive: 'business-outline'      },
+  Projects:  { active: 'business',       inactive: 'business-outline'      },
   Roles:     { active: 'shield',         inactive: 'shield-outline'        },
   Settings:  { active: 'settings',       inactive: 'settings-outline'      },
   Reports:   { active: 'bar-chart',      inactive: 'bar-chart-outline'     },
@@ -52,15 +53,7 @@ export default function AdminNavigator() {
         )}
       </Tab.Screen>
       <Tab.Screen name="Employees" component={AdminEmployeesScreen} />
-      <Tab.Screen name="Sites">
-        {() => (
-          <PlaceholderScreen
-            iconName="business"
-            title="Manage Sites"
-            description="Configure work sites and assignments"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Projects" component={AdminProjectsScreen} />
       <Tab.Screen name="Roles">
         {() => (
           <PlaceholderScreen

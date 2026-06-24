@@ -51,18 +51,18 @@ export default function AttendanceDetailModal({
   const [userHistory, setUserHistory] = useState<AttendanceRecord[]>([]);
 
   useEffect(() => {
-    if (!initialRecord?.employeeId) {
+    if (!initialRecord?.employeeId || !initialRecord?.role) {
       setUserHistory([]);
       return;
     }
     
     // Fetch full history for the calendar
-    const unsub = subscribeToUserAttendanceHistory(initialRecord.employeeId, (records) => {
+    const unsub = subscribeToUserAttendanceHistory(initialRecord.employeeId, initialRecord.role, (records) => {
       setUserHistory(records);
     });
 
     return () => unsub();
-  }, [initialRecord?.employeeId]);
+  }, [initialRecord?.employeeId, initialRecord?.role]);
 
   useEffect(() => {
     if (!activeRecord) {

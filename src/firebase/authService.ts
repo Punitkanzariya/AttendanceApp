@@ -101,6 +101,43 @@ export async function fetchEmployeeProfile(uid: string): Promise<User | null> {
   }
 }
 
+/**
+ * Subscribe to the employee's profile in real-time.
+ * If the role or status changes, this will trigger the callback with the new data.
+ */
+export function subscribeToEmployeeProfile(
+  uid: string,
+  role: string,
+  callback: (user: User | null) => void
+): () => void {
+  const docRef = doc(db, 'users', role, 'profiles', uid);
+  return onSnapshot(
+    docRef,
+    (snap) => {
+      if (!snap.exists()) {
+        callback(null);
+        return;
+      }
+      const data = snap.data();
+      callback({
+        uid,
+        email:       data.email       ?? '',
+        username:    data.username    ?? '',
+        phoneNumber: data.phoneNumber ?? null,
+        displayName: data.displayName ?? null,
+        role:        (data.role as UserRole) ?? 'employee',
+        siteId:      data.siteId,
+        managerId:   data.managerId,
+        createdAt:   data.createdAt?.toDate?.().toISOString() ?? new Date().toISOString(),
+        isActive:    data.isActive ?? true,
+      });
+    },
+    (error) => {
+      console.error('[authService] subscribeToEmployeeProfile error:', error);
+    }
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────
 //  CHECK ACCOUNT LOCKOUT (PRD §3.1)
 //  Before every login attempt, we check Firestore to see if this

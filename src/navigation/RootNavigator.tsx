@@ -10,7 +10,7 @@ import type { User } from '@/types';
 
 import AuthNavigator from '@/navigation/AuthNavigator';
 import EmployeeNavigator from '@/navigation/EmployeeNavigator';
-import SiteSupervisorNavigator from '@/navigation/SiteSupervisorNavigator';
+import ProjectManagementNavigator from '@/navigation/ProjectManagementNavigator';
 import ManagerNavigator from '@/navigation/ManagerNavigator';
 import AdminNavigator from '@/navigation/AdminNavigator';
 import FinanceNavigator from '@/navigation/FinanceNavigator';
@@ -84,7 +84,7 @@ export default function RootNavigator() {
                 <Root.Screen name="EmployeeApp" component={EmployeeNavigator} />
               )}
           {(user?.role === 'project_manager' || user?.role === 'project_coordinator') && (
-            <Root.Screen name="SiteSupervisorApp" component={SiteSupervisorNavigator} />
+            <Root.Screen name="ProjectManagementApp" component={ProjectManagementNavigator} />
           )}
           {user?.role === 'hr_manager' && (
             <Root.Screen name="ManagerApp" component={ManagerNavigator} />

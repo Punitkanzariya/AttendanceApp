@@ -1,5 +1,5 @@
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import { House, MapPin, Calendar, Receipt, CircleUser } from 'lucide-react-native';
+import { House, MapPin, Calendar, IndianRupee, CircleUser } from 'lucide-react-native';
 import type { EmployeeTabParamList } from '@/types';
 import { Colors, FontSize } from '@/theme';
 
@@ -19,7 +19,7 @@ const TAB_ICONS = {
   Dashboard: House,
   Attendance: MapPin,
   Leave: Calendar,
-  Expenses: Receipt,
+  Expenses: IndianRupee,
   Profile: CircleUser,
 };
 

@@ -93,18 +93,21 @@ export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
     'upload_bills',
     'view_expense_status',
   ],
-  site_supervisor: [
-    'view_assigned_employees',
-    'verify_attendance',
-    'approve_expenses_level1',
-    'view_site_reports',
-  ],
-  manager: [
+  project_manager: [
     'approve_expenses',
     'reject_expenses',
     'approve_leave',
     'view_team_attendance',
     'generate_reports',
+  ],
+  project_coordinator: [
+    'view_assigned_employees',
+    'verify_attendance',
+    'view_site_reports',
+  ],
+  hr_manager: [
+    'manage_employees',
+    'manage_roles',
   ],
   administrator: [
     'manage_employees',

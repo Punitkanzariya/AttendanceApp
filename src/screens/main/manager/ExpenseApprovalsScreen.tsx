@@ -5,6 +5,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Platform } from 'react-native';
 import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
+import { formatDisplayStatus } from '@/utils/statusUtils';
 import { subscribeToAllExpenses, updateExpenseStatus } from '@/firebase/expenseService';
 import type { ExpenseRequest, ExpenseStatus } from '@/types';
 
@@ -96,12 +97,10 @@ export default function ExpenseApprovalsScreen() {
   };
 
   const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending_finance': return Colors.success;
-      case 'reimbursed': return Colors.success;
-      case 'rejected': return Colors.error;
-      default: return Colors.warning;
-    }
+    if (status.includes('pending')) return Colors.warning;
+    if (status === 'approved' || status === 'reimbursed' || status === 'verified') return Colors.success;
+    if (status === 'rejected') return Colors.error;
+    return Colors.text.tertiary;
   };
 
   const renderItem = ({ item }: { item: ExpenseRequest }) => (
@@ -126,7 +125,7 @@ export default function ExpenseApprovalsScreen() {
         </View>
         <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + '20' }]}>
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status.replace('_', ' ').toUpperCase()}
+            {formatDisplayStatus(item.status)}
           </Text>
         </View>
       </View>
@@ -213,7 +212,7 @@ export default function ExpenseApprovalsScreen() {
                       <Text style={styles.detailLabel}>Status:</Text>
                       <View style={[styles.statusBadge, { backgroundColor: getStatusColor(selectedExpense.status) + '20', alignSelf: 'flex-start', marginTop: 2 }]}>
                         <Text style={[styles.statusText, { color: getStatusColor(selectedExpense.status), fontSize: 11 }]}>
-                          {selectedExpense.status.replace('_', ' ').toUpperCase()}
+                          {formatDisplayStatus(selectedExpense.status)}
                         </Text>
                       </View>
                     </View>

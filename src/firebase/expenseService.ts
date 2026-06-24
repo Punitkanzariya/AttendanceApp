@@ -58,17 +58,49 @@ export const submitExpenseRequest = async (
   }
 
   const now = new Date().toISOString();
+
+  // Find projects this employee is assigned to
+  const projectsRef = collection(db, 'projects');
+  const projectsSnap = await getDocs(projectsRef);
   
+  const projectIds: string[] = [];
+  const coordinatorIds: string[] = [];
+  const managerIds: string[] = [];
+
+  projectsSnap.forEach((docSnap) => {
+    const data = docSnap.data() as any; // Cast as any or Project
+    const isAssigned = data.siteEmployees?.some((e: any) => e.employeeId === employeeId);
+    if (isAssigned && !data.isClosed) {
+      projectIds.push(data.id);
+      if (data.projectCoordinatorId && !coordinatorIds.includes(data.projectCoordinatorId)) {
+        coordinatorIds.push(data.projectCoordinatorId);
+      }
+      if (data.projectManagerId && !managerIds.includes(data.projectManagerId)) {
+        managerIds.push(data.projectManagerId);
+      }
+    }
+  });
+
+  let initialStatus: ExpenseStatus = 'pending_finance'; // Default if no project
+  if (coordinatorIds.length > 0) {
+    initialStatus = 'pending_coordinator';
+  } else if (managerIds.length > 0) {
+    initialStatus = 'pending_manager';
+  }
   const expenseData: Omit<ExpenseRequest, 'id'> = {
     employeeId,
     employeeName,
     role,
     category,
+    category,
     amount,
     date,
     description,
-    status: 'pending_supervisor',
+    status: initialStatus,
     attachmentUrl,
+    projectIds,
+    coordinatorIds,
+    managerIds,
     createdAt: now,
     updatedAt: now,
   };
@@ -180,6 +212,53 @@ export const checkDuplicateExpense = async (
 };
 
 // --- Manager/Admin Operations ---
+
+export const subscribeToExpensesForRole = (
+  userRole: string,
+  userUid: string,
+  onUpdate: (expenses: ExpenseRequest[]) => void
+) => {
+  const q = query(collectionGroup(db, EXPENSE_COLLECTION));
+
+  return onSnapshot(q, (snapshot) => {
+    const allExpenses: ExpenseRequest[] = [];
+    snapshot.forEach((doc) => {
+      allExpenses.push({ id: doc.id, ...doc.data() } as ExpenseRequest);
+    });
+
+    const filtered = allExpenses.filter(expense => {
+      if (userRole === 'administrator' || userRole === 'finance' || userRole === 'hr_manager') {
+        return true; // See all expenses, or rely on client-side status filtering if needed
+      }
+      if (userRole === 'project_manager') {
+        // Show pending_manager expenses assigned to this manager
+        if (expense.status === 'pending_manager' && expense.managerIds?.includes(userUid)) return true;
+        // Also show expenses they have approved or interacted with
+        if (expense.managerIds?.includes(userUid) && (expense.status === 'pending_finance' || expense.status === 'reimbursed' || expense.status === 'rejected')) return true;
+        
+        // Show if no managerIds were assigned (fallback for old data)
+        if (!expense.managerIds || expense.managerIds.length === 0) {
+          return expense.status === 'pending_manager' || expense.status === 'pending_finance' || expense.status === 'reimbursed' || expense.status === 'rejected';
+        }
+        return false;
+      }
+      if (userRole === 'project_coordinator') {
+        // Show pending_coordinator expenses assigned to this coordinator
+        if (expense.status === 'pending_coordinator' && expense.coordinatorIds?.includes(userUid)) return true;
+        // Also show expenses they interacted with
+        if (expense.coordinatorIds?.includes(userUid) && (expense.status === 'pending_manager' || expense.status === 'pending_finance' || expense.status === 'reimbursed' || expense.status === 'rejected')) return true;
+        
+        // Show if no coordinatorIds were assigned (fallback for old data)
+        if (!expense.coordinatorIds || expense.coordinatorIds.length === 0) return true;
+        return false;
+      }
+      return false;
+    });
+
+    filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    onUpdate(filtered);
+  });
+};
 
 export const subscribeToAllExpenses = (
   statuses: ExpenseStatus[],

@@ -19,35 +19,71 @@ import { useAuthStore } from "@/store/authStore";
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import GradientHeader from "@/components/shared/GradientHeader";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, getDocs, onSnapshot, query, where } from "firebase/firestore";
 import { db } from "@/firebase/config";
+import type { Project } from "@/types";
 
 export default function ProfileScreen() {
   const { user, logout } = useAuthStore();
   const navigation = useNavigation<any>();
   const [managerName, setManagerName] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [assignedProject, setAssignedProject] = useState<string | null>(null);
+  const [assignedShift, setAssignedShift] = useState<string | null>(null);
+  const [projectManager, setProjectManager] = useState<string | null>(null);
+  const [projectCoordinator, setProjectCoordinator] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!user?.managerId) {
-      setManagerName(null);
-      return;
-    }
-    const fetchManager = async () => {
-      try {
-        const docSnap = await getDoc(doc(db, "users", user.managerId!));
+    let unsubscribeManager: (() => void) | undefined;
+    let unsubscribeProject: (() => void) | undefined;
+
+    if (user?.managerId) {
+      unsubscribeManager = onSnapshot(doc(db, "users", user.managerId), (docSnap) => {
         if (docSnap.exists()) {
           const data = docSnap.data();
           if (data && data.displayName) {
             setManagerName(data.displayName);
           }
+        } else {
+          setManagerName(null);
         }
-      } catch (err) {
-        console.warn("Failed to fetch manager name:", err);
-      }
+      }, (err) => console.warn("Failed to listen to manager name:", err));
+    } else {
+      setManagerName(null);
+    }
+
+    if (user?.role === 'employee') {
+      const q = query(collection(db, 'projects'), where('isClosed', '==', false));
+      unsubscribeProject = onSnapshot(q, (snapshot) => {
+        let foundProject = false;
+        for (const docSnap of snapshot.docs) {
+          const projData = docSnap.data() as Project;
+          if (projData.siteEmployees) {
+            const empRecord = projData.siteEmployees.find(e => e.employeeId === user.uid);
+            if (empRecord) {
+              setAssignedProject(projData.projectName);
+              setAssignedShift(empRecord.shift);
+              setProjectManager(projData.projectManagerName || null);
+              setProjectCoordinator(projData.projectCoordinatorName || null);
+              foundProject = true;
+              break;
+            }
+          }
+        }
+        if (!foundProject) {
+          setAssignedProject(null);
+          setAssignedShift(null);
+          setProjectManager(null);
+          setProjectCoordinator(null);
+        }
+      }, (err) => console.warn("Failed to listen to projects:", err));
+    }
+
+    return () => {
+      if (unsubscribeManager) unsubscribeManager();
+      if (unsubscribeProject) unsubscribeProject();
     };
-    fetchManager();
-  }, [user?.managerId]);
+  }, [user?.managerId, user?.uid, user?.role]);
 
   const renderRow = (label: string, value: string, noBorder = false) => (
     <View style={[styles.row, noBorder && { borderBottomWidth: 0 }]}>
@@ -179,7 +215,10 @@ export default function ProfileScreen() {
               )}
               {renderRow("Date of Birth", user?.dateOfBirth || "N/A")}
               {renderRow("Job Position", formatRole(user?.role))}
-              {renderRow("Manager", managerName || "Not Assigned", true)}
+              {user?.role === 'employee' && renderRow("Assigned Project", assignedProject || "Not Assigned")}
+              {user?.role === 'employee' && renderRow("Shift", assignedShift || "Not Assigned")}
+              {user?.role === 'employee' && renderRow("Project Manager", projectManager || "Not Assigned")}
+              {user?.role === 'employee' && renderRow("Project Coordinator", projectCoordinator || "Not Assigned", true)}
             </View>
           </View>
 

@@ -12,17 +12,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import { useAuthStore } from '@/store/authStore';
-import {
-  subscribeToAllEmployees,
-  subscribeToAllAttendance,
-  subscribeToAllExpenses,
-} from '@/firebase';
+import { subscribeToAllAttendance } from '@/firebase/attendanceService';
+import { subscribeToExpensesForRole } from '@/firebase/expenseService';
+import { subscribeToAllEmployees } from '@/firebase';
 import type { User, AttendanceRecord, ExpenseRequest } from '@/types';
 import { exportToCSV, exportToPDF, generateAttendanceHTML, generateExpensesHTML } from '@/utils/exportHelper';
 
 type ReportTab = 'attendance' | 'expenses';
 
-export default function SupervisorReportsScreen() {
+export default function ProjectReportsScreen() {
   const { user } = useAuthStore();
   const [activeTab, setActiveTab] = useState<ReportTab>('attendance');
   const [isLoading, setIsLoading] = useState(true);
@@ -46,7 +44,7 @@ export default function SupervisorReportsScreen() {
     });
 
     // 3. Subscribe to Expenses
-    const unsubExpenses = subscribeToAllExpenses([], (data) => {
+    const unsubExpenses = subscribeToExpensesForRole(user?.role || '', user?.uid || '', (data: ExpenseRequest[]) => {
       setExpenses(data);
       setIsLoading(false);
     });
@@ -154,7 +152,7 @@ export default function SupervisorReportsScreen() {
       totalSpent,
       categoryDistribution,
       totalRequests: siteExpenses.length,
-      pendingApproval: siteExpenses.filter(e => e.status === 'pending_supervisor').length,
+      pendingCoordinator: siteExpenses.filter(e => e.status === 'pending_coordinator').length,
     };
   }, [siteExpenses]);
 
@@ -467,7 +465,7 @@ export default function SupervisorReportsScreen() {
                   </View>
                   <View style={styles.metricItem}>
                     <Text style={[styles.metricValue, { color: Colors.warning }]}>
-                      {expenseStats.pendingApproval}
+                      {expenseStats.pendingCoordinator}
                     </Text>
                     <Text style={styles.metricLabel}>Awaiting Verify</Text>
                   </View>

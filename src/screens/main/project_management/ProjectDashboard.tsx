@@ -12,20 +12,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import type { SiteSupervisorTabParamList, AttendanceRecord, LeaveRequest, ExpenseRequest } from '@/types';
+import type { ProjectManagementTabParamList, AttendanceRecord, LeaveRequest, ExpenseRequest } from '@/types';
 import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
-import {
-  subscribeToAllAttendance,
-  subscribeToAllLeaves,
-  subscribeToAllExpenses,
-  getLocalDateString,
-} from '@/firebase';
+import { subscribeToAllAttendance } from '@/firebase/attendanceService';
+import { subscribeToLeavesForRole } from '@/firebase/leaveService';
+import { subscribeToExpensesForRole } from '@/firebase/expenseService';
+import { getLocalDateString } from '@/firebase/attendanceService';
 
-export default function SupervisorDashboard() {
+export default function ProjectDashboard() {
   const { user } = useAuthStore();
-  const navigation = useNavigation<BottomTabNavigationProp<SiteSupervisorTabParamList>>();
+  const navigation = useNavigation<BottomTabNavigationProp<ProjectManagementTabParamList>>();
   
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,13 +41,16 @@ export default function SupervisorDashboard() {
     });
 
     // 2. Subscribe to Leaves
-    const unsubLeaves = subscribeToAllLeaves((data: LeaveRequest[]) => {
-      setLeaves(data);
+    const leaveStatusToFetch = user?.role === 'project_coordinator' ? 'pending_coordinator' : 'pending_manager';
+    const unsubLeaves = subscribeToLeavesForRole(user?.role || '', user?.uid || '', (data: LeaveRequest[]) => {
+      setLeaves(data.filter(l => l.status === leaveStatusToFetch));
     });
 
     // 3. Subscribe to Expenses
-    const unsubExpenses = subscribeToAllExpenses(['pending_supervisor'], (data: ExpenseRequest[]) => {
-      setExpenses(data);
+    const expenseStatusToFetch = user?.role === 'project_coordinator' ? 'pending_coordinator' : 'pending_manager';
+    const unsubExpenses = subscribeToExpensesForRole(user?.role || '', user?.uid || '', (data: ExpenseRequest[]) => {
+      // Filter the data by the exact status needed for the dashboard
+      setExpenses(data.filter(e => e.status === expenseStatusToFetch));
       setIsLoading(false);
     });
 
@@ -73,7 +74,7 @@ export default function SupervisorDashboard() {
     const todayAttendance = attendance.filter((r) => r.dateStr === todayStr);
     const presentCount = todayAttendance.length;
     const lateCount = todayAttendance.filter((r) => r.status === 'late').length;
-    const pendingLeavesCount = leaves.filter((l) => l.status === 'pending').length;
+    const pendingLeavesCount = leaves.length;
     const pendingExpensesCount = expenses.length;
 
     // Get 3 most recent check-ins today
@@ -167,10 +168,10 @@ export default function SupervisorDashboard() {
               activeOpacity={0.8}
             >
               <View style={[styles.actionIconWrap, { backgroundColor: Colors.primaryLight }]}>
-                <Ionicons name="checkmark-done" size={24} color={Colors.primary} />
+                <Ionicons name="list" size={24} color={Colors.primary} />
               </View>
-              <Text style={styles.actionLabel}>Verify Attendance</Text>
-              <Text style={styles.actionDesc}>Approve daily logs</Text>
+              <Text style={styles.actionLabel}>View Attendance</Text>
+              <Text style={styles.actionDesc}>Check daily logs</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
