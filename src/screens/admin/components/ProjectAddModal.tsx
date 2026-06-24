@@ -302,7 +302,7 @@ const styles = StyleSheet.create({
   section: { marginBottom: Spacing.xl },
   sectionTitle: { fontSize: FontSize.md, fontWeight: FontWeight.bold, color: Colors.text.primary, marginBottom: Spacing.sm },
   label: { fontSize: FontSize.sm, fontWeight: FontWeight.bold, color: Colors.text.primary, marginBottom: 8, marginTop: Spacing.sm },
-  inputBox: { backgroundColor: Colors.white, borderWidth: 1, borderColor: '#D1D5DB', borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, height: 48, fontSize: FontSize.md, color: Colors.text.primary, marginBottom: Spacing.md, ...(Platform.OS === 'web' && { outlineStyle: 'none' }) },
+  inputBox: { backgroundColor: Colors.white, borderWidth: 1, borderColor: '#D1D5DB', borderRadius: BorderRadius.md, paddingHorizontal: Spacing.md, height: 48, fontSize: FontSize.md, color: Colors.text.primary, marginBottom: Spacing.md, ...(Platform.OS === 'web' ? { outlineStyle: 'none' as any } : {}) },
   rowBetween: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: Spacing.sm },
   employeeList: { marginTop: Spacing.sm },
   noEmployeesText: { fontSize: FontSize.sm, color: Colors.text.secondary, fontStyle: 'italic' },
