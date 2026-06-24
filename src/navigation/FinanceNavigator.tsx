@@ -3,6 +3,8 @@ import { Ionicons } from '@expo/vector-icons';
 import type { FinanceTabParamList } from '@/types';
 import { Colors, FontSize } from '@/theme';
 import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
+import FinanceDashboard from '@/screens/main/finance/FinanceDashboard';
+import ManagerReportsScreen from '@/screens/main/manager/ManagerReportsScreen';
 import ProfileScreen from '@/screens/main/shared/ProfileScreen';
 import FinanceExpenseScreen from '@/screens/main/finance/FinanceExpenseScreen';
 import ReimbursementsScreen from '@/screens/main/finance/ReimbursementsScreen';
@@ -42,26 +44,10 @@ export default function FinanceNavigator() {
         tabBarLabelStyle: { fontSize: FontSize.xs },
       })}
     >
-      <Tab.Screen name="Dashboard">
-        {() => (
-          <PlaceholderScreen
-            iconName="wallet"
-            title="Finance Dashboard"
-            description="Expense overview and pending actions"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Dashboard" component={FinanceDashboard} />
       <Tab.Screen name="Expenses" component={FinanceExpenseScreen} />
       <Tab.Screen name="Reimbursements" component={ReimbursementsScreen} />
-      <Tab.Screen name="Reports">
-        {() => (
-          <PlaceholderScreen
-            iconName="bar-chart"
-            title="Accounting Reports"
-            description="Export accounting and financial reports"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Reports" component={ManagerReportsScreen} />
       <Tab.Screen name="Profile" component={ProfileScreen} />
     </Tab.Navigator>
   );

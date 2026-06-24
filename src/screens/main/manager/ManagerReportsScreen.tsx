@@ -27,7 +27,9 @@ type ManagerReportTab = 'attendance' | 'leaves' | 'expenses';
 export default function ManagerReportsScreen() {
   const { user } = useAuthStore();
   const navigation = useNavigation();
-  const [activeTab, setActiveTab] = useState<'attendance' | 'leaves' | 'expenses'>('attendance');
+  const [activeTab, setActiveTab] = useState<'attendance' | 'leaves' | 'expenses'>(
+    useAuthStore.getState().user?.role === 'finance' ? 'expenses' : 'attendance'
+  );
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
 
@@ -431,9 +433,9 @@ export default function ManagerReportsScreen() {
     <SafeAreaView style={styles.root} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Team Reports</Text>
+        <Text style={styles.headerTitle}>{user?.role === 'finance' ? 'Financial Reports' : 'Team Reports'}</Text>
         <Text style={styles.headerSubtitle}>
-          {user?.role === 'hr_manager' ? 'Company-wide view for' : 'Manager view for'} {teamEmployees.length} active employees
+          {(user?.role === 'hr_manager' || user?.role === 'finance') ? 'Company-wide view for' : 'Manager view for'} {teamEmployees.length} active employees
         </Text>
       </View>
 
@@ -441,7 +443,9 @@ export default function ManagerReportsScreen() {
       <View style={styles.tabRow}>
         {(user?.role === 'hr_manager' 
           ? (['attendance', 'leaves'] as const) 
-          : (['attendance', 'leaves', 'expenses'] as const)
+          : user?.role === 'finance'
+            ? (['expenses'] as const)
+            : (['attendance', 'leaves', 'expenses'] as const)
         ).map((tab) => (
           <TouchableOpacity
             key={tab}
