@@ -91,6 +91,7 @@ export default function EmployeeDashboard() {
     useNavigation<BottomTabNavigationProp<EmployeeTabParamList>>();
   const [refreshing, setRefreshing] = useState(false);
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
+  const [isAttendanceLoading, setIsAttendanceLoading] = useState(true);
   const [isClocking, setIsClocking] = useState(false);
   const [currentAddress, setCurrentAddress] = useState("Fetching location...");
   const [currentLocationCoords, setCurrentLocationCoords] = useState<{
@@ -108,6 +109,7 @@ export default function EmployeeDashboard() {
     if (!user?.uid) return;
     return subscribeToTodayAttendance(user.uid, user.role, (record) => {
       setTodayRecord(record);
+      setIsAttendanceLoading(false);
     });
   }, [user?.uid]);
 
@@ -438,16 +440,16 @@ export default function EmployeeDashboard() {
                     todayRecord?.checkOut && {
                       backgroundColor: Colors.text.tertiary,
                     },
-                  isClocking && {
+                  (isClocking || isAttendanceLoading) && {
                     opacity: 0.6,
                   }
                 ]}
                 activeOpacity={0.8}
                 onPress={handleClockAction}
-                disabled={isClocking || !!(todayRecord?.checkIn && todayRecord?.checkOut)}
+                disabled={isAttendanceLoading || isClocking || !!(todayRecord?.checkIn && todayRecord?.checkOut)}
               >
                 <Text style={styles.clockBtnTxt}>
-                  {isClocking ? "Processing..." : (
+                  {isAttendanceLoading ? "Loading..." : isClocking ? "Processing..." : (
                     !todayRecord
                       ? "Clock In"
                       : !todayRecord.checkOut
