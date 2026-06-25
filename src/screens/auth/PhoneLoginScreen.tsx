@@ -10,6 +10,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { AuthStackParamList } from '@/types';
 import { Colors } from '@/theme';
+import { checkIfPhoneExists } from '@/firebase/authService';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'PhoneLogin'>;
 
@@ -28,18 +29,32 @@ export default function PhoneLoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPicker, setShowPicker] = useState(false);
   const [focused, setFocused]     = useState(false);
+  const [errorMsg, setErrorMsg]   = useState('');
 
   const phoneRegex = /^[6-9]\d{9}$/;
   const isValid    = cc === '+91' ? phoneRegex.test(phone) : phone.length >= 7;
   const selected   = CODES.find(c => c.code === cc)!;
 
   const handleSend = async () => {
-    if (!isValid) { Alert.alert('Invalid Number', 'Please enter a valid mobile number.'); return; }
+    setErrorMsg('');
+    if (!isValid) { setErrorMsg('Please enter a valid mobile number.'); return; }
     setIsLoading(true);
     try {
-      navigation.navigate('OtpVerify', { phoneNumber: `${cc}${phone}`, verificationId: 'PLACEHOLDER' });
+      const formattedPhone = `${cc}${phone}`;
+      
+      // Check if user exists before sending OTP
+      const exists = await checkIfPhoneExists(formattedPhone);
+      if (!exists) {
+        setErrorMsg('This mobile number is not registered. Please contact your Admin.');
+        setIsLoading(false);
+        return;
+      }
+      
+      // Proceed to OTP screen
+      navigation.navigate('OtpVerify', { phoneNumber: formattedPhone, verificationId: 'PLACEHOLDER' });
     } catch (err: any) {
-      Alert.alert('Error', err.message ?? 'Failed to send OTP.');
+      console.error('PhoneLogin Error:', err);
+      setErrorMsg(err.message ?? 'Failed to send OTP.');
     } finally {
       setIsLoading(false);
     }
@@ -79,6 +94,10 @@ export default function PhoneLoginScreen() {
               />
               {isValid && <Ionicons name="checkmark-circle" size={20} color="#10B981" />}
             </View>
+
+            {errorMsg ? (
+              <Text style={styles.errorText}>{errorMsg}</Text>
+            ) : null}
 
             {/* Dropdown */}
             {showPicker && (
@@ -161,6 +180,7 @@ const styles = StyleSheet.create({
 
   field: { marginBottom: 12 },
   label: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 },
+  errorText: { fontSize: 13, color: '#EF4444', marginTop: 6, fontWeight: '500' },
 
   inputRow: {
     flexDirection: 'row', alignItems: 'center',

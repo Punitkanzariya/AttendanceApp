@@ -248,6 +248,29 @@ export async function resolveUsernameToEmail(input: string): Promise<string | nu
 }
 
 // ─────────────────────────────────────────────────────────────────
+//  CHECK IF PHONE NUMBER EXISTS
+//  Queries Firestore to check if a mobile number is registered.
+// ─────────────────────────────────────────────────────────────────
+export async function checkIfPhoneExists(phoneNumber: string): Promise<boolean> {
+  const usersRef = collectionGroup(db, 'profiles');
+  
+  // Try exact match
+  let q = query(usersRef, where('phoneNumber', '==', phoneNumber));
+  let snapshot = await getDocs(q);
+  if (!snapshot.empty) return true;
+
+  // If not found and it's an Indian number, try without +91
+  if (phoneNumber.startsWith('+91')) {
+    const localNumber = phoneNumber.slice(3);
+    q = query(usersRef, where('phoneNumber', '==', localNumber));
+    snapshot = await getDocs(q);
+    if (!snapshot.empty) return true;
+  }
+
+  return false;
+}
+
+// ─────────────────────────────────────────────────────────────────
 //  LOGIN WITH EMAIL & PASSWORD (PRD §3.1)
 //  Returns the app User object (with role from Firestore) on success.
 //  Throws a friendly error message on failure.
@@ -352,24 +375,46 @@ export async function verifyOtp(
   const profile = await fetchEmployeeProfile(firebaseUser.uid);
 
   if (!profile) {
-    // Phone user exists in Auth but no Firestore record
-    // Could be a new user registering via phone
-    const newUser: User = {
-      uid:         firebaseUser.uid,
-      email:       firebaseUser.email ?? '',
-      username:    firebaseUser.email?.split('@')[0] ?? 'User',
-      phoneNumber: firebaseUser.phoneNumber ?? null,
-      displayName: firebaseUser.displayName ?? 'User',
-      role:        'employee',
-      isActive:    false,
-      createdAt:   new Date().toISOString(),
-    };
-    // Create basic Firestore record
-    await setDoc(doc(db, 'users', 'employee', 'profiles', firebaseUser.uid), {
-      ...newUser,
-      updatedAt: new Date().toISOString(),
-    });
-    return newUser;
+    // Phone user exists in Auth but no Firestore record for this UID.
+    // We check if their phone number exists in our profiles collection.
+    const usersRef = collectionGroup(db, 'profiles');
+    
+    // 1. Try exact match (e.g. +919876543210)
+    let q = query(usersRef, where('phoneNumber', '==', firebaseUser.phoneNumber));
+    let snapshot = await getDocs(q);
+    
+    // 2. If not found and it's an Indian number, try without +91
+    if (snapshot.empty && firebaseUser.phoneNumber?.startsWith('+91')) {
+      const localNumber = firebaseUser.phoneNumber.slice(3);
+      q = query(usersRef, where('phoneNumber', '==', localNumber));
+      snapshot = await getDocs(q);
+    }
+
+    if (!snapshot.empty) {
+      // User exists in our DB! We use their existing profile data and UID.
+      const existingDoc = snapshot.docs[0];
+      const data = existingDoc.data();
+      
+      const existingProfile: User = {
+        uid:         existingDoc.id,
+        email:       data.email ?? '',
+        username:    data.username ?? '',
+        phoneNumber: data.phoneNumber ?? null,
+        displayName: data.displayName ?? null,
+        role:        (data.role as UserRole) ?? 'employee',
+        siteId:      data.siteId,
+        managerId:   data.managerId,
+        createdAt:   data.createdAt ?? new Date().toISOString(),
+        isActive:    data.isActive ?? true,
+      };
+
+      return existingProfile;
+    } else {
+      // No user found with this phone number. 
+      // Do not create a new account! Sign them out and throw error.
+      await signOut(auth);
+      throw new Error('User not found. Please ask the Admin to add your mobile number.');
+    }
   }
 
   return profile;
