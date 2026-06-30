@@ -46,6 +46,7 @@ import {
   getDocs,
   limit,
   collectionGroup,
+  onSnapshot,
 } from 'firebase/firestore';
 
 import { auth, db } from '@/firebase/config';
@@ -92,6 +93,7 @@ export async function fetchEmployeeProfile(uid: string): Promise<User | null> {
       role:        (data.role as UserRole) ?? 'employee',
       siteId:      data.siteId,
       managerId:   data.managerId,
+      leaveBalances: data.leaveBalances,
       createdAt:   data.createdAt?.toDate?.().toISOString() ?? new Date().toISOString(),
       isActive:    data.isActive ?? true,
     };
@@ -113,7 +115,7 @@ export function subscribeToEmployeeProfile(
   const docRef = doc(db, 'users', role, 'profiles', uid);
   return onSnapshot(
     docRef,
-    (snap) => {
+    (snap: any) => {
       if (!snap.exists()) {
         callback(null);
         return;
@@ -128,11 +130,12 @@ export function subscribeToEmployeeProfile(
         role:        (data.role as UserRole) ?? 'employee',
         siteId:      data.siteId,
         managerId:   data.managerId,
+        leaveBalances: data.leaveBalances,
         createdAt:   data.createdAt?.toDate?.().toISOString() ?? new Date().toISOString(),
         isActive:    data.isActive ?? true,
       });
     },
-    (error) => {
+    (error: any) => {
       console.error('[authService] subscribeToEmployeeProfile error:', error);
     }
   );

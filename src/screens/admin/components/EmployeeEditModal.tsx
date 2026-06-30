@@ -38,6 +38,11 @@ export default function EmployeeEditModal({ visible, user, onClose, onSave }: Pr
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
 
+  // Leave Balances
+  const [sickLeave, setSickLeave] = useState('10');
+  const [paidLeave, setPaidLeave] = useState('15');
+  const [casualLeave, setCasualLeave] = useState('8');
+
   // Sync state when user changes
   React.useEffect(() => {
     if (user) {
@@ -51,6 +56,9 @@ export default function EmployeeEditModal({ visible, user, onClose, onSave }: Pr
       setPanPhoto(user.panCardPhotoUrl || null);
       setAadharPhoto(user.aadharCardPhotoUrl || null);
       setAadharBackPhoto(user.aadharCardBackPhotoUrl || null);
+      setSickLeave(user.leaveBalances?.sickLeave?.toString() ?? '10');
+      setPaidLeave(user.leaveBalances?.paidLeave?.toString() ?? '15');
+      setCasualLeave(user.leaveBalances?.casualLeave?.toString() ?? '8');
     }
   }, [user]);
 
@@ -75,12 +83,17 @@ export default function EmployeeEditModal({ visible, user, onClose, onSave }: Pr
         role,
         email: email.trim(),
         username: username.trim(),
-        dateOfBirth: dateOfBirth.trim() ? dateOfBirth.trim() : null,
-        panCard: panCard.trim() ? panCard.trim().toUpperCase() : null,
-        aadharCard: aadharCard.trim() ? aadharCard.trim() : null,
+        dateOfBirth: dateOfBirth.trim() ? dateOfBirth.trim() : undefined,
+        panCard: panCard.trim() ? panCard.trim().toUpperCase() : undefined,
+        aadharCard: aadharCard.trim() ? aadharCard.trim() : undefined,
         panCardPhotoUrl: panPhoto,
         aadharCardPhotoUrl: aadharPhoto,
-        aadharCardBackPhotoUrl: aadharBackPhoto
+        aadharCardBackPhotoUrl: aadharBackPhoto,
+        leaveBalances: {
+          sickLeave: parseInt(sickLeave) || 10,
+          paidLeave: parseInt(paidLeave) || 15,
+          casualLeave: parseInt(casualLeave) || 8,
+        }
       });
       onClose();
     } catch (err: any) {
@@ -362,6 +375,50 @@ export default function EmployeeEditModal({ visible, user, onClose, onSave }: Pr
               </View>
             </View>
 
+            <View style={styles.section}>
+              <Text style={styles.label}>Leave Quotas</Text>
+              
+              <Text style={styles.label}>Paid Leave</Text>
+              <View style={styles.inputBox}>
+                <Ionicons name="briefcase-outline" size={20} color={Colors.text.tertiary} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="15"
+                  value={paidLeave}
+                  onChangeText={setPaidLeave}
+                  keyboardType="numeric"
+                  editable={!isSaving}
+                />
+              </View>
+
+              <Text style={styles.label}>Sick Leave</Text>
+              <View style={styles.inputBox}>
+                <Ionicons name="medkit-outline" size={20} color={Colors.text.tertiary} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="10"
+                  value={sickLeave}
+                  onChangeText={setSickLeave}
+                  keyboardType="numeric"
+                  editable={!isSaving}
+                />
+              </View>
+
+              <Text style={styles.label}>Casual Leave</Text>
+              <View style={styles.inputBox}>
+                <Ionicons name="cafe-outline" size={20} color={Colors.text.tertiary} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="8"
+                  value={casualLeave}
+                  onChangeText={setCasualLeave}
+                  keyboardType="numeric"
+                  editable={!isSaving}
+                />
+              </View>
+            </View>
+
+            <View style={{ height: 40 }} />
           </ScrollView>
 
           {/* Footer Actions */}

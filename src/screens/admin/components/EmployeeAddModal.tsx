@@ -11,7 +11,7 @@ import { compressImageToBase64 } from '@/utils/imageUtils';
 interface Props {
   visible: boolean;
   onClose: () => void;
-  onAdd: (user: { fullName: string; email: string; username: string; phone: string; role: UserRole; password?: string; dateOfBirth?: string; panCard?: string; aadharCard?: string; panCardPhotoUrl?: string | null; aadharCardPhotoUrl?: string | null; aadharCardBackPhotoUrl?: string | null; }) => Promise<void>;
+  onAdd: (user: { fullName: string; email: string; username: string; phone: string; role: UserRole; password?: string; dateOfBirth?: string; panCard?: string; aadharCard?: string; panCardPhotoUrl?: string | null; aadharCardPhotoUrl?: string | null; aadharCardBackPhotoUrl?: string | null; leaveBalances?: { sickLeave: number; paidLeave: number; casualLeave: number; } }) => Promise<void>;
   isSaving?: boolean;
 }
 
@@ -40,6 +40,11 @@ export default function EmployeeAddModal({ visible, onClose, onAdd }: Props) {
   const [role, setRole] = useState<UserRole>('employee');
   const [isSaving, setIsSaving] = useState(false);
 
+  // Leave Balances
+  const [sickLeave, setSickLeave] = useState('10');
+  const [paidLeave, setPaidLeave] = useState('15');
+  const [casualLeave, setCasualLeave] = useState('8');
+
   // Reset state when opened
   React.useEffect(() => {
     if (visible) {
@@ -55,6 +60,9 @@ export default function EmployeeAddModal({ visible, onClose, onAdd }: Props) {
       setAadharBackPhoto(null);
       setPassword('');
       setRole('employee');
+      setSickLeave('10');
+      setPaidLeave('15');
+      setCasualLeave('8');
     }
   }, [visible]);
 
@@ -85,6 +93,11 @@ export default function EmployeeAddModal({ visible, onClose, onAdd }: Props) {
         aadharCardBackPhotoUrl: aadharBackPhoto,
         role,
         password: password.trim() ? password : undefined, // Will use default if empty
+        leaveBalances: {
+          sickLeave: parseInt(sickLeave) || 10,
+          paidLeave: parseInt(paidLeave) || 15,
+          casualLeave: parseInt(casualLeave) || 8,
+        }
       });
       onClose();
     } catch (err: any) {
@@ -362,6 +375,49 @@ export default function EmployeeAddModal({ visible, onClose, onAdd }: Props) {
                     </TouchableOpacity>
                   );
                 })}
+              </View>
+            </View>
+
+            <View style={styles.section}>
+              <Text style={styles.label}>Leave Quotas</Text>
+              
+              <Text style={styles.label}>Paid Leave</Text>
+              <View style={styles.inputBox}>
+                <Ionicons name="briefcase-outline" size={20} color={Colors.text.tertiary} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="15"
+                  value={paidLeave}
+                  onChangeText={setPaidLeave}
+                  keyboardType="numeric"
+                  editable={!isSaving}
+                />
+              </View>
+
+              <Text style={styles.label}>Sick Leave</Text>
+              <View style={styles.inputBox}>
+                <Ionicons name="medkit-outline" size={20} color={Colors.text.tertiary} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="10"
+                  value={sickLeave}
+                  onChangeText={setSickLeave}
+                  keyboardType="numeric"
+                  editable={!isSaving}
+                />
+              </View>
+
+              <Text style={styles.label}>Casual Leave</Text>
+              <View style={styles.inputBox}>
+                <Ionicons name="cafe-outline" size={20} color={Colors.text.tertiary} />
+                <TextInput
+                  style={styles.input}
+                  placeholder="8"
+                  value={casualLeave}
+                  onChangeText={setCasualLeave}
+                  keyboardType="numeric"
+                  editable={!isSaving}
+                />
               </View>
             </View>
 

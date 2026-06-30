@@ -92,7 +92,6 @@ export const submitExpenseRequest = async (
     employeeName,
     role,
     category,
-    category,
     amount,
     date,
     description,

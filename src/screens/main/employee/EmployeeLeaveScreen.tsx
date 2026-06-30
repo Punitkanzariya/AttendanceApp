@@ -106,7 +106,46 @@ export default function EmployeeLeaveScreen() {
     </View>
   );
 
-  const renderHeader = () => (
+  const renderHeader = () => {
+    const currentYear = new Date().getFullYear();
+
+    const calculateTaken = (type: string) => {
+      return leaves
+        .filter((l) => l.leaveType === type && l.status === 'approved')
+        .filter((l) => {
+          if (!l.startDate) return false;
+          let dateYear = currentYear;
+          try {
+            if (l.startDate.includes('-')) {
+               const parts = l.startDate.split('-');
+               if (parts[0].length === 4) {
+                 dateYear = parseInt(parts[0], 10);
+               } else if (parts[2]?.length === 4) {
+                 dateYear = parseInt(parts[2], 10);
+               } else {
+                 dateYear = new Date(l.startDate).getFullYear();
+               }
+            } else {
+               dateYear = new Date(l.startDate).getFullYear();
+            }
+          } catch (e) {}
+          return dateYear === currentYear;
+        })
+        .reduce((total, l) => total + (Number(l.totalDays) || 1), 0);
+    };
+
+    const sickTaken = calculateTaken('Sick Leave');
+    const paidTaken = calculateTaken('Paid Leave');
+    const casualTaken = calculateTaken('Casual Leave');
+
+    const maxSick = user?.leaveBalances?.sickLeave ?? 10;
+    const maxPaid = user?.leaveBalances?.paidLeave ?? 15;
+    const maxCasual = user?.leaveBalances?.casualLeave ?? 8;
+
+    const totalTaken = sickTaken + paidTaken + casualTaken;
+    const totalMax = maxSick + maxPaid + maxCasual;
+
+    return (
     <View style={styles.headerContent}>
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Leave Balance</Text>
@@ -124,10 +163,10 @@ export default function EmployeeLeaveScreen() {
             </View>
             <View>
               <Text style={styles.leaveNum}>
-                12 <Text style={styles.leaveTotalTxt}>/ 15 Days</Text>
+                {Math.max(0, maxPaid - paidTaken)} <Text style={styles.leaveTotalTxt}>/ {maxPaid} Days</Text>
               </Text>
               <Text style={styles.leaveLabel}>Paid Leave</Text>
-              <Text style={styles.leaveTakenTxt}>3 Taken</Text>
+              <Text style={styles.leaveTakenTxt}>{paidTaken} Taken</Text>
             </View>
           </View>
           <View style={styles.leaveBalanceCard}>
@@ -140,10 +179,10 @@ export default function EmployeeLeaveScreen() {
             </View>
             <View>
               <Text style={styles.leaveNum}>
-                7 <Text style={styles.leaveTotalTxt}>/ 10 Days</Text>
+                {Math.max(0, maxSick - sickTaken)} <Text style={styles.leaveTotalTxt}>/ {maxSick} Days</Text>
               </Text>
               <Text style={styles.leaveLabel}>Sick Leave</Text>
-              <Text style={styles.leaveTakenTxt}>3 Taken</Text>
+              <Text style={styles.leaveTakenTxt}>{sickTaken} Taken</Text>
             </View>
           </View>
         </View>
@@ -158,10 +197,10 @@ export default function EmployeeLeaveScreen() {
             </View>
             <View>
               <Text style={styles.leaveNum}>
-                5 <Text style={styles.leaveTotalTxt}>/ 8 Days</Text>
+                {Math.max(0, maxCasual - casualTaken)} <Text style={styles.leaveTotalTxt}>/ {maxCasual} Days</Text>
               </Text>
               <Text style={styles.leaveLabel}>Casual Leave</Text>
-              <Text style={styles.leaveTakenTxt}>3 Taken</Text>
+              <Text style={styles.leaveTakenTxt}>{casualTaken} Taken</Text>
             </View>
           </View>
           <View style={styles.leaveBalanceCard}>
@@ -174,10 +213,10 @@ export default function EmployeeLeaveScreen() {
             </View>
             <View>
               <Text style={styles.leaveNum}>
-                24 <Text style={styles.leaveTotalTxt}>/ 33 Days</Text>
+                {Math.max(0, totalMax - totalTaken)} <Text style={styles.leaveTotalTxt}>/ {totalMax} Days</Text>
               </Text>
               <Text style={styles.leaveLabel}>Total Leave</Text>
-              <Text style={styles.leaveTakenTxt}>9 Taken</Text>
+              <Text style={styles.leaveTakenTxt}>{totalTaken} Taken</Text>
             </View>
           </View>
         </View>
@@ -188,6 +227,7 @@ export default function EmployeeLeaveScreen() {
       </View>
     </View>
   );
+  };
 
   return (
     <SafeAreaView style={styles.root} edges={["top"]}>

@@ -95,6 +95,11 @@ export async function createEmployeeByAdmin(params: {
   panCardPhotoUrl?: string | null;
   aadharCardPhotoUrl?: string | null;
   aadharCardBackPhotoUrl?: string | null;
+  leaveBalances?: {
+    sickLeave: number;
+    paidLeave: number;
+    casualLeave: number;
+  };
 }): Promise<void> {
   // Create a secondary app specifically for auth operations
   const secondaryApp = getApps().find(app => app.name === 'SecondaryAdminApp') 
@@ -130,6 +135,7 @@ export async function createEmployeeByAdmin(params: {
     panCardPhotoUrl: params.panCardPhotoUrl || null,
     aadharCardPhotoUrl: params.aadharCardPhotoUrl || null,
     aadharCardBackPhotoUrl: params.aadharCardBackPhotoUrl || null,
+    leaveBalances: params.leaveBalances || { sickLeave: 10, paidLeave: 15, casualLeave: 8 },
     isActive: true, // Created by admin/HR, so it's active by default
     createdAt: now,
     updatedAt: now,

@@ -10,6 +10,12 @@ export type UserRole =
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 export type AuthMethod = 'phone' | 'email';
 
+export interface LeaveBalances {
+  sickLeave: number;
+  paidLeave: number;
+  casualLeave: number;
+}
+
 export interface User {
   uid: string;
   email: string;
@@ -27,6 +33,7 @@ export interface User {
   aadharCardPhotoUrl?: string | null;
   aadharCardBackPhotoUrl?: string | null;
   photoURL?: string | null;
+  leaveBalances?: LeaveBalances;
   createdAt: string;
   isActive: boolean;
 }

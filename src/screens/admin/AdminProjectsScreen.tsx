@@ -117,7 +117,6 @@ export default function AdminProjectsScreen() {
           onClose={() => setShowAddModal(false)}
           onSuccess={() => {
             setShowAddModal(false);
-            loadProjects();
           }}
           adminUid={user.uid}
         />
@@ -131,7 +130,6 @@ export default function AdminProjectsScreen() {
           onClose={() => setSelectedProject(null)}
           onSuccess={() => {
             setSelectedProject(null);
-            loadProjects();
           }}
           adminUid={user.uid}
         />

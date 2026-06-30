@@ -8,6 +8,7 @@ import {
   RefreshControl,
   Alert,
   Modal,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,6 +22,8 @@ import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { EmployeeTabParamList, AttendanceRecord } from "@/types";
 import { subscribeToTodayAttendance, checkInEmployee, checkOutEmployee } from "@/firebase";
 import { getEmployeeActiveProject } from "@/firebase/projectService";
+import { subscribeToUserLeaves } from "@/firebase/leaveService";
+import type { LeaveRequest } from "@/types";
 import { useLiveWorkingHours } from "@/hooks/useLiveWorkingHours";
 import { calculateDistanceMeters } from "@/utils/locationUtils";
 import GeoFenceMap from "@/components/shared/GeoFenceMap";
@@ -104,12 +107,25 @@ export default function EmployeeDashboard() {
   const [successMessage, setSuccessMessage] = useState("");
   const [geofenceViolationData, setGeofenceViolationData] = useState<any>(null);
 
+  // Leaves for dynamic balances
+  const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [isLeavesLoading, setIsLeavesLoading] = useState(true);
+
   // Subscribe to today's attendance
   useEffect(() => {
     if (!user?.uid) return;
     return subscribeToTodayAttendance(user.uid, user.role, (record) => {
       setTodayRecord(record);
       setIsAttendanceLoading(false);
+    });
+  }, [user?.uid]);
+
+  // Subscribe to user leaves
+  useEffect(() => {
+    if (!user?.uid) return;
+    return subscribeToUserLeaves(user.uid, user.role, (data) => {
+      setLeaves(data);
+      setIsLeavesLoading(false);
     });
   }, [user?.uid]);
 
@@ -448,15 +464,17 @@ export default function EmployeeDashboard() {
                 onPress={handleClockAction}
                 disabled={isAttendanceLoading || isClocking || !!(todayRecord?.checkIn && todayRecord?.checkOut)}
               >
-                <Text style={styles.clockBtnTxt}>
-                  {isAttendanceLoading ? "Loading..." : isClocking ? "Processing..." : (
-                    !todayRecord
+                {isAttendanceLoading || isClocking ? (
+                  <ActivityIndicator color={Colors.white} />
+                ) : (
+                  <Text style={styles.clockBtnTxt}>
+                    {!todayRecord
                       ? "Clock In"
                       : !todayRecord.checkOut
                         ? "Clock Out"
-                        : "Completed"
-                  )}
-                </Text>
+                        : "Completed"}
+                  </Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -536,11 +554,51 @@ export default function EmployeeDashboard() {
             <Text style={styles.sectionTitle}>Leave Balance</Text>
           </View>
           <View style={styles.leaveGrid}>
-            <View style={styles.leaveRow}>
-              <View style={styles.leaveCard}>
-                <View
-                  style={[styles.leaveIconRing, { borderColor: "#2E7D32" }]}
-                >
+            {(() => {
+              const currentYear = new Date().getFullYear();
+              const calculateTaken = (type: string) => {
+                return leaves
+                  .filter((l) => l.leaveType === type && l.status === 'approved')
+                  .filter((l) => {
+                    if (!l.startDate) return false;
+                    let dateYear = currentYear;
+                    try {
+                      if (l.startDate.includes('-')) {
+                        const parts = l.startDate.split('-');
+                        if (parts[0].length === 4) {
+                          dateYear = parseInt(parts[0], 10);
+                        } else if (parts[2]?.length === 4) {
+                          dateYear = parseInt(parts[2], 10);
+                        } else {
+                          dateYear = new Date(l.startDate).getFullYear();
+                        }
+                      } else {
+                        dateYear = new Date(l.startDate).getFullYear();
+                      }
+                    } catch (e) {}
+                    return dateYear === currentYear;
+                  })
+                  .reduce((total, l) => total + (Number(l.totalDays) || 1), 0);
+              };
+
+              const sickTaken = calculateTaken('Sick Leave');
+              const paidTaken = calculateTaken('Paid Leave');
+              const casualTaken = calculateTaken('Casual Leave');
+
+              const maxSick = user?.leaveBalances?.sickLeave ?? 10;
+              const maxPaid = user?.leaveBalances?.paidLeave ?? 15;
+              const maxCasual = user?.leaveBalances?.casualLeave ?? 8;
+
+              const totalTaken = sickTaken + paidTaken + casualTaken;
+              const totalMax = maxSick + maxPaid + maxCasual;
+
+              return (
+                <>
+                  <View style={styles.leaveRow}>
+                    <View style={styles.leaveCard}>
+                      <View
+                        style={[styles.leaveIconRing, { borderColor: "#2E7D32" }]}
+                      >
                   <Ionicons
                     name="briefcase-outline"
                     size={16}
@@ -549,10 +607,10 @@ export default function EmployeeDashboard() {
                 </View>
                 <View>
                   <Text style={styles.leaveNum}>
-                    12 <Text style={styles.leaveTotalTxt}>/ 15 Days</Text>
+                    {isLeavesLoading ? "-" : Math.max(0, maxPaid - paidTaken)} <Text style={styles.leaveTotalTxt}>/ {maxPaid} Days</Text>
                   </Text>
                   <Text style={styles.leaveLabel}>Paid Leave</Text>
-                  <Text style={styles.leaveTakenTxt}>3 Taken</Text>
+                  <Text style={styles.leaveTakenTxt}>{isLeavesLoading ? "-" : paidTaken} Taken</Text>
                 </View>
               </View>
               <View style={styles.leaveCard}>
@@ -567,10 +625,10 @@ export default function EmployeeDashboard() {
                 </View>
                 <View>
                   <Text style={styles.leaveNum}>
-                    7 <Text style={styles.leaveTotalTxt}>/ 10 Days</Text>
+                    {isLeavesLoading ? "-" : Math.max(0, maxSick - sickTaken)} <Text style={styles.leaveTotalTxt}>/ {maxSick} Days</Text>
                   </Text>
                   <Text style={styles.leaveLabel}>Sick Leave</Text>
-                  <Text style={styles.leaveTakenTxt}>3 Taken</Text>
+                  <Text style={styles.leaveTakenTxt}>{isLeavesLoading ? "-" : sickTaken} Taken</Text>
                 </View>
               </View>
             </View>
@@ -587,10 +645,10 @@ export default function EmployeeDashboard() {
                 </View>
                 <View>
                   <Text style={styles.leaveNum}>
-                    5 <Text style={styles.leaveTotalTxt}>/ 8 Days</Text>
+                    {isLeavesLoading ? "-" : Math.max(0, maxCasual - casualTaken)} <Text style={styles.leaveTotalTxt}>/ {maxCasual} Days</Text>
                   </Text>
                   <Text style={styles.leaveLabel}>Casual Leave</Text>
-                  <Text style={styles.leaveTakenTxt}>3 Taken</Text>
+                  <Text style={styles.leaveTakenTxt}>{isLeavesLoading ? "-" : casualTaken} Taken</Text>
                 </View>
               </View>
               <View style={styles.leaveCard}>
@@ -605,13 +663,16 @@ export default function EmployeeDashboard() {
                 </View>
                 <View>
                   <Text style={styles.leaveNum}>
-                    24 <Text style={styles.leaveTotalTxt}>/ 33 Days</Text>
+                    {isLeavesLoading ? "-" : Math.max(0, totalMax - totalTaken)} <Text style={styles.leaveTotalTxt}>/ {totalMax} Days</Text>
                   </Text>
                   <Text style={styles.leaveLabel}>Total Leave</Text>
-                  <Text style={styles.leaveTakenTxt}>9 Taken</Text>
+                  <Text style={styles.leaveTakenTxt}>{isLeavesLoading ? "-" : totalTaken} Taken</Text>
                 </View>
               </View>
-            </View>
+              </View>
+                </>
+              );
+            })()}
           </View>
         </ScrollView>
       </View>

@@ -40,7 +40,7 @@ export default function AdminEmployeesScreen() {
     // Realtime listener will automatically update the list
   };
 
-  const handleAddUser = async (params: { fullName: string; email: string; username: string; phone: string; role: UserRole; password?: string; dateOfBirth?: string; panCard?: string; aadharCard?: string; panCardPhotoUrl?: string | null; aadharCardPhotoUrl?: string | null; aadharCardBackPhotoUrl?: string | null; }) => {
+  const handleAddUser = async (params: { fullName: string; email: string; username: string; phone: string; role: UserRole; password?: string; dateOfBirth?: string; panCard?: string; aadharCard?: string; panCardPhotoUrl?: string | null; aadharCardPhotoUrl?: string | null; aadharCardBackPhotoUrl?: string | null; leaveBalances?: { sickLeave: number; paidLeave: number; casualLeave: number; }; }) => {
     await createEmployeeByAdmin(params);
     // Realtime listener will automatically pick up the new user
   };
