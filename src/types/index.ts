@@ -99,12 +99,17 @@ export type RootStackParamList = {
 // ─── Leave Management ────────────────────────────────────────────────────────
 export type LeaveStatus = 'pending_coordinator' | 'pending_manager' | 'pending_hr' | 'pending' | 'approved' | 'rejected';
 
+export type LeaveDurationType = 'single_day' | 'multiple_days' | 'half_day';
+export type HalfDayPeriod = 'first_half' | 'second_half';
+
 export interface LeaveRequest {
   id: string;
   employeeId: string;
   employeeName: string;
   role: string;
   leaveType: string;
+  durationType?: LeaveDurationType;
+  halfDayPeriod?: HalfDayPeriod;
   startDate: string; // ISO date
   endDate: string;   // ISO date
   totalDays: number;

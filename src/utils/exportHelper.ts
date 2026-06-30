@@ -259,8 +259,7 @@ export function generateLeavesHTML(
   records: Array<{
     name: string;
     type: string;
-    startDate: string;
-    endDate: string;
+    dateText: string;
     days: string;
     reason: string;
     status: string;
@@ -270,7 +269,7 @@ export function generateLeavesHTML(
     <tr>
       <td>${r.name}</td>
       <td style="font-weight: 600;">${r.type}</td>
-      <td>${r.startDate} to ${r.endDate}</td>
+      <td>${r.dateText}</td>
       <td style="font-weight: bold;">${r.days}</td>
       <td>${r.reason}</td>
       <td>

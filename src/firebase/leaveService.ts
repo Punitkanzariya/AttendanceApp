@@ -1,6 +1,6 @@
 import { collection, collectionGroup, doc, addDoc, updateDoc, query, orderBy, getDocs, onSnapshot, where } from 'firebase/firestore';
 import { db } from '@/firebase/config';
-import type { LeaveRequest, LeaveStatus, Project } from '@/types';
+import type { LeaveRequest, LeaveStatus, Project, LeaveDurationType, HalfDayPeriod } from '@/types';
 
 export async function submitLeaveRequest(
   employeeId: string,
@@ -10,7 +10,9 @@ export async function submitLeaveRequest(
   startDate: string,
   endDate: string,
   totalDays: number,
-  reason: string
+  reason: string,
+  durationType?: LeaveDurationType,
+  halfDayPeriod?: HalfDayPeriod
 ): Promise<void> {
   const now = new Date().toISOString();
   
@@ -51,6 +53,8 @@ export async function submitLeaveRequest(
     employeeName,
     role,
     leaveType,
+    durationType: durationType || 'full_day', // fallback if not provided
+    halfDayPeriod: halfDayPeriod || null,
     startDate,
     endDate,
     totalDays,

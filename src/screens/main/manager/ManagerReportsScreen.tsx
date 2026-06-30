@@ -21,6 +21,7 @@ import {
 } from '@/firebase';
 import type { User, AttendanceRecord, LeaveRequest, ExpenseRequest } from '@/types';
 import { exportToCSV, exportToPDF, generateAttendanceHTML, generateExpensesHTML, generateLeavesHTML } from '@/utils/exportHelper';
+import { formatLeaveDurationText } from '@/utils/dateUtils';
 
 type ManagerReportTab = 'attendance' | 'leaves' | 'expenses';
 
@@ -271,8 +272,7 @@ export default function ManagerReportsScreen() {
           return {
             name: emp?.displayName || lvl.employeeName || 'Unknown Employee',
             type: lvl.leaveType || 'Casual Leave',
-            startDate: formattedStart,
-            endDate: formattedEnd,
+            dateText: formatLeaveDurationText(lvl.startDate, lvl.endDate, lvl.totalDays, lvl.durationType, lvl.halfDayPeriod),
             days: daysStr,
             reason: lvl.reason || '',
             status: statusText,

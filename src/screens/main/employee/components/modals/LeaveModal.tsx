@@ -18,6 +18,7 @@ import { useAuthStore } from "@/store/authStore";
 import { submitLeaveRequest } from "@/firebase/leaveService";
 import { DateInput } from "../DateInput";
 import { calculateDays } from "../../utils/dateUtils";
+import type { LeaveDurationType, HalfDayPeriod } from "@/types";
 
 interface LeaveModalProps {
   isVisible: boolean;
@@ -29,18 +30,31 @@ export const LeaveModal = ({ isVisible, onClose }: LeaveModalProps) => {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [leaveType, setLeaveType] = useState("Casual Leave");
+  const [durationType, setDurationType] = useState<LeaveDurationType>("single_day");
+  const [halfDayPeriod, setHalfDayPeriod] = useState<HalfDayPeriod>("first_half");
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const todayDate = new Date().toISOString().split("T")[0];
 
   const handleSubmit = async () => {
-    if (!startDate || !endDate || !reason) {
+    const isSingleDate = durationType === "single_day" || durationType === "half_day";
+    const actualEndDate = isSingleDate ? startDate : endDate;
+
+    if (!startDate || (!isSingleDate && !actualEndDate) || !reason) {
       Alert.alert("Error", "Please fill in all fields");
       return;
     }
 
-    const days = calculateDays(startDate, endDate);
+    let days = 0;
+    if (durationType === "half_day") {
+      days = 0.5;
+    } else if (durationType === "single_day") {
+      days = 1;
+    } else {
+      days = calculateDays(startDate, actualEndDate);
+    }
+
     if (days <= 0) {
       Alert.alert("Error", "End date must be on or after start date");
       return;
@@ -54,15 +68,19 @@ export const LeaveModal = ({ isVisible, onClose }: LeaveModalProps) => {
         user!.displayName || user!.username,
         leaveType,
         startDate,
-        endDate,
+        actualEndDate,
         days,
         reason,
+        durationType,
+        durationType === "half_day" ? halfDayPeriod : undefined
       );
       onClose();
       setStartDate("");
       setEndDate("");
       setReason("");
       setLeaveType("Casual Leave");
+      setDurationType("single_day");
+      setHalfDayPeriod("first_half");
     } catch (error) {
       console.error("Failed to submit leave:", error);
       Alert.alert("Error", "Failed to submit leave request");
@@ -116,7 +134,66 @@ export const LeaveModal = ({ isVisible, onClose }: LeaveModalProps) => {
               ))}
             </View>
 
-            <Text style={styles.inputLabel}>Start Date</Text>
+            <Text style={styles.inputLabel}>Duration</Text>
+            <View style={styles.typeSelectorRow}>
+              {[
+                { id: "single_day", label: "Single Day" },
+                { id: "multiple_days", label: "Multiple Days" },
+                { id: "half_day", label: "Half Day" },
+              ].map((type) => (
+                <TouchableOpacity
+                  key={type.id}
+                  style={[
+                    styles.typeButton,
+                    durationType === type.id && styles.typeButtonActive,
+                  ]}
+                  onPress={() => setDurationType(type.id as LeaveDurationType)}
+                >
+                  <Text
+                    style={[
+                      styles.typeButtonText,
+                      durationType === type.id && styles.typeButtonTextActive,
+                    ]}
+                  >
+                    {type.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {durationType === "half_day" && (
+              <>
+                <Text style={styles.inputLabel}>Period</Text>
+                <View style={styles.typeSelectorRow}>
+                  {[
+                    { id: "first_half", label: "First Half" },
+                    { id: "second_half", label: "Second Half" },
+                  ].map((period) => (
+                    <TouchableOpacity
+                      key={period.id}
+                      style={[
+                        styles.typeButton,
+                        halfDayPeriod === period.id && styles.typeButtonActive,
+                      ]}
+                      onPress={() => setHalfDayPeriod(period.id as HalfDayPeriod)}
+                    >
+                      <Text
+                        style={[
+                          styles.typeButtonText,
+                          halfDayPeriod === period.id && styles.typeButtonTextActive,
+                        ]}
+                      >
+                        {period.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </>
+            )}
+
+            <Text style={styles.inputLabel}>
+              {durationType === "multiple_days" ? "From Date" : "Date"}
+            </Text>
             <DateInput
               placeholder="YYYY-MM-DD"
               value={startDate}
@@ -124,21 +201,31 @@ export const LeaveModal = ({ isVisible, onClose }: LeaveModalProps) => {
               min={todayDate}
             />
 
-            <Text style={styles.inputLabel}>End Date</Text>
-            <DateInput
-              placeholder="YYYY-MM-DD"
-              value={endDate}
-              onChangeText={setEndDate}
-              min={todayDate}
-            />
+            {durationType === "multiple_days" && (
+              <>
+                <Text style={styles.inputLabel}>To Date</Text>
+                <DateInput
+                  placeholder="YYYY-MM-DD"
+                  value={endDate}
+                  onChangeText={setEndDate}
+                  min={todayDate}
+                />
+              </>
+            )}
 
-            {!!startDate &&
-              !!endDate &&
-              calculateDays(startDate, endDate) > 0 && (
-                <Text style={styles.totalDaysPreview}>
-                  Total Duration: {calculateDays(startDate, endDate)} Days
-                </Text>
-              )}
+            {durationType === "multiple_days" && !!startDate && !!endDate && calculateDays(startDate, endDate) > 0 && (
+              <Text style={styles.totalDaysPreview}>
+                Total Duration: {calculateDays(startDate, endDate)} Days
+              </Text>
+            )}
+
+            {durationType === "single_day" && !!startDate && (
+              <Text style={styles.totalDaysPreview}>Total Duration: 1 Day</Text>
+            )}
+
+            {durationType === "half_day" && !!startDate && (
+              <Text style={styles.totalDaysPreview}>Total Duration: 0.5 Days</Text>
+            )}
 
             <Text style={styles.inputLabel}>Reason</Text>
             <TextInput

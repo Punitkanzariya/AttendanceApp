@@ -6,6 +6,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import { formatDisplayStatus } from '@/utils/statusUtils';
+import { formatLeaveDurationText } from '@/utils/dateUtils';
 import { subscribeToLeavesForRole, updateLeaveStatus } from '@/firebase/leaveService';
 import type { LeaveRequest, LeaveStatus } from '@/types';
 
@@ -127,7 +128,9 @@ export default function LeaveApprovalsScreen() {
       
       <View style={styles.row}>
         <Ionicons name="calendar-outline" size={16} color={Colors.text.secondary} />
-        <Text style={styles.dateText}>{item.startDate}  to  {item.endDate} ({item.totalDays || 1} Days)</Text>
+        <Text style={styles.dateText}>
+          {formatLeaveDurationText(item.startDate, item.endDate, item.totalDays, item.durationType, item.halfDayPeriod)}
+        </Text>
       </View>
       
       <Text style={styles.reasonLabel}>Reason:</Text>
@@ -221,7 +224,9 @@ export default function LeaveApprovalsScreen() {
                 <Text style={styles.detailValue}>{selectedLeave.employeeName}</Text>
                 
                 <Text style={styles.detailLabel}>Dates:</Text>
-                <Text style={styles.detailValue}>{selectedLeave.startDate} to {selectedLeave.endDate} ({selectedLeave.totalDays || 1} Days)</Text>
+                <Text style={styles.detailValue}>
+                  {formatLeaveDurationText(selectedLeave.startDate, selectedLeave.endDate, selectedLeave.totalDays, selectedLeave.durationType, selectedLeave.halfDayPeriod)}
+                </Text>
                 
                 <Text style={styles.detailLabel}>Type:</Text>
                 <Text style={styles.detailValue}>{selectedLeave.leaveType || 'Standard Leave'}</Text>

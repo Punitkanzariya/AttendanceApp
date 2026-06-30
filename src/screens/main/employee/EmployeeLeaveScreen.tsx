@@ -17,7 +17,7 @@ import {
   BorderRadius,
 } from "@/theme";
 import { formatDisplayStatus } from "@/utils/statusUtils";
-import { formatDateDDMMYYYY } from '@/utils/dateUtils';
+import { formatLeaveDurationText, formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { subscribeToUserLeaves } from "@/firebase/leaveService";
 import type { LeaveRequest } from "@/types";
 import { LeaveModal } from "./components/modals/LeaveModal";
@@ -69,7 +69,7 @@ export default function EmployeeLeaveScreen() {
               color={Colors.text.secondary}
             />
             <Text style={styles.dateText}>
-              {formatDateDDMMYYYY(item.startDate)} to {formatDateDDMMYYYY(item.endDate)} ({item.totalDays || 1} Days)
+              {formatLeaveDurationText(item.startDate, item.endDate, item.totalDays, item.durationType, item.halfDayPeriod)}
             </Text>
           </View>
         </View>

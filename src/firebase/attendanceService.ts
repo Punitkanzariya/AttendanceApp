@@ -48,17 +48,13 @@ async function uploadImageToStorage(uri: string, path: string): Promise<string> 
     const manipResult = await ImageManipulator.manipulateAsync(
       uri,
       [{ resize: { width: 400 } }],
-      { compress: 0.4, format: ImageManipulator.SaveFormat.JPEG }
+      { compress: 0.4, format: ImageManipulator.SaveFormat.JPEG, base64: true }
     );
-
-    const base64 = await FileSystem.readAsStringAsync(manipResult.uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
 
     // Instead of Firebase Storage, return the compressed Base64 Data URL.
     // At 600px, the image is ~30KB, well under Firestore's 1MB limit.
     // This bypasses all Storage/Network/Blob errors entirely.
-    return `data:image/jpeg;base64,${base64}`;
+    return `data:image/jpeg;base64,${manipResult.base64}`;
   } catch (e) {
     console.error("Error uploading image to storage", e);
     throw new Error("Failed to process selfie image");
