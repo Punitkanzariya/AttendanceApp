@@ -330,3 +330,18 @@ export const clearExpenseDraft = async () => {
     console.error("Error clearing expense draft", e);
   }
 };
+
+/**
+ * Calculates the next appropriate status for an expense request based on the current approving role
+ * and the existence of specific roles on the project.
+ */
+export const getNextExpenseStatus = (expense: ExpenseRequest, currentUserRole: string): ExpenseStatus => {
+  if (currentUserRole === 'project_coordinator') {
+    return (expense.managerIds && expense.managerIds.length > 0) ? 'pending_manager' : 'pending_finance';
+  } else if (currentUserRole === 'project_manager') {
+    return 'pending_finance';
+  } else if (currentUserRole === 'finance' || currentUserRole === 'administrator') {
+    return 'reimbursed';
+  }
+  return 'reimbursed';
+};

@@ -1,16 +1,36 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Image, Animated, Dimensions, TouchableWithoutFeedback, Platform } from 'react-native';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, TouchableWithoutFeedback, Platform } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/theme';
+import { useAuthStore } from '@/store/authStore';
+import { subscribeToUserLeaves, subscribeToLeavesForRole } from '@/firebase/leaveService';
+import { subscribeToUserExpenses, subscribeToExpensesForRole } from '@/firebase/expenseService';
+import { LeaveRequest, ExpenseRequest } from '@/types';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = SCREEN_WIDTH;
+
+type NotificationItem = {
+  id: string;
+  type: 'leave' | 'expense';
+  title: string;
+  description: string;
+  status: string;
+  createdAt: string;
+  icon: keyof typeof Ionicons.glyphMap;
+  iconColor: string;
+  iconBg: string;
+  statusColor: string;
+};
 
 export default function NotificationScreen({ navigation }: any) {
   const [activeTab, setActiveTab] = useState('Request');
   const translateX = useRef(new Animated.Value(DRAWER_WIDTH)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const { user } = useAuthStore();
+  const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [expenses, setExpenses] = useState<ExpenseRequest[]>([]);
 
   useEffect(() => {
     Animated.parallel([
@@ -25,6 +45,103 @@ export default function NotificationScreen({ navigation }: any) {
       Animated.timing(backdropOpacity, { toValue: 0, duration: 260, useNativeDriver: true })
     ]).start(() => navigation?.goBack?.());
   }, [translateX, backdropOpacity, navigation]);
+
+  const isEmployee = user?.role === 'employee';
+
+  useEffect(() => {
+    if (!user) return;
+
+    let unsubLeaves: () => void;
+    let unsubExpenses: () => void;
+
+    if (isEmployee) {
+      unsubLeaves = subscribeToUserLeaves(user.uid, user.role, setLeaves);
+      unsubExpenses = subscribeToUserExpenses(user.uid, user.role, setExpenses);
+    } else {
+      unsubLeaves = subscribeToLeavesForRole(user.role, user.uid, setLeaves);
+      unsubExpenses = subscribeToExpensesForRole(user.role, user.uid, setExpenses);
+    }
+
+    return () => {
+      if (unsubLeaves) unsubLeaves();
+      if (unsubExpenses) unsubExpenses();
+    };
+  }, [user, isEmployee]);
+
+  const getStatusColor = (status: string) => {
+    if (status === 'approved' || status === 'reimbursed') return '#16A34A';
+    if (status === 'rejected') return '#EF4444';
+    return '#D97706';
+  };
+
+  const notifications = useMemo(() => {
+    const items: NotificationItem[] = [];
+
+    leaves.forEach(leave => {
+      const statusColor = getStatusColor(leave.status);
+      const iconBg = leave.status === 'approved' ? '#F0FDF4' : leave.status === 'rejected' ? '#FEF2F2' : '#EFF6FF';
+      const statusText = leave.status.replace(/_/g, ' ');
+
+      items.push({
+        id: `leave_${leave.id}`,
+        type: 'leave',
+        title: isEmployee ? `${leave.leaveType} Leave` : `Leave Request — ${leave.employeeName}`,
+        description: isEmployee
+          ? `Your ${leave.leaveType} request (${leave.startDate} to ${leave.endDate}) is ${statusText}.`
+          : `${leave.employeeName} requested ${leave.leaveType} leave from ${leave.startDate} to ${leave.endDate}.`,
+        status: leave.status,
+        createdAt: leave.createdAt,
+        icon: 'calendar-outline',
+        iconColor: statusColor,
+        iconBg,
+        statusColor,
+      });
+    });
+
+    expenses.forEach(exp => {
+      const statusColor = getStatusColor(exp.status);
+      const iconBg = exp.status === 'reimbursed' ? '#F0FDF4' : exp.status === 'rejected' ? '#FEF2F2' : '#EFF6FF';
+      const statusText = exp.status.replace(/_/g, ' ');
+
+      items.push({
+        id: `expense_${exp.id}`,
+        type: 'expense',
+        title: isEmployee ? `${exp.category} Expense` : `Expense — ${exp.employeeName}`,
+        description: isEmployee
+          ? `Your ${exp.category} expense of ₹${exp.amount} is ${statusText}.`
+          : `${exp.employeeName} submitted a ${exp.category} expense of ₹${exp.amount}.`,
+        status: exp.status,
+        createdAt: exp.createdAt,
+        icon: 'cash-outline',
+        iconColor: statusColor,
+        iconBg,
+        statusColor,
+      });
+    });
+
+    items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    return items;
+  }, [leaves, expenses, isEmployee]);
+
+  // Group notifications by date
+  const groupedNotifications = useMemo(() => {
+    const groups: { [key: string]: NotificationItem[] } = {};
+    const todayStr = new Date().toISOString().split('T')[0];
+    const yesterdayDate = new Date();
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+
+    notifications.forEach(notif => {
+      const dateStr = notif.createdAt?.split('T')[0] ?? '';
+      let groupLabel = dateStr;
+      if (dateStr === todayStr) groupLabel = 'TODAY';
+      else if (dateStr === yesterdayStr) groupLabel = 'YESTERDAY';
+
+      if (!groups[groupLabel]) groups[groupLabel] = [];
+      groups[groupLabel].push(notif);
+    });
+    return groups;
+  }, [notifications]);
 
   return (
     <View style={styles.rootContainer}>
@@ -45,124 +162,89 @@ export default function NotificationScreen({ navigation }: any) {
         ]}
       >
         <SafeAreaView style={styles.safeArea} edges={['top']}>
+          {/* Header */}
           <View style={styles.header}>
             <TouchableOpacity style={styles.backButton} onPress={closeDrawer}>
-          <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Notification</Text>
-        <TouchableOpacity style={styles.moreButton}>
-          <Ionicons name="ellipsis-vertical" size={24} color={Colors.text.primary} />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.tabContainer}>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'General' && styles.activeTab]} 
-          onPress={() => setActiveTab('General')}
-        >
-          <Text style={[styles.tabText, activeTab === 'General' && styles.activeTabText]}>General</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.tab, activeTab === 'Request' && styles.activeTab]} 
-          onPress={() => setActiveTab('Request')}
-        >
-          <Text style={[styles.tabText, activeTab === 'Request' && styles.activeTabText]}>Request</Text>
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-        
-        <Text style={styles.sectionTitle}>TODAY</Text>
-
-        {/* Item 1 */}
-        <View style={styles.notificationItem}>
-          <View style={styles.notificationContent}>
-            <Image 
-              source={{ uri: 'https://i.pravatar.cc/150?img=11' }} 
-              style={styles.avatar} 
-            />
-            <View style={styles.textContainer}>
-              <Text style={styles.notificationText}>
-                <Text style={styles.boldText}>Rama raja</Text> has not logged in yet today. Please review their attendance status.
-              </Text>
-              <Text style={styles.timeText}>11:30 AM</Text>
-            </View>
-          </View>
-          <View style={styles.actionButtons}>
-            <TouchableOpacity style={[styles.actionBtn, styles.attendanceBtn]}>
-              <Text style={styles.attendanceBtnText}>Attendance</Text>
+              <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, styles.sendBtn]}>
-              <Text style={styles.sendBtnText}>Send Notification</Text>
+            <Text style={styles.headerTitle}>Notifications</Text>
+            <View style={styles.moreButton} />
+          </View>
+
+          {/* Tabs */}
+          <View style={styles.tabContainer}>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'General' && styles.activeTab]}
+              onPress={() => setActiveTab('General')}
+            >
+              <Text style={[styles.tabText, activeTab === 'General' && styles.activeTabText]}>General</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.tab, activeTab === 'Request' && styles.activeTab]}
+              onPress={() => setActiveTab('Request')}
+            >
+              <Text style={[styles.tabText, activeTab === 'Request' && styles.activeTabText]}>
+                {isEmployee ? 'Updates' : 'Requests'}
+              </Text>
+              {notifications.length > 0 && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{notifications.length}</Text>
+                </View>
+              )}
             </TouchableOpacity>
           </View>
-        </View>
 
-        {/* Item 2 */}
-        <View style={styles.notificationItem}>
-          <View style={styles.notificationContent}>
-            <View style={styles.iconAvatar}>
-              <Ionicons name="person" size={20} color="#2563EB" />
-            </View>
-            <View style={styles.textContainer}>
-              <Text style={styles.notificationText}>
-                <Text style={styles.boldText}>Rama raja</Text> has requested <Text style={styles.boldText}>Sick Leave</Text> for [15-04-2025].
-              </Text>
-              <Text style={styles.timeText}>10:30 AM</Text>
-            </View>
-          </View>
-          <View style={styles.actionButtons}>
-            <TouchableOpacity style={[styles.actionBtn, styles.denyBtn]}>
-              <Text style={styles.denyBtnText}>Denied</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.actionBtn, styles.approveBtn]}>
-              <Text style={styles.approveBtnText}>Approve</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+          <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
 
-        <Text style={[styles.sectionTitle, { marginTop: Spacing.lg }]}>YESTERDAY</Text>
+            {/* General Tab */}
+            {activeTab === 'General' && (
+              <View style={styles.emptyState}>
+                <Ionicons name="megaphone-outline" size={48} color={Colors.text.tertiary} />
+                <Text style={styles.emptyTitle}>No General Announcements</Text>
+                <Text style={styles.emptySubtitle}>Company-wide announcements will appear here.</Text>
+              </View>
+            )}
 
-        {/* Item 3 */}
-        <View style={styles.notificationItem}>
-          <View style={styles.notificationContent}>
-            <Image 
-              source={{ uri: 'https://i.pravatar.cc/150?img=11' }} 
-              style={styles.avatar} 
-            />
-            <View style={styles.textContainer}>
-              <Text style={styles.notificationText}>
-                <Text style={styles.boldText}>Rama raja</Text> has not logged in yet today. Please review their attendance status.
-              </Text>
-              <Text style={styles.timeText}>11:30 AM</Text>
-            </View>
-          </View>
-          <View style={styles.statusContainer}>
-            <Ionicons name="checkmark-done" size={20} color="#16A34A" />
-            <Text style={styles.statusText}>Notification Send</Text>
-          </View>
-        </View>
+            {/* Request/Updates Tab - Empty */}
+            {activeTab !== 'General' && Object.keys(groupedNotifications).length === 0 && (
+              <View style={styles.emptyState}>
+                <Ionicons name="notifications-off-outline" size={48} color={Colors.text.tertiary} />
+                <Text style={styles.emptyTitle}>No Notifications</Text>
+                <Text style={styles.emptySubtitle}>You're all caught up! Nothing here yet.</Text>
+              </View>
+            )}
 
-        {/* Item 4 */}
-        <View style={styles.notificationItem}>
-          <View style={styles.notificationContent}>
-            <View style={styles.iconAvatar}>
-              <Ionicons name="person" size={20} color="#2563EB" />
-            </View>
-            <View style={styles.textContainer}>
-              <Text style={styles.notificationText}>
-                <Text style={styles.boldText}>Rama raja</Text> has requested <Text style={styles.boldText}>Sick Leave</Text> for [15-04-2025].
-              </Text>
-              <Text style={styles.timeText}>10:30 AM</Text>
-            </View>
-          </View>
-          <View style={styles.statusContainer}>
-            <Ionicons name="checkmark-done" size={20} color="#16A34A" />
-            <Text style={styles.statusText}>Approved</Text>
-          </View>
-        </View>
+            {/* Request/Updates Tab - List */}
+            {activeTab !== 'General' && Object.entries(groupedNotifications).map(([groupLabel, items]) => (
+              <View key={groupLabel} style={styles.groupContainer}>
+                <Text style={styles.sectionTitle}>{groupLabel}</Text>
+                {items.map(item => {
+                  const timeStr = new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  return (
+                    <View key={item.id} style={styles.notificationCard}>
+                      <View style={[styles.iconAvatar, { backgroundColor: item.iconBg }]}>
+                        <Ionicons name={item.icon} size={20} color={item.iconColor} />
+                      </View>
+                      <View style={styles.textContainer}>
+                        <View style={styles.titleRow}>
+                          <Text style={styles.notificationTitle} numberOfLines={1}>{item.title}</Text>
+                          <Text style={styles.timeText}>{timeStr}</Text>
+                        </View>
+                        <Text style={styles.notificationText}>{item.description}</Text>
+                        <View style={[styles.statusPill, { backgroundColor: item.statusColor + '18' }]}>
+                          <View style={[styles.statusDot, { backgroundColor: item.statusColor }]} />
+                          <Text style={[styles.statusLabel, { color: item.statusColor }]}>
+                            {item.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+            ))}
 
-      </ScrollView>
+          </ScrollView>
         </SafeAreaView>
       </Animated.View>
     </View>
@@ -175,17 +257,12 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
+    top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: '#000',
   },
   drawer: {
     position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
+    top: 0, right: 0, bottom: 0,
     width: DRAWER_WIDTH,
     backgroundColor: '#FFFFFF',
   },
@@ -197,11 +274,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: Spacing.md,
-    paddingVertical: 10,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.border,
   },
   backButton: {
-    width: 40,
-    height: 40,
+    width: 40, height: 40,
     borderRadius: BorderRadius.md,
     backgroundColor: Colors.background,
     alignItems: 'center',
@@ -209,27 +287,26 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: FontSize.md,
+    fontSize: FontSize.lg,
     fontWeight: FontWeight.bold,
     color: Colors.text.primary,
     marginLeft: Spacing.md,
   },
   moreButton: {
-    width: 40,
-    height: 40,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 40, height: 40,
   },
   tabContainer: {
     flexDirection: 'row',
     borderBottomWidth: 1,
     borderBottomColor: Colors.border,
-    marginBottom: Spacing.sm,
   },
   tab: {
     flex: 1,
-    paddingVertical: 10,
+    flexDirection: 'row',
+    paddingVertical: 12,
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
   },
   activeTab: {
     borderBottomWidth: 2,
@@ -244,116 +321,117 @@ const styles = StyleSheet.create({
     color: '#2563EB',
     fontWeight: FontWeight.semibold,
   },
+  badge: {
+    backgroundColor: '#EF4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    paddingHorizontal: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: FontWeight.bold,
+  },
   scrollContainer: {
     paddingHorizontal: Spacing.lg,
-    paddingBottom: Spacing.xxl,
+    paddingTop: Spacing.md,
+    paddingBottom: 80,
+    flexGrow: 1,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 80,
+    gap: Spacing.md,
+  },
+  emptyTitle: {
+    fontSize: FontSize.md,
+    fontWeight: FontWeight.bold,
+    color: Colors.text.secondary,
+  },
+  emptySubtitle: {
+    fontSize: FontSize.sm,
+    color: Colors.text.tertiary,
+    textAlign: 'center',
+    paddingHorizontal: Spacing.xl,
+  },
+  groupContainer: {
+    marginBottom: Spacing.lg,
   },
   sectionTitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: Colors.text.tertiary,
     fontWeight: FontWeight.semibold,
     marginBottom: Spacing.sm,
-    letterSpacing: 0.5,
+    letterSpacing: 0.8,
   },
-  notificationItem: {
-    marginBottom: Spacing.md,
-  },
-  notificationContent: {
+  notificationCard: {
     flexDirection: 'row',
-    marginBottom: 4,
-  },
-  avatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    marginRight: Spacing.sm,
+    backgroundColor: '#FFFFFF',
+    borderRadius: BorderRadius.lg,
+    padding: Spacing.md,
+    marginBottom: Spacing.sm,
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: 'flex-start',
+    gap: Spacing.md,
   },
   iconAvatar: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#EFF6FF',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: Spacing.sm,
+    flexShrink: 0,
   },
   textContainer: {
     flex: 1,
+    minWidth: 0,
   },
-  notificationText: {
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  notificationTitle: {
     fontSize: FontSize.sm,
-    color: Colors.text.secondary,
-    lineHeight: 18,
-  },
-  boldText: {
-    color: '#2563EB',
-    fontWeight: FontWeight.semibold,
+    fontWeight: FontWeight.bold,
+    color: Colors.text.primary,
+    flex: 1,
+    marginRight: Spacing.xs,
   },
   timeText: {
     fontSize: 10,
     color: Colors.text.tertiary,
-    textAlign: 'right',
-    marginTop: 2,
+    flexShrink: 0,
   },
-  actionButtons: {
-    flexDirection: 'row',
-    paddingLeft: 36 + Spacing.sm, // avatar width + margin
-    gap: Spacing.sm,
+  notificationText: {
+    fontSize: FontSize.xs,
+    color: Colors.text.secondary,
+    lineHeight: 18,
+    marginBottom: Spacing.sm,
   },
-  actionBtn: {
-    flex: 1,
-    paddingVertical: 6,
-    borderRadius: BorderRadius.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-  },
-  attendanceBtn: {
-    borderColor: '#16A34A',
-    backgroundColor: '#F0FDF4',
-  },
-  attendanceBtnText: {
-    color: '#16A34A',
-    fontSize: 12,
-    fontWeight: FontWeight.medium,
-  },
-  sendBtn: {
-    borderColor: '#2563EB',
-    backgroundColor: '#EFF6FF',
-  },
-  sendBtnText: {
-    color: '#2563EB',
-    fontSize: 12,
-    fontWeight: FontWeight.medium,
-  },
-  denyBtn: {
-    borderColor: '#EF4444',
-    backgroundColor: '#FEF2F2',
-  },
-  denyBtnText: {
-    color: '#EF4444',
-    fontSize: 12,
-    fontWeight: FontWeight.medium,
-  },
-  approveBtn: {
-    borderColor: '#16A34A',
-    backgroundColor: '#F0FDF4',
-  },
-  approveBtnText: {
-    color: '#16A34A',
-    fontSize: 12,
-    fontWeight: FontWeight.medium,
-  },
-  statusContainer: {
+  statusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 36 + Spacing.sm,
-    marginTop: 2,
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: BorderRadius.full,
+    gap: 4,
   },
-  statusText: {
-    color: '#16A34A',
-    fontSize: 12,
-    fontWeight: FontWeight.medium,
-    marginLeft: Spacing.xs,
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  statusLabel: {
+    fontSize: 10,
+    fontWeight: FontWeight.semibold,
   },
 });

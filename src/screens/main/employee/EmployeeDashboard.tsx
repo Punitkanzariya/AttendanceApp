@@ -20,10 +20,11 @@ import AnimatedSuccessModal from "@/components/shared/AnimatedSuccessModal";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { EmployeeTabParamList, AttendanceRecord } from "@/types";
-import { subscribeToTodayAttendance, checkInEmployee, checkOutEmployee } from "@/firebase";
+import { subscribeToTodayAttendance, checkInEmployee, checkOutEmployee, subscribeToUserAttendanceHistory } from "@/firebase";
 import { getEmployeeActiveProject } from "@/firebase/projectService";
 import { subscribeToUserLeaves } from "@/firebase/leaveService";
 import type { LeaveRequest } from "@/types";
+import MonthPickerModal from "@/components/shared/MonthPickerModal";
 import { useLiveWorkingHours } from "@/hooks/useLiveWorkingHours";
 import { calculateDistanceMeters } from "@/utils/locationUtils";
 import GeoFenceMap from "@/components/shared/GeoFenceMap";
@@ -94,6 +95,9 @@ export default function EmployeeDashboard() {
     useNavigation<BottomTabNavigationProp<EmployeeTabParamList>>();
   const [refreshing, setRefreshing] = useState(false);
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
+  const [history, setHistory] = useState<AttendanceRecord[]>([]);
+  const [selectedMonth, setSelectedMonth] = useState(new Date());
+  const [isMonthPickerVisible, setMonthPickerVisible] = useState(false);
   const [isAttendanceLoading, setIsAttendanceLoading] = useState(true);
   const [isClocking, setIsClocking] = useState(false);
   const [currentAddress, setCurrentAddress] = useState("Fetching location...");
@@ -111,13 +115,22 @@ export default function EmployeeDashboard() {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [isLeavesLoading, setIsLeavesLoading] = useState(true);
 
-  // Subscribe to today's attendance
+  // Subscribe to today's attendance and history
   useEffect(() => {
     if (!user?.uid) return;
-    return subscribeToTodayAttendance(user.uid, user.role, (record) => {
+    const unsubToday = subscribeToTodayAttendance(user.uid, user.role, (record) => {
       setTodayRecord(record);
       setIsAttendanceLoading(false);
     });
+    
+    const unsubHistory = subscribeToUserAttendanceHistory(user.uid, user.role, (records) => {
+      setHistory(records);
+    });
+
+    return () => {
+      unsubToday();
+      unsubHistory();
+    };
   }, [user?.uid]);
 
   // Subscribe to user leaves
@@ -514,39 +527,88 @@ export default function EmployeeDashboard() {
           {/* Attendance for this Month */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Attendance for this Month</Text>
-            <TouchableOpacity style={styles.monthBtn} activeOpacity={0.7}>
-              <Text style={styles.monthBtnTxt}>APR</Text>
+            <TouchableOpacity style={styles.monthBtn} activeOpacity={0.7} onPress={() => setMonthPickerVisible(true)}>
+              <Text style={styles.monthBtnTxt}>{selectedMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase()}</Text>
               <Ionicons name="calendar-outline" size={12} color="#2563EB" />
             </TouchableOpacity>
           </View>
           <View style={styles.attendanceGrid}>
-            <View
-              style={[
-                styles.attCard,
-                { backgroundColor: "#E8F5E9", borderTopColor: "#2E7D32" },
-              ]}
-            >
-              <Text style={styles.attLabel}>Present</Text>
-              <Text style={[styles.attNum, { color: "#2E7D32" }]}>13</Text>
-            </View>
-            <View
-              style={[
-                styles.attCard,
-                { backgroundColor: "#FFEBEE", borderTopColor: "#C62828" },
-              ]}
-            >
-              <Text style={styles.attLabel}>Absents</Text>
-              <Text style={[styles.attNum, { color: "#C62828" }]}>02</Text>
-            </View>
-            <View
-              style={[
-                styles.attCard,
-                { backgroundColor: "#FFF8E1", borderTopColor: "#F9A825" },
-              ]}
-            >
-              <Text style={styles.attLabel}>Late in</Text>
-              <Text style={[styles.attNum, { color: "#F9A825" }]}>04</Text>
-            </View>
+            {(() => {
+              const now = selectedMonth;
+              const actualToday = new Date();
+              const isCurrentMonth = now.getMonth() === actualToday.getMonth() && now.getFullYear() === actualToday.getFullYear();
+              const isFutureMonth = now.getFullYear() > actualToday.getFullYear() || (now.getFullYear() === actualToday.getFullYear() && now.getMonth() > actualToday.getMonth());
+
+              const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+              
+              const currentMonthRecords = history.filter(r => r.dateStr.startsWith(currentMonthStr));
+              if (todayRecord && todayRecord.dateStr.startsWith(currentMonthStr)) {
+                // Ensure today's record is included if not in history yet
+                if (!currentMonthRecords.find(r => r.id === todayRecord.id)) {
+                  currentMonthRecords.push(todayRecord);
+                }
+              }
+
+              const presentCount = currentMonthRecords.length;
+              
+              let lateCount = 0;
+              currentMonthRecords.forEach(r => {
+                if (r.status === 'late') {
+                  lateCount++;
+                } else if (r.checkIn?.timestamp) {
+                  const d = new Date(r.checkIn.timestamp);
+                  if (d.getHours() > 9 || (d.getHours() === 9 && d.getMinutes() > 30)) {
+                    lateCount++;
+                  }
+                }
+              });
+
+              let absentCount = 0;
+              let todayDay = 0;
+              
+              if (isFutureMonth) {
+                todayDay = 0;
+              } else if (isCurrentMonth) {
+                todayDay = actualToday.getDate();
+              } else {
+                // Past month, get all days in the month
+                todayDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+              }
+
+              let missingDays = 0;
+              for (let i = 1; i <= todayDay; i++) {
+                const d = new Date(now.getFullYear(), now.getMonth(), i);
+                if (d.getDay() !== 0) { // Not Sunday
+                  const dStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                  const hasRecord = currentMonthRecords.some(r => r.dateStr === dStr);
+                  
+                  // Check if on approved leave
+                  const isOnLeave = leaves.some(l => l.status === 'approved' && l.startDate <= dStr && l.endDate >= dStr);
+
+                  if (!hasRecord && !isOnLeave) {
+                    missingDays++;
+                  }
+                }
+              }
+              absentCount = missingDays;
+
+              return (
+                <>
+                  <View style={[styles.attCard, { backgroundColor: "#E8F5E9", borderTopColor: "#2E7D32" }]}>
+                    <Text style={styles.attLabel}>Present</Text>
+                    <Text style={[styles.attNum, { color: "#2E7D32" }]}>{String(presentCount).padStart(2, '0')}</Text>
+                  </View>
+                  <View style={[styles.attCard, { backgroundColor: "#FFEBEE", borderTopColor: "#C62828" }]}>
+                    <Text style={styles.attLabel}>Absents</Text>
+                    <Text style={[styles.attNum, { color: "#C62828" }]}>{String(absentCount).padStart(2, '0')}</Text>
+                  </View>
+                  <View style={[styles.attCard, { backgroundColor: "#FFF8E1", borderTopColor: "#F9A825" }]}>
+                    <Text style={styles.attLabel}>Late in</Text>
+                    <Text style={[styles.attNum, { color: "#F9A825" }]}>{String(lateCount).padStart(2, '0')}</Text>
+                  </View>
+                </>
+              );
+            })()}
           </View>
 
           {/* Leave Balance */}
@@ -715,6 +777,15 @@ export default function EmployeeDashboard() {
         </View>
       </Modal>
 
+      <MonthPickerModal
+        visible={isMonthPickerVisible}
+        selectedDate={selectedMonth}
+        onClose={() => setMonthPickerVisible(false)}
+        onSelect={(date) => {
+          setSelectedMonth(date);
+          setMonthPickerVisible(false);
+        }}
+      />
     </SafeAreaView>
   );
 }

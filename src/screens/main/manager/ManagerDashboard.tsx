@@ -27,6 +27,8 @@ import {
   updateExpenseStatus,
   getLocalDateString,
 } from '@/firebase';
+import { getNextLeaveStatus } from '@/firebase/leaveService';
+import { getNextExpenseStatus } from '@/firebase/expenseService';
 
 type FeedItem =
   | { type: 'leave'; id: string; name: string; title: string; subtitle: string; date: string; raw: LeaveRequest }
@@ -112,16 +114,13 @@ export default function ManagerDashboard() {
     setProcessingId(item.id);
     try {
       if (item.type === 'leave') {
-        let newStatus: import('@/types').LeaveStatus = item.raw.status;
-        if (user.role === 'project_coordinator') {
-          newStatus = (item.raw.managerIds && item.raw.managerIds.length > 0) ? 'pending_manager' : 'pending_hr';
-        } else if (user.role === 'project_manager') {
-          newStatus = 'pending_hr';
-        } else {
-          newStatus = 'approved';
-        }
+        const newStatus = getNextLeaveStatus(item.raw, user.role);
         await updateLeaveStatus(item.id, item.raw.employeeId, item.raw.role, newStatus, user.uid, 'Quick approved from Dashboard');
         Alert.alert('Approved', 'Leave request forwarded/approved!');
+      } else if (item.type === 'expense') {
+        const newStatus = getNextExpenseStatus(item.raw, user.role);
+        await updateExpenseStatus(item.id, item.raw.employeeId, item.raw.role, newStatus, user.uid);
+        Alert.alert('Approved', 'Expense request forwarded/approved!');
       }
     } catch (err: any) {
       console.error(err);

@@ -64,10 +64,7 @@ export default function ProjectAddModal({ visible, onClose, onSuccess, adminUid 
     };
   }, [visible]);
 
-  useEffect(() => {
-    if (managers.length > 0 && !projectManagerId) setProjectManagerId(managers[0].uid);
-    if (coordinators.length > 0 && !projectCoordinatorId) setProjectCoordinatorId(coordinators[0].uid);
-  }, [managers, coordinators]);
+  // Removed forced selection logic
 
   const handleSelectEmployees = (selectedUids: string[]) => {
     // Keep existing employees that are still selected
@@ -193,7 +190,7 @@ export default function ProjectAddModal({ visible, onClose, onSuccess, adminUid 
                 label="Project Manager"
                 value={projectManagerId}
                 onSelect={setProjectManagerId}
-                options={managers.map(m => ({ label: m.displayName || m.username, value: m.uid }))}
+                options={[{ label: 'None / Unassigned', value: '' }, ...managers.map(m => ({ label: m.displayName || m.username, value: m.uid }))]}
                 placeholder="Select Manager..."
               />
 
@@ -201,7 +198,7 @@ export default function ProjectAddModal({ visible, onClose, onSuccess, adminUid 
                 label="Project Co-ordinator"
                 value={projectCoordinatorId}
                 onSelect={setProjectCoordinatorId}
-                options={coordinators.map(c => ({ label: c.displayName || c.username, value: c.uid }))}
+                options={[{ label: 'None / Unassigned', value: '' }, ...coordinators.map(c => ({ label: c.displayName || c.username, value: c.uid }))]}
                 placeholder="Select Coordinator..."
               />
             </View>

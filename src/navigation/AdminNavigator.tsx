@@ -4,6 +4,7 @@ import type { AdminTabParamList } from '@/types';
 import { Colors, FontSize } from '@/theme';
 import PlaceholderScreen from '@/screens/main/shared/PlaceholderScreen';
 
+import AdminDashboard from '@/screens/admin/AdminDashboard';
 import AdminEmployeesScreen from '@/screens/admin/AdminEmployeesScreen';
 import AdminProjectsScreen from '@/screens/admin/AdminProjectsScreen';
 
@@ -43,15 +44,7 @@ export default function AdminNavigator() {
         tabBarLabelStyle: { fontSize: FontSize.xs },
       })}
     >
-      <Tab.Screen name="Dashboard">
-        {() => (
-          <PlaceholderScreen
-            iconName="shield-checkmark"
-            title="Admin Dashboard"
-            description="System-wide overview and controls"
-          />
-        )}
-      </Tab.Screen>
+      <Tab.Screen name="Dashboard" component={AdminDashboard} />
       <Tab.Screen name="Employees" component={AdminEmployeesScreen} />
       <Tab.Screen name="Projects" component={AdminProjectsScreen} />
       <Tab.Screen name="Roles">

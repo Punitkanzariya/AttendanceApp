@@ -6,7 +6,7 @@ import { Platform } from 'react-native';
 import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import { formatDisplayStatus } from '@/utils/statusUtils';
-import { subscribeToAllExpenses, updateExpenseStatus } from '@/firebase/expenseService';
+import { subscribeToAllExpenses, updateExpenseStatus, getNextExpenseStatus } from '@/firebase/expenseService';
 import type { ExpenseRequest, ExpenseStatus } from '@/types';
 
 export default function ExpenseApprovalsScreen() {
@@ -61,8 +61,11 @@ export default function ExpenseApprovalsScreen() {
     
     setIsProcessing(true);
     try {
-      // Manager approval moves it to pending_finance
-      const newStatus = status === 'pending_finance' ? 'pending_finance' : 'rejected';
+      let newStatus: ExpenseStatus = status;
+      if (status !== 'rejected') {
+        newStatus = getNextExpenseStatus(selectedExpense, user.role);
+      }
+      
       await updateExpenseStatus(selectedExpense.id, selectedExpense.employeeId, selectedExpense.role, newStatus, user.uid, reviewNotes);
       setSelectedExpense(null);
       setReviewNotes('');

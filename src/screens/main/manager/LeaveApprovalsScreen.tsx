@@ -7,7 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import { formatDisplayStatus } from '@/utils/statusUtils';
 import { formatLeaveDurationText } from '@/utils/dateUtils';
-import { subscribeToLeavesForRole, updateLeaveStatus } from '@/firebase/leaveService';
+import { subscribeToLeavesForRole, updateLeaveStatus, getNextLeaveStatus } from '@/firebase/leaveService';
 import type { LeaveRequest, LeaveStatus } from '@/types';
 
 export default function LeaveApprovalsScreen() {
@@ -76,13 +76,7 @@ export default function LeaveApprovalsScreen() {
       if (action === 'reject') {
         newStatus = 'rejected';
       } else {
-        if (user.role === 'project_coordinator') {
-          newStatus = (selectedLeave.managerIds && selectedLeave.managerIds.length > 0) ? 'pending_manager' : 'pending_hr';
-        } else if (user.role === 'project_manager') {
-          newStatus = 'pending_hr';
-        } else {
-          newStatus = 'approved';
-        }
+        newStatus = getNextLeaveStatus(selectedLeave, user.role);
       }
 
       await updateLeaveStatus(selectedLeave.id, selectedLeave.employeeId, selectedLeave.role, newStatus, user.uid, reviewNotes);

@@ -173,3 +173,18 @@ export function subscribeToAllLeaves(
     console.error('Error subscribing to all leaves:', error);
   });
 }
+
+/**
+ * Calculates the next appropriate status for a leave request based on the current approving role
+ * and the existence of specific roles on the project.
+ */
+export function getNextLeaveStatus(leave: LeaveRequest, currentUserRole: string): LeaveStatus {
+  if (currentUserRole === 'project_coordinator') {
+    return (leave.managerIds && leave.managerIds.length > 0) ? 'pending_manager' : 'pending_hr';
+  } else if (currentUserRole === 'project_manager') {
+    return 'pending_hr';
+  } else if (currentUserRole === 'hr_manager' || currentUserRole === 'administrator') {
+    return 'approved';
+  }
+  return 'approved';
+}

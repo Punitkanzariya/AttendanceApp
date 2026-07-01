@@ -204,7 +204,7 @@ export default function ProjectEditModal({ visible, project, onClose, onSuccess,
                 label="Project Manager"
                 value={projectManagerId}
                 onSelect={setProjectManagerId}
-                options={managers.map(m => ({ label: m.displayName || m.username, value: m.uid }))}
+                options={[{ label: 'None / Unassigned', value: '' }, ...managers.map(m => ({ label: m.displayName || m.username, value: m.uid }))]}
                 placeholder="Select Manager..."
               />
 
@@ -212,7 +212,7 @@ export default function ProjectEditModal({ visible, project, onClose, onSuccess,
                 label="Project Co-ordinator"
                 value={projectCoordinatorId}
                 onSelect={setProjectCoordinatorId}
-                options={coordinators.map(c => ({ label: c.displayName || c.username, value: c.uid }))}
+                options={[{ label: 'None / Unassigned', value: '' }, ...coordinators.map(c => ({ label: c.displayName || c.username, value: c.uid }))]}
                 placeholder="Select Coordinator..."
               />
             </View>
