@@ -352,7 +352,7 @@ export default function EmployeeDashboard() {
     });
   };
 
-  const getWorkingHoursText = () => useLiveWorkingHours(todayRecord);
+  const workingHoursText = useLiveWorkingHours(todayRecord);
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
@@ -430,67 +430,79 @@ export default function EmployeeDashboard() {
           </Text>
 
           {/* Summary Card */}
-          <View style={styles.summaryCard}>
-            <View style={styles.summaryTopRow}>
-              <View style={styles.summaryCol}>
-                <Text style={styles.summaryLabel}>Clock In</Text>
-                <Text style={styles.summaryValue}>
-                  {formatTime(todayRecord?.checkIn?.timestamp)}
-                </Text>
+          {(() => {
+            const now = new Date();
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+            const todayLeave = leaves.find(l => l.status === 'approved' && l.startDate <= todayStr && l.endDate >= todayStr);
+
+            return (
+              <View style={styles.summaryCard}>
+                <View style={styles.summaryTopRow}>
+                  <View style={styles.summaryCol}>
+                    <Text style={styles.summaryLabel}>Clock In</Text>
+                    <Text style={styles.summaryValue}>
+                      {formatTime(todayRecord?.checkIn?.timestamp)}
+                    </Text>
+                  </View>
+                  <View style={styles.summaryCol}>
+                    <Text style={styles.summaryLabel}>Clock Out</Text>
+                    <Text style={styles.summaryValue}>
+                      {formatTime(todayRecord?.checkOut?.timestamp)}
+                    </Text>
+                  </View>
+                  <View style={styles.summaryCol}>
+                    <Text style={styles.summaryLabel}>Working Hours</Text>
+                    <Text style={styles.summaryValue}>{workingHoursText}</Text>
+                  </View>
+                </View>
+                <View
+                  style={{
+                    height: 1,
+                    backgroundColor: Colors.border,
+                    marginVertical: 4,
+                  }}
+                />
+                <View style={{ alignItems: "center", paddingVertical: 10 }}>
+                  {todayLeave && !todayRecord ? (
+                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#6D28D9' }}>You are on leave today</Text>
+                  ) : (
+                    <TouchableOpacity
+                      style={[
+                        styles.clockBtn,
+                        { paddingHorizontal: 40 },
+                        todayRecord &&
+                          !todayRecord.checkOut && {
+                            backgroundColor: Colors.error,
+                          },
+                        todayRecord?.checkIn &&
+                          todayRecord?.checkOut && {
+                            backgroundColor: Colors.text.tertiary,
+                          },
+                        (isClocking || isAttendanceLoading) && {
+                          opacity: 0.6,
+                        }
+                      ]}
+                      activeOpacity={0.8}
+                      onPress={handleClockAction}
+                      disabled={isAttendanceLoading || isClocking || !!(todayRecord?.checkIn && todayRecord?.checkOut)}
+                    >
+                      {isAttendanceLoading || isClocking ? (
+                        <ActivityIndicator color={Colors.white} />
+                      ) : (
+                        <Text style={styles.clockBtnTxt}>
+                          {!todayRecord
+                            ? "Clock In"
+                            : !todayRecord.checkOut
+                              ? "Clock Out"
+                              : "Completed"}
+                        </Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
-              <View style={styles.summaryCol}>
-                <Text style={styles.summaryLabel}>Clock Out</Text>
-                <Text style={styles.summaryValue}>
-                  {formatTime(todayRecord?.checkOut?.timestamp)}
-                </Text>
-              </View>
-              <View style={styles.summaryCol}>
-                <Text style={styles.summaryLabel}>Working Hours</Text>
-                <Text style={styles.summaryValue}>{getWorkingHoursText()}</Text>
-              </View>
-            </View>
-            <View
-              style={{
-                height: 1,
-                backgroundColor: Colors.border,
-                marginVertical: 4,
-              }}
-            />
-            <View style={{ alignItems: "center" }}>
-              <TouchableOpacity
-                style={[
-                  styles.clockBtn,
-                  { paddingHorizontal: 40 },
-                  todayRecord &&
-                    !todayRecord.checkOut && {
-                      backgroundColor: Colors.error,
-                    },
-                  todayRecord?.checkIn &&
-                    todayRecord?.checkOut && {
-                      backgroundColor: Colors.text.tertiary,
-                    },
-                  (isClocking || isAttendanceLoading) && {
-                    opacity: 0.6,
-                  }
-                ]}
-                activeOpacity={0.8}
-                onPress={handleClockAction}
-                disabled={isAttendanceLoading || isClocking || !!(todayRecord?.checkIn && todayRecord?.checkOut)}
-              >
-                {isAttendanceLoading || isClocking ? (
-                  <ActivityIndicator color={Colors.white} />
-                ) : (
-                  <Text style={styles.clockBtnTxt}>
-                    {!todayRecord
-                      ? "Clock In"
-                      : !todayRecord.checkOut
-                        ? "Clock Out"
-                        : "Completed"}
-                  </Text>
-                )}
-              </TouchableOpacity>
-            </View>
-          </View>
+            );
+          })()}
 
           {/* Quick Actions */}
           <View style={styles.quickActionsContainer}>
@@ -859,13 +871,20 @@ const styles = StyleSheet.create({
     lineHeight: 34,
     marginBottom: 10,
   },
-
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: "800",
+  },
   summaryCard: {
     backgroundColor: Colors.white,
     borderRadius: 16,
     padding: 16,
     marginBottom: 20,
-    gap: 10,
     borderWidth: 1,
     borderColor: Colors.border,
   },
