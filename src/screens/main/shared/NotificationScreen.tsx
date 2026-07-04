@@ -79,7 +79,7 @@ export default function NotificationScreen({ navigation }: any) {
     leaves.forEach(leave => {
       const statusColor = getStatusColor(leave.status);
       const iconBg = leave.status === 'approved' ? '#F0FDF4' : leave.status === 'rejected' ? '#FEF2F2' : '#EFF6FF';
-      const statusText = leave.status.replace(/_/g, ' ');
+      const statusText = leave.status.startsWith('pending') ? 'pending' : leave.status.replace(/_/g, ' ');
 
       items.push({
         id: `leave_${leave.id}`,
@@ -100,7 +100,7 @@ export default function NotificationScreen({ navigation }: any) {
     expenses.forEach(exp => {
       const statusColor = getStatusColor(exp.status);
       const iconBg = exp.status === 'reimbursed' ? '#F0FDF4' : exp.status === 'rejected' ? '#FEF2F2' : '#EFF6FF';
-      const statusText = exp.status.replace(/_/g, ' ');
+      const statusText = exp.status.startsWith('pending') ? 'pending' : exp.status.replace(/_/g, ' ');
 
       items.push({
         id: `expense_${exp.id}`,
@@ -199,7 +199,7 @@ export default function NotificationScreen({ navigation }: any) {
                         <View style={[styles.statusPill, { backgroundColor: item.statusColor + '18' }]}>
                           <View style={[styles.statusDot, { backgroundColor: item.statusColor }]} />
                           <Text style={[styles.statusLabel, { color: item.statusColor }]}>
-                            {item.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            {item.status.startsWith('pending') ? 'Pending' : item.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
                           </Text>
                         </View>
                       </View>

@@ -1,0 +1,43 @@
+{
+  "cli": {
+    "version": ">= 7.0.0"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAjB_V7X1MLxZF8r8h7dW8ITaTRBlzBFtA",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "techsture-hrm.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "techsture-hrm",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "techsture-hrm.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "151284434763",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:151284434763:web:cf2c700500ae68a2fbcace"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAjB_V7X1MLxZF8r8h7dW8ITaTRBlzBFtA",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "techsture-hrm.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "techsture-hrm",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "techsture-hrm.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "151284434763",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:151284434763:web:cf2c700500ae68a2fbcace"
+      }
+    },
+    "production": {
+      "env": {
+        "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyAjB_V7X1MLxZF8r8h7dW8ITaTRBlzBFtA",
+        "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "techsture-hrm.firebaseapp.com",
+        "EXPO_PUBLIC_FIREBASE_PROJECT_ID": "techsture-hrm",
+        "EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET": "techsture-hrm.firebasestorage.app",
+        "EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID": "151284434763",
+        "EXPO_PUBLIC_FIREBASE_APP_ID": "1:151284434763:web:cf2c700500ae68a2fbcace"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
