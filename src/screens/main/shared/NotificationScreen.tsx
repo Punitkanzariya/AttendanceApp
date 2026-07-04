@@ -25,7 +25,6 @@ type NotificationItem = {
 };
 
 export default function NotificationScreen({ navigation }: any) {
-  const [activeTab, setActiveTab] = useState('Request');
   const translateX = useRef(new Animated.Value(DRAWER_WIDTH)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const { user } = useAuthStore();
@@ -171,42 +170,9 @@ export default function NotificationScreen({ navigation }: any) {
             <View style={styles.moreButton} />
           </View>
 
-          {/* Tabs */}
-          <View style={styles.tabContainer}>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'General' && styles.activeTab]}
-              onPress={() => setActiveTab('General')}
-            >
-              <Text style={[styles.tabText, activeTab === 'General' && styles.activeTabText]}>General</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.tab, activeTab === 'Request' && styles.activeTab]}
-              onPress={() => setActiveTab('Request')}
-            >
-              <Text style={[styles.tabText, activeTab === 'Request' && styles.activeTabText]}>
-                {isEmployee ? 'Updates' : 'Requests'}
-              </Text>
-              {notifications.length > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>{notifications.length}</Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-
           <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
 
-            {/* General Tab */}
-            {activeTab === 'General' && (
-              <View style={styles.emptyState}>
-                <Ionicons name="megaphone-outline" size={48} color={Colors.text.tertiary} />
-                <Text style={styles.emptyTitle}>No General Announcements</Text>
-                <Text style={styles.emptySubtitle}>Company-wide announcements will appear here.</Text>
-              </View>
-            )}
-
-            {/* Request/Updates Tab - Empty */}
-            {activeTab !== 'General' && Object.keys(groupedNotifications).length === 0 && (
+            {Object.keys(groupedNotifications).length === 0 && (
               <View style={styles.emptyState}>
                 <Ionicons name="notifications-off-outline" size={48} color={Colors.text.tertiary} />
                 <Text style={styles.emptyTitle}>No Notifications</Text>
@@ -214,8 +180,7 @@ export default function NotificationScreen({ navigation }: any) {
               </View>
             )}
 
-            {/* Request/Updates Tab - List */}
-            {activeTab !== 'General' && Object.entries(groupedNotifications).map(([groupLabel, items]) => (
+            {Object.entries(groupedNotifications).map(([groupLabel, items]) => (
               <View key={groupLabel} style={styles.groupContainer}>
                 <Text style={styles.sectionTitle}>{groupLabel}</Text>
                 {items.map(item => {
@@ -293,39 +258,6 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.md,
   },
   moreButton: {
-    width: 40, height: 40,
-  },
-  tabContainer: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.border,
-  },
-  tab: {
-    flex: 1,
-    flexDirection: 'row',
-    paddingVertical: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  activeTab: {
-    borderBottomWidth: 2,
-    borderBottomColor: '#2563EB',
-  },
-  tabText: {
-    fontSize: FontSize.sm,
-    color: Colors.text.tertiary,
-    fontWeight: FontWeight.medium,
-  },
-  activeTabText: {
-    color: '#2563EB',
-    fontWeight: FontWeight.semibold,
-  },
-  badge: {
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
     paddingHorizontal: 4,
     alignItems: 'center',
     justifyContent: 'center',

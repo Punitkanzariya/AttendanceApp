@@ -17,8 +17,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import { Colors, Spacing, BorderRadius } from '@/theme';
-import type { AttendanceRecord, AttendanceLocation } from '@/types';
+import type { AttendanceRecord, AttendanceLocation, LeaveRequest } from '@/types';
 import { subscribeToUserAttendanceHistory } from '@/firebase';
+import { subscribeToUserLeaves } from '@/firebase/leaveService';
 import UserMonthCalendar from './UserMonthCalendar';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -49,20 +50,44 @@ export default function AttendanceDetailModal({
   const [imageAspectRatio, setImageAspectRatio] = useState<number>(3 / 4);
 
   const [userHistory, setUserHistory] = useState<AttendanceRecord[]>([]);
+  const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
 
   useEffect(() => {
     if (!initialRecord?.employeeId || !initialRecord?.role) {
       setUserHistory([]);
+      setLeaves([]);
       return;
     }
     
     // Fetch full history for the calendar
-    const unsub = subscribeToUserAttendanceHistory(initialRecord.employeeId, initialRecord.role, (records) => {
+    const unsubHistory = subscribeToUserAttendanceHistory(initialRecord.employeeId, initialRecord.role, (records) => {
       setUserHistory(records);
     });
 
-    return () => unsub();
+    const unsubLeaves = subscribeToUserLeaves(initialRecord.employeeId, initialRecord.role, (data) => {
+      setLeaves(data.filter(l => l.status === 'approved'));
+    });
+
+    return () => {
+      unsubHistory();
+      unsubLeaves();
+    };
   }, [initialRecord?.employeeId, initialRecord?.role]);
+
+  const leaveDateSet = React.useMemo(() => {
+    const set = new Set<string>();
+    leaves.forEach(leave => {
+      const start = new Date(leave.startDate);
+      const end = new Date(leave.endDate);
+      const cur = new Date(start);
+      while (cur <= end) {
+        const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
+        set.add(key);
+        cur.setDate(cur.getDate() + 1);
+      }
+    });
+    return set;
+  }, [leaves]);
 
   useEffect(() => {
     if (!activeRecord) {
@@ -217,6 +242,7 @@ export default function AttendanceDetailModal({
                 selectedDate={new Date(initialRecord?.dateStr || new Date().toISOString())} 
                 activeDateStr={activeRecord.dateStr}
                 onDateClick={handleDateClick}
+                leaveDateSet={leaveDateSet}
               />
             </View>
 

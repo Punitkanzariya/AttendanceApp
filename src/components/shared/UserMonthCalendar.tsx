@@ -8,11 +8,12 @@ interface UserMonthCalendarProps {
   selectedDate: Date;
   onDateClick?: (dateStr: string) => void;
   activeDateStr?: string;
+  leaveDateSet?: Set<string>;
 }
 
 const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
 
-export default function UserMonthCalendar({ records, selectedDate, onDateClick, activeDateStr }: UserMonthCalendarProps) {
+export default function UserMonthCalendar({ records, selectedDate, onDateClick, activeDateStr, leaveDateSet }: UserMonthCalendarProps) {
   const getDayStatus = (year: number, month: number, day: number) => {
     const dateObj = new Date(year, month, day);
     const today = new Date();
@@ -25,6 +26,7 @@ export default function UserMonthCalendar({ records, selectedDate, onDateClick, 
     const record = records.find((r) => r.dateStr === dateStr);
 
     if (record) return 'present';
+    if (leaveDateSet && leaveDateSet.has(dateStr)) return 'leave';
     if (dateObj.getDay() === 0) return 'weekend'; // Sunday
 
     return 'absent';
@@ -81,6 +83,9 @@ export default function UserMonthCalendar({ records, selectedDate, onDateClick, 
             if (status === 'present') {
               bgColor = '#DCFCE7'; // light green
               textColor = '#166534';
+            } else if (status === 'leave') {
+              bgColor = '#EDE9FE'; // light purple
+              textColor = '#6D28D9';
             } else if (status === 'absent') {
               bgColor = '#FEE2E2'; // light red
               textColor = '#991B1B';
@@ -121,12 +126,16 @@ export default function UserMonthCalendar({ records, selectedDate, onDateClick, 
           <Text style={styles.legendText}>Present</Text>
         </View>
         <View style={styles.legendItem}>
+          <View style={[styles.legendDot, { backgroundColor: '#6D28D9' }]} />
+          <Text style={styles.legendText}>Leave</Text>
+        </View>
+        <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: '#991B1B' }]} />
           <Text style={styles.legendText}>Absent</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: '#94A3B8' }]} />
-          <Text style={styles.legendText}>Off</Text>
+          <Text style={styles.legendText}>Holiday/Off</Text>
         </View>
       </View>
     </View>
