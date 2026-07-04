@@ -1,3 +1,5 @@
+https://github.com/arhamkhnz/next-shadcn-admin-dashboard
+
 https://www.digitalhrms.com/hrms-mobile-application/
 
 # UI reference
@@ -31,3 +33,5 @@ manager@gmail.com
 ss@gmail.com
 user@gmail.com
 finance@gmail.com
+
+npx expo start --tunnel
