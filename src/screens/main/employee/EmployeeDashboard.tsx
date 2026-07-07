@@ -26,6 +26,7 @@ import { subscribeToUserLeaves } from "@/firebase/leaveService";
 import type { LeaveRequest } from "@/types";
 import MonthPickerModal from "@/components/shared/MonthPickerModal";
 import { useLiveWorkingHours } from "@/hooks/useLiveWorkingHours";
+import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
 import { calculateDistanceMeters } from "@/utils/locationUtils";
 import GeoFenceMap from "@/components/shared/GeoFenceMap";
 import * as Location from "expo-location";
@@ -93,6 +94,7 @@ export default function EmployeeDashboard() {
   // const navigation = useNavigation<any>();
   const navigation =
     useNavigation<BottomTabNavigationProp<EmployeeTabParamList>>();
+  const hasUnreadNotifications = useUnreadNotifications();
   const [refreshing, setRefreshing] = useState(false);
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
   const [history, setHistory] = useState<AttendanceRecord[]>([]);
@@ -403,7 +405,7 @@ export default function EmployeeDashboard() {
                   size={18}
                   color={Colors.text.primary}
                 />
-                <View style={styles.notificationDot} />
+                {hasUnreadNotifications && <View style={styles.notificationDot} />}
               </TouchableOpacity>
               <View style={styles.avatarWrap}>
                 {user?.photoURL ? (

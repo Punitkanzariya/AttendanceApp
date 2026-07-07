@@ -29,6 +29,7 @@ import {
 } from '@/firebase';
 import { getNextLeaveStatus } from '@/firebase/leaveService';
 import { getNextExpenseStatus } from '@/firebase/expenseService';
+import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 
 type FeedItem =
   | { type: 'leave'; id: string; name: string; title: string; subtitle: string; date: string; raw: LeaveRequest }
@@ -37,6 +38,7 @@ type FeedItem =
 export default function ManagerDashboard() {
   const { user } = useAuthStore();
   const navigation = useNavigation<BottomTabNavigationProp<ManagerTabParamList>>();
+  const hasUnreadNotifications = useUnreadNotifications();
 
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -193,7 +195,7 @@ export default function ManagerDashboard() {
                     size={18}
                     color={Colors.text.primary}
                   />
-                  <View style={styles.notificationDot} />
+                  {hasUnreadNotifications && <View style={styles.notificationDot} />}
                 </TouchableOpacity>
                 <View style={styles.avatarWrap}>
                   {user?.photoURL ? (

@@ -294,6 +294,8 @@ const styles = StyleSheet.create({
     height: 32,
     borderRadius: 8,
     backgroundColor: "rgba(255,255,255,0.6)",
+    borderWidth: 1,
+    borderColor: Colors.border,
     alignItems: "center",
     justifyContent: "center",
   },

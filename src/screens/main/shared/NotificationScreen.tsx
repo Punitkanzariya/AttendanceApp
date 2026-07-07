@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, TouchableWithoutFeedback, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, TouchableWithoutFeedback, Platform, DeviceEventEmitter } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/theme';
@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore';
 import { subscribeToUserLeaves, subscribeToLeavesForRole } from '@/firebase/leaveService';
 import { subscribeToUserExpenses, subscribeToExpensesForRole } from '@/firebase/expenseService';
 import { LeaveRequest, ExpenseRequest } from '@/types';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const DRAWER_WIDTH = SCREEN_WIDTH;
@@ -30,6 +31,62 @@ export default function NotificationScreen({ navigation }: any) {
   const { user } = useAuthStore();
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [expenses, setExpenses] = useState<ExpenseRequest[]>([]);
+  const [readIds, setReadIds] = useState<Set<string>>(new Set());
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const loadState = async () => {
+      try {
+        const readStr = await AsyncStorage.getItem(`@notifs_read_${user.uid}`);
+        const delStr = await AsyncStorage.getItem(`@notifs_del_${user.uid}`);
+        if (readStr) setReadIds(new Set(JSON.parse(readStr)));
+        if (delStr) setDeletedIds(new Set(JSON.parse(delStr)));
+      } catch (e) {
+        console.error('Error loading notification state:', e);
+      }
+    };
+    loadState();
+  }, [user?.uid]);
+
+  const handleMarkAsRead = async (id: string) => {
+    if (!user?.uid || readIds.has(id)) return;
+    const newSet = new Set(readIds);
+    newSet.add(id);
+    setReadIds(newSet);
+    try {
+      await AsyncStorage.setItem(`@notifs_read_${user.uid}`, JSON.stringify([...newSet]));
+      DeviceEventEmitter.emit('notifications_read_updated');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleMarkAllAsRead = async () => {
+    if (!user?.uid) return;
+    const newSet = new Set(readIds);
+    notifications.forEach(n => newSet.add(n.id));
+    setReadIds(newSet);
+    try {
+      await AsyncStorage.setItem(`@notifs_read_${user.uid}`, JSON.stringify([...newSet]));
+      DeviceEventEmitter.emit('notifications_read_updated');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!user?.uid) return;
+    const newSet = new Set(deletedIds);
+    newSet.add(id);
+    setDeletedIds(newSet);
+    try {
+      await AsyncStorage.setItem(`@notifs_del_${user.uid}`, JSON.stringify([...newSet]));
+      DeviceEventEmitter.emit('notifications_read_updated');
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   useEffect(() => {
     Animated.parallel([
@@ -44,6 +101,41 @@ export default function NotificationScreen({ navigation }: any) {
       Animated.timing(backdropOpacity, { toValue: 0, duration: 260, useNativeDriver: true })
     ]).start(() => navigation?.goBack?.());
   }, [translateX, backdropOpacity, navigation]);
+
+  const handleNavigate = (type: 'leave' | 'expense') => {
+    if (!user) return;
+    
+    let rootApp = '';
+    
+    switch (user.role) {
+      case 'employee':
+        rootApp = 'EmployeeApp';
+        break;
+      case 'project_manager':
+      case 'project_coordinator':
+        rootApp = 'ProjectManagementApp';
+        break;
+      case 'hr_manager':
+        rootApp = 'ManagerApp';
+        break;
+      case 'administrator':
+        rootApp = 'AdminApp';
+        break;
+      case 'finance':
+        rootApp = 'FinanceApp';
+        break;
+    }
+    
+    if (type === 'leave') {
+      if (['employee', 'project_manager', 'project_coordinator', 'hr_manager'].includes(user.role)) {
+        navigation.navigate(rootApp, { screen: 'Leave' });
+      }
+    } else if (type === 'expense') {
+      if (['employee', 'project_manager', 'project_coordinator', 'finance'].includes(user.role)) {
+        navigation.navigate(rootApp, { screen: 'Expenses' });
+      }
+    }
+  };
 
   const isEmployee = user?.role === 'employee';
 
@@ -84,7 +176,7 @@ export default function NotificationScreen({ navigation }: any) {
       items.push({
         id: `leave_${leave.id}`,
         type: 'leave',
-        title: isEmployee ? `${leave.leaveType} Leave` : `Leave Request — ${leave.employeeName}`,
+        title: isEmployee ? leave.leaveType : `Leave Request — ${leave.employeeName}`,
         description: isEmployee
           ? `Your ${leave.leaveType} request (${leave.startDate} to ${leave.endDate}) is ${statusText}.`
           : `${leave.employeeName} requested ${leave.leaveType} leave from ${leave.startDate} to ${leave.endDate}.`,
@@ -131,6 +223,7 @@ export default function NotificationScreen({ navigation }: any) {
     const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
 
     notifications.forEach(notif => {
+      if (deletedIds.has(notif.id)) return;
       const dateStr = notif.createdAt?.split('T')[0] ?? '';
       let groupLabel = dateStr;
       if (dateStr === todayStr) groupLabel = 'TODAY';
@@ -140,7 +233,7 @@ export default function NotificationScreen({ navigation }: any) {
       groups[groupLabel].push(notif);
     });
     return groups;
-  }, [notifications]);
+  }, [notifications, deletedIds]);
 
   return (
     <View style={styles.rootContainer}>
@@ -167,7 +260,9 @@ export default function NotificationScreen({ navigation }: any) {
               <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
             </TouchableOpacity>
             <Text style={styles.headerTitle}>Notifications</Text>
-            <View style={styles.moreButton} />
+            <TouchableOpacity style={styles.moreButton} onPress={handleMarkAllAsRead}>
+              <Ionicons name="checkmark-done-outline" size={24} color={Colors.text.primary} />
+            </TouchableOpacity>
           </View>
 
           <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
@@ -186,22 +281,60 @@ export default function NotificationScreen({ navigation }: any) {
                 {items.map(item => {
                   const timeStr = new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                   return (
-                    <View key={item.id} style={styles.notificationCard}>
-                      <View style={[styles.iconAvatar, { backgroundColor: item.iconBg }]}>
-                        <Ionicons name={item.icon} size={20} color={item.iconColor} />
-                      </View>
-                      <View style={styles.textContainer}>
-                        <View style={styles.titleRow}>
-                          <Text style={styles.notificationTitle} numberOfLines={1}>{item.title}</Text>
-                          <Text style={styles.timeText}>{timeStr}</Text>
+                    <View 
+                      key={item.id} 
+                      style={[styles.notificationCard, !readIds.has(item.id) && styles.unreadCard]}
+                    >
+                      <TouchableOpacity 
+                        style={styles.cardContent}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          handleMarkAsRead(item.id);
+                          closeDrawer();
+                          setTimeout(() => {
+                            handleNavigate(item.type);
+                          }, 300);
+                        }}
+                      >
+                        <View style={[styles.iconAvatar, { backgroundColor: item.iconBg }]}>
+                          <Ionicons name={item.icon} size={20} color={item.iconColor} />
+                          {!readIds.has(item.id) && <View style={styles.unreadIndicator} />}
                         </View>
-                        <Text style={styles.notificationText}>{item.description}</Text>
-                        <View style={[styles.statusPill, { backgroundColor: item.statusColor + '18' }]}>
-                          <View style={[styles.statusDot, { backgroundColor: item.statusColor }]} />
-                          <Text style={[styles.statusLabel, { color: item.statusColor }]}>
-                            {item.status.startsWith('pending') ? 'Pending' : item.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                          </Text>
+                        <View style={styles.textContainer}>
+                          <View style={styles.titleRow}>
+                            <Text style={styles.notificationTitle} numberOfLines={1}>{item.title}</Text>
+                            <Text style={styles.timeText}>{timeStr}</Text>
+                          </View>
+                          <Text style={styles.notificationText}>{item.description}</Text>
+                          <View style={[styles.statusPill, { backgroundColor: item.statusColor + '18' }]}>
+                            <View style={[styles.statusDot, { backgroundColor: item.statusColor }]} />
+                            <Text style={[styles.statusLabel, { color: item.statusColor }]}>
+                              {item.status.startsWith('pending') ? 'Pending' : item.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </Text>
+                          </View>
                         </View>
+                      </TouchableOpacity>
+
+                      <View style={styles.actionsRow}>
+                        {!readIds.has(item.id) && (
+                          <>
+                            <TouchableOpacity 
+                              style={styles.actionButton} 
+                              onPress={() => handleMarkAsRead(item.id)}
+                            >
+                              <Ionicons name="checkmark" size={16} color={Colors.text.secondary} />
+                              <Text style={styles.actionText}>Mark as read</Text>
+                            </TouchableOpacity>
+                            <View style={styles.verticalDivider} />
+                          </>
+                        )}
+                        <TouchableOpacity 
+                          style={styles.actionButton} 
+                          onPress={() => handleDelete(item.id)}
+                        >
+                          <Ionicons name="trash-outline" size={16} color={Colors.error} />
+                          <Text style={[styles.actionText, { color: Colors.error }]}>Remove</Text>
+                        </TouchableOpacity>
                       </View>
                     </View>
                   );
@@ -219,6 +352,7 @@ export default function NotificationScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   rootContainer: {
     flex: 1,
+    overflow: 'hidden',
   },
   backdrop: {
     position: 'absolute',
@@ -227,8 +361,7 @@ const styles = StyleSheet.create({
   },
   drawer: {
     position: 'absolute',
-    top: 0, right: 0, bottom: 0,
-    width: DRAWER_WIDTH,
+    top: 0, left: 0, right: 0, bottom: 0,
     backgroundColor: '#FFFFFF',
   },
   safeArea: {
@@ -247,6 +380,8 @@ const styles = StyleSheet.create({
     width: 40, height: 40,
     borderRadius: BorderRadius.md,
     backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -258,7 +393,11 @@ const styles = StyleSheet.create({
     marginLeft: Spacing.md,
   },
   moreButton: {
-    paddingHorizontal: 4,
+    width: 40, height: 40,
+    borderRadius: BorderRadius.md,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: Colors.border,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -302,15 +441,60 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
   notificationCard: {
-    flexDirection: 'row',
     backgroundColor: '#FFFFFF',
     borderRadius: BorderRadius.lg,
-    padding: Spacing.md,
     marginBottom: Spacing.sm,
     borderWidth: 1,
     borderColor: Colors.border,
+  },
+  cardContent: {
+    flexDirection: 'row',
+    padding: Spacing.md,
     alignItems: 'flex-start',
     gap: Spacing.md,
+  },
+  actionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderTopWidth: 1,
+    borderTopColor: Colors.border,
+  },
+  actionButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+  },
+  verticalDivider: {
+    width: 1,
+    height: '100%',
+    backgroundColor: Colors.border,
+  },
+  actionText: {
+    fontSize: 12,
+    fontWeight: FontWeight.medium,
+    color: Colors.text.secondary,
+  },
+  unreadCard: {
+    backgroundColor: '#F0F9FF',
+    borderColor: '#BAE6FD',
+  },
+  unreadIndicator: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: Colors.primary,
+    borderWidth: 2,
+    borderColor: '#FFFFFF',
+  },
+  deleteButton: {
+    padding: 4,
+    marginLeft: 'auto',
   },
   iconAvatar: {
     width: 42,

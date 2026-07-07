@@ -19,10 +19,12 @@ import type { FinanceTabParamList, ExpenseRequest } from '@/types';
 import { useAuthStore } from '@/store/authStore';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/theme';
 import { subscribeToAllExpenses } from '@/firebase';
+import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 
 export default function FinanceDashboard() {
   const { user } = useAuthStore();
   const navigation = useNavigation<BottomTabNavigationProp<FinanceTabParamList>>();
+  const hasUnreadNotifications = useUnreadNotifications();
 
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -101,7 +103,7 @@ export default function FinanceDashboard() {
                     size={18}
                     color={Colors.text.primary}
                   />
-                  <View style={styles.notificationDot} />
+                  {hasUnreadNotifications && <View style={styles.notificationDot} />}
                 </TouchableOpacity>
                 <View style={styles.avatarWrap}>
                   {user?.photoURL ? (

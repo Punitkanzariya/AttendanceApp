@@ -22,10 +22,12 @@ import { subscribeToAllAttendance } from '@/firebase/attendanceService';
 import { subscribeToLeavesForRole } from '@/firebase/leaveService';
 import { subscribeToExpensesForRole } from '@/firebase/expenseService';
 import { getLocalDateString } from '@/firebase/attendanceService';
+import { useUnreadNotifications } from '@/hooks/useUnreadNotifications';
 
 export default function ProjectDashboard() {
   const { user } = useAuthStore();
   const navigation = useNavigation<BottomTabNavigationProp<ProjectManagementTabParamList>>();
+  const hasUnreadNotifications = useUnreadNotifications();
   
   const [refreshing, setRefreshing] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -131,7 +133,7 @@ export default function ProjectDashboard() {
                   size={18}
                   color={Colors.text.primary}
                 />
-                <View style={styles.notificationDot} />
+                {hasUnreadNotifications && <View style={styles.notificationDot} />}
               </TouchableOpacity>
               <View style={styles.avatarWrap}>
                 {user?.photoURL ? (
