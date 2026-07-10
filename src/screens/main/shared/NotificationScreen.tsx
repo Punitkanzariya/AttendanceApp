@@ -167,14 +167,17 @@ export default function NotificationScreen({ navigation }: any) {
       const statusColor = getStatusColor(leave.status);
       const iconBg = leave.status === 'approved' ? '#F0FDF4' : leave.status === 'rejected' ? '#FEF2F2' : '#EFF6FF';
       const statusText = leave.status.startsWith('pending') ? 'pending' : leave.status.replace(/_/g, ' ');
+      
+      const formattedType = leave.type ? leave.type.charAt(0).toUpperCase() + leave.type.slice(1) + ' Leave' : 'Leave';
+      const dateText = leave.startDate === leave.endDate ? leave.startDate : `${leave.startDate} to ${leave.endDate}`;
 
       items.push({
         id: `leave_${leave.requestId}`,
         type: 'leave',
-        title: isEmployee ? leave.type : `Leave Request — ${leave.employeeId}`,
+        title: isEmployee ? formattedType : `${formattedType} — ${leave.employeeId}`,
         description: isEmployee
-          ? `Your ${leave.type} request (${leave.startDate} to ${leave.endDate}) is ${statusText}.`
-          : `${leave.employeeId} requested ${leave.type} leave from ${leave.startDate} to ${leave.endDate}.`,
+          ? `Your request for ${dateText} is ${statusText}.`
+          : `${leave.employeeId} requested ${formattedType.toLowerCase()} for ${dateText}.`,
         status: leave.status,
         createdAt: leave.actionLogs?.[0]?.timestamp || new Date().toISOString(),
         icon: 'calendar-outline',
@@ -188,14 +191,16 @@ export default function NotificationScreen({ navigation }: any) {
       const statusColor = getStatusColor(exp.status);
       const iconBg = exp.status === 'reimbursed' ? '#F0FDF4' : exp.status === 'rejected' ? '#FEF2F2' : '#EFF6FF';
       const statusText = exp.status.startsWith('pending') ? 'pending' : exp.status.replace(/_/g, ' ');
+      
+      const formattedCategory = exp.category ? exp.category.charAt(0).toUpperCase() + exp.category.slice(1) : '';
 
       items.push({
         id: `expense_${exp.expenseId}`,
         type: 'expense',
-        title: isEmployee ? `${exp.category} Expense` : `Expense — ${exp.employeeId}`,
+        title: isEmployee ? `${formattedCategory} Expense` : `Expense — ${exp.employeeId}`,
         description: isEmployee
-          ? `Your ${exp.category} expense of ₹${exp.amount} is ${statusText}.`
-          : `${exp.employeeId} submitted a ${exp.category} expense of ₹${exp.amount}.`,
+          ? `Your ${formattedCategory.toLowerCase()} expense of ₹${exp.amount} is ${statusText}.`
+          : `${exp.employeeId} submitted a ${formattedCategory.toLowerCase()} expense of ₹${exp.amount}.`,
         status: exp.status,
         createdAt: exp.actionLogs?.[0]?.timestamp || new Date().toISOString(),
         icon: 'cash-outline',

@@ -250,7 +250,7 @@ export default function ProfileScreen() {
                 "Employee Code",
                 user?.employeeId || user?.uid.slice(0, 8).toUpperCase() || "EMP001",
               )}
-              {renderRow("Date of Birth", user?.dateOfBirth || "N/A")}
+              {renderRow("Date of Birth", formatDateDDMMYYYY(user?.dateOfBirth) || "N/A")}
               {renderRow("Department", user?.department || "N/A")}
               {renderRow("Designation", user?.designation || formatRole(user?.role))}
               {user?.role === 'employee' && renderRow("Assigned Project", assignedProject || "Not Assigned")}

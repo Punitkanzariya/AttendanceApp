@@ -25,8 +25,8 @@ export function useUnreadNotifications() {
         const delIds = delStr ? new Set(JSON.parse(delStr)) : new Set();
 
         const allIds = [
-          ...leaves.map(l => `leave_${l.id}`),
-          ...expenses.map(e => `expense_${e.id}`)
+          ...leaves.map(l => `leave_${l.requestId || l.id}`),
+          ...expenses.map(e => `expense_${e.expenseId || e.id}`)
         ];
         
         const hasAnyUnread = allIds.some(id => !readIds.has(id) && !delIds.has(id));

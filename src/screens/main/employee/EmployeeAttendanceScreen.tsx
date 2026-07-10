@@ -315,9 +315,10 @@ export default function EmployeeAttendanceScreen() {
 
             return allCards.map((item, index) => {
               const dateObj = new Date(item.dateStr);
-              const dayStr = dateObj.toLocaleDateString('en-US', {
-                weekday: 'short', month: 'short', day: 'numeric', year: 'numeric',
-              });
+              const day = String(dateObj.getDate()).padStart(2, '0');
+              const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+              const year = dateObj.getFullYear();
+              const dayStr = `${day}-${month}-${year}`;
 
               if (item.type === 'leave') {
                 return (
