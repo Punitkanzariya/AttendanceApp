@@ -1,19 +1,57 @@
-// ─── User Roles ───────────────────────────────────────────────────────────────
+// ─── Roles & Modules (from Admin Panel) ───────────────────────────────────────
+export const MODULES = [
+  "users",
+  "employees",
+  "roles",
+  "projects",
+  "projects_history",
+  "projects_settings",
+  "attendance",
+  "leave",
+  "expenses",
+  "calendar",
+  "reports",
+  "audit",
+  "settings"
+] as const;
+
+export type Module = typeof MODULES[number];
+
+export interface Role {
+  roleId: string;
+  name: string;
+  description: string;
+  permissions: {
+    [moduleName: string]: string[]; // e.g. "attendance": ["read", "approve"]
+  };
+  createdAt: string;
+  createdBy: string;
+}
+
+// Legacy role for backward compatibility
 export type UserRole =
   | 'employee'
   | 'project_manager'
   | 'project_coordinator'
   | 'hr_manager'
   | 'administrator'
-  | 'finance';
+  | 'finance'
+  | string;
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 export type AuthMethod = 'phone' | 'email';
 
 export interface LeaveBalances {
-  sickLeave: number;
-  paidLeave: number;
-  casualLeave: number;
+  [leaveTypeId: string]: number;
+}
+
+export interface UserDocument {
+  id: string;
+  name: string;
+  type: string;
+  uploadedAt: string;
+  url: string;
+  verified: boolean;
 }
 
 export interface User {
@@ -22,17 +60,33 @@ export interface User {
   username: string;
   phoneNumber: string | null;
   displayName: string | null;
-  role: UserRole;
-  siteId?: string;
-  managerId?: string;
-  dateOfBirth?: string;
+  role: UserRole; // Legacy string-based role
+  roleId?: string; // New: Dynamic role ID from Admin
+  roleData?: Role; // New: Hydrated role object with permissions
+  
+  // HR/Employee specific fields (mapped from Admin Panel)
   employeeId?: string;
+  firstName?: string;
+  lastName?: string;
+  designation?: string;
+  department?: string;
+  projectId?: string;
+  joinDate?: string;
+  dateOfBirth?: string;
+  status?: "active" | "suspended" | "terminated";
+  profilePicture?: string | null;
   panCard?: string;
   panCardPhotoUrl?: string | null;
   aadharCard?: string;
   aadharCardPhotoUrl?: string | null;
   aadharCardBackPhotoUrl?: string | null;
-  photoURL?: string | null;
+  
+  documents?: UserDocument[];
+  
+  siteId?: string;
+  managerId?: string;
+  currentReportingManagerId?: string | null;
+  
   leaveBalances?: LeaveBalances;
   createdAt: string;
   isActive: boolean;
@@ -55,103 +109,92 @@ export type EmployeeTabParamList = {
   Profile: undefined;
 };
 
-export type ProjectManagementTabParamList = {
-  Dashboard: undefined;
-  Employees: undefined;
-  Expenses: undefined;
-  Leave: undefined;
-  Reports: undefined;
-  Profile: undefined;
-};
-
-export type ManagerTabParamList = {
-  Dashboard: undefined;
-  Employees: undefined;
-  TeamAttendance: undefined;
-  Expenses: undefined;
-  Leave: undefined;
-  Reports: undefined;
-  Profile: undefined;
-};
-
-export type AdminTabParamList = {
-  Dashboard: undefined;
-  Employees: undefined;
-  Projects: undefined;
-  Roles: undefined;
-  Settings: undefined;
-  Reports: undefined;
-};
-
-export type FinanceTabParamList = {
-  Dashboard: undefined;
-  Expenses: undefined;
-  Reimbursements: undefined;
-  Reports: undefined;
-  Profile: undefined;
-};
-
 export type RootStackParamList = {
   Auth: undefined;
-  PendingApproval: undefined;
   EmployeeApp: undefined;
-  ProjectManagementApp: undefined;
-  ManagerApp: undefined;
-  AdminApp: undefined;
-  FinanceApp: undefined;
-  TwoFactorOtp: undefined;
   Notifications: undefined;
 };
 
-// ─── Leave Management ────────────────────────────────────────────────────────
-export type LeaveStatus = 'pending_coordinator' | 'pending_manager' | 'pending_hr' | 'pending' | 'approved' | 'rejected';
+export interface LeaveType {
+  leaveTypeId: string;
+  name: string;
+  annualQuota: number;
+  carryForwardMax: number;
+  status: "active" | "inactive";
+}
 
-export type LeaveDurationType = 'single_day' | 'multiple_days' | 'half_day';
-export type HalfDayPeriod = 'first_half' | 'second_half';
+export type LeaveDurationType = "single_day" | "multiple_days" | "half_day";
+export type HalfDayPeriod = "first_half" | "second_half";
 
 export interface LeaveRequest {
-  id: string;
+  requestId: string;
   employeeId: string;
-  employeeName: string;
-  role: string;
-  leaveType: string;
+  projectId?: string;
+  type: string;
+  startDate: string;
+  endDate: string;
+  totalDays: number;
   durationType?: LeaveDurationType;
   halfDayPeriod?: HalfDayPeriod;
-  startDate: string; // ISO date
-  endDate: string;   // ISO date
-  totalDays: number;
   reason: string;
-  status: LeaveStatus;
-  createdAt: string; // ISO date
-  updatedAt: string; // ISO date
-  reviewedBy?: string; // UID of the manager/admin
-  reviewNotes?: string;
-  projectIds?: string[]; // Projects the employee was part of at the time
-  coordinatorIds?: string[]; // Coordinators who need to approve
-  managerIds?: string[]; // Managers who need to approve
+  attachmentUrl?: string;
+  status: "pending" | "approved" | "rejected" | "cancelled";
+  approvers: string[];
+  currentApprovalLevel: number;
+  actionLogs: Array<{
+    actionBy: string;
+    action: string;
+    timestamp: string;
+  }>;
+}
+
+export interface LeaveBalance {
+  balanceId: string;
+  employeeId: string;
+  year: number;
+  casual: number;
+  casualTaken: number;
+  sick: number;
+  sickTaken: number;
+  [key: string]: any;
 }
 
 // ─── Expense Management ────────────────────────────────────────────────────────
-export type ExpenseStatus = 'pending_coordinator' | 'pending_manager' | 'pending_finance' | 'reimbursed' | 'rejected' | 'draft';
+export interface ExpenseCategory {
+  categoryId: string;
+  name: string;
+  icon: string;
+  requiresBill: boolean;
+  status: "active" | "inactive";
+}
 
-export interface ExpenseRequest {
-  id: string;
+export interface Expense {
+  expenseId: string;
   employeeId: string;
-  employeeName: string;
-  role: string;
+  projectId: string;
+  date: string;
   category: string;
   amount: number;
-  date: string; // ISO date
+  currency: string;
   description: string;
-  status: ExpenseStatus;
-  attachmentUrl?: string | null;
-  createdAt: string; // ISO date
-  updatedAt: string; // ISO date
-  projectIds?: string[];
-  coordinatorIds?: string[];
-  managerIds?: string[];
-  reviewedBy?: string; // UID of the manager/finance
+  billUrls: string[];
+  status:
+    | "pending"
+    | "draft"
+    | "submitted"
+    | "supervisor_approved"
+    | "manager_approved"
+    | "finance_approved"
+    | "reimbursed"
+    | "rejected";
+  isDuplicateFlag: boolean;
   rejectionReason?: string;
+  actionLogs: Array<{
+    actionBy: string;
+    action: string;
+    timestamp: string;
+    comments?: string;
+  }>;
 }
 
 // ─── Attendance Management ───────────────────────────────────────────────────
@@ -172,17 +215,11 @@ export interface AttendanceDetails {
 export interface AttendanceRecord {
   id: string; // doc ID format: employeeId_YYYY-MM-DD
   employeeId: string;
-  employeeName: string;
-  role: string;
-  employeeEmail?: string | null;
   dateStr: string; // YYYY-MM-DD
   checkIn: AttendanceDetails | null;
   checkOut: AttendanceDetails | null;
   status: 'present' | 'absent' | 'late';
   workingHours: number; // in hours, computed on check-out
-  verificationStatus: 'pending' | 'verified' | 'rejected';
-  verifiedBy?: string | null;
-  verifiedAt?: string | null;
   updatedAt: string; // ISO date
 }
 
@@ -205,19 +242,27 @@ export interface GeoFencingConfig {
 }
 
 export interface Project {
-  id: string;
-  projectName: string;
-  projectAlias?: string;
-  isClosed: boolean;
-  projectManagerId?: string;
-  projectManagerName?: string;
-  projectCoordinatorId?: string;
-  projectCoordinatorName?: string;
-  siteEmployees: ProjectEmployee[];
-  projectType: ProjectType;
-  geoFencing: GeoFencingConfig;
-  createdAt: string; // ISO date
-  updatedAt: string; // ISO date
+  projectId: string;
+  name: string;
+  description: string;
+  status: "active" | "completed" | "on_hold";
+  image?: string;
+  location: {
+    latitude: number;
+    longitude: number;
+    address: string;
+  };
+  geofenceRadius: number; // In meters
+  isGeofenceEnabled?: boolean;
+  workingHours?: {
+    start: string; // e.g. "09:00"
+    end: string;   // e.g. "18:00"
+  };
+  managerId?: string;
+  coordinatorId?: string;
+  employeeIds?: string[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface ProjectHistory {
@@ -231,3 +276,41 @@ export interface ProjectHistory {
   timestamp: string; // ISO date
   performedBy: string; // Admin UID who made the change
 }
+
+export interface EmployeeAssignment {
+  assignmentId: string;
+  employeeId: string;
+  projectId: string;
+  coordinatorId: string;
+  startDate: string; // ISO String
+  endDate: string | null; // Null means currently active
+  assignedBy: string; 
+  notes?: string;
+}
+
+export interface Holiday {
+  holidayId: string;
+  name: string;
+  date: string; // "YYYY-MM-DD"
+  type: "Mandatory" | "Optional";
+  applicableStates: string[] | "All";
+  status: "active" | "inactive";
+}
+
+export interface CalendarEvent {
+  eventId: string;
+  title: string;
+  description: string;
+  date: string; // "YYYY-MM-DD" or ISO string
+  type: "event" | "birthday" | "meeting" | "reminder";
+  participants: string[];
+  createdBy: string;
+}
+
+export interface SystemSettings {
+  settingId: string;
+  appVersion: string;
+  forceUpdate: boolean;
+  notificationsEnabled: boolean;
+}
+

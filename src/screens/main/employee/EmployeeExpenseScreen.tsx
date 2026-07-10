@@ -18,19 +18,19 @@ import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from "@/t
 import { formatDisplayStatus } from "@/utils/statusUtils";
 import { useAuthStore } from "@/store/authStore";
 import { subscribeToUserExpenses } from "@/firebase/expenseService";
-import type { ExpenseRequest, ExpenseStatus } from "@/types";
+import type { Expense } from "@/types";
 import { ExpenseModal } from "./components/modals/ExpenseModal";
 
 export default function EmployeeExpenseScreen() {
   const { user } = useAuthStore();
   const navigation = useNavigation();
-  const [expenses, setExpenses] = useState<ExpenseRequest[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [expenseToEdit, setExpenseToEdit] = useState<ExpenseRequest | null>(
+  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(
     null,
   );
-  const [expenseToView, setExpenseToView] = useState<ExpenseRequest | null>(null);
+  const [expenseToView, setExpenseToView] = useState<Expense | null>(null);
   const [isAttachmentVisible, setIsAttachmentVisible] = useState(false);
 
   useEffect(() => {
@@ -50,7 +50,7 @@ export default function EmployeeExpenseScreen() {
     setIsModalVisible(true);
   };
 
-  const handleOpenModalForEdit = (expense: ExpenseRequest) => {
+  const handleOpenModalForEdit = (expense: Expense) => {
     setExpenseToEdit(expense);
     setIsModalVisible(true);
   };
@@ -83,7 +83,7 @@ export default function EmployeeExpenseScreen() {
     return Colors.text.tertiary;
   };
 
-  const renderItem = ({ item }: { item: ExpenseRequest }) => (
+  const renderItem = ({ item }: { item: Expense }) => (
     <TouchableOpacity 
       style={styles.card} 
       activeOpacity={0.7}
@@ -118,7 +118,7 @@ export default function EmployeeExpenseScreen() {
 
       <Text style={styles.descriptionText}>{item.description}</Text>
 
-      {item.attachmentUrl && (
+      {item.billUrls?.[0] && (
         <View style={styles.attachmentBadge}>
           <Ionicons
             name="document-attach-outline"
@@ -166,10 +166,10 @@ export default function EmployeeExpenseScreen() {
 
   const renderHeader = () => {
     const totalPending = expenses
-      .filter((e) => e.status.startsWith("pending"))
+      .filter((e) => e.status !== "reimbursed" && e.status !== "rejected" && e.status !== "draft")
       .reduce((sum, e) => sum + e.amount, 0);
     const totalApproved = expenses
-      .filter((e) => e.status === "reimbursed")
+      .filter((e) => e.status === "reimbursed" || e.status.endsWith("_approved"))
       .reduce((sum, e) => sum + e.amount, 0);
 
     return (
@@ -225,7 +225,7 @@ export default function EmployeeExpenseScreen() {
       ) : (
         <FlatList
           data={expenses}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.expenseId}
           renderItem={renderItem}
           ListHeaderComponent={renderHeader}
           contentContainerStyle={styles.listContainer}
@@ -291,8 +291,8 @@ export default function EmployeeExpenseScreen() {
                 <Text style={styles.detailLabel}>Description:</Text>
                 <Text style={styles.detailValue}>{expenseToView.description}</Text>
 
-                {expenseToView.attachmentUrl && (
-                  <TouchableOpacity style={styles.viewBillBtn} onPress={() => openAttachment(expenseToView.attachmentUrl!)}>
+                {expenseToView.billUrls?.[0] && (
+                  <TouchableOpacity style={styles.viewBillBtn} onPress={() => openAttachment(expenseToView.billUrls![0])}>
                     <Ionicons name="open-outline" size={16} color={Colors.primary} />
                     <Text style={styles.viewBillText}>View Attached Bill</Text>
                   </TouchableOpacity>
@@ -316,9 +316,9 @@ export default function EmployeeExpenseScreen() {
           <TouchableOpacity style={styles.closeImageBtn} onPress={() => setIsAttachmentVisible(false)}>
             <Ionicons name="close-circle" size={36} color={Colors.white} />
           </TouchableOpacity>
-          {expenseToView?.attachmentUrl && (
+          {expenseToView?.billUrls?.[0] && (
             <Image 
-              source={{ uri: expenseToView.attachmentUrl }} 
+              source={{ uri: expenseToView.billUrls[0] }} 
               style={styles.fullImage} 
               resizeMode="contain" 
             />

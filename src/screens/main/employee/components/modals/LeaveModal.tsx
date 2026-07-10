@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -15,25 +15,52 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from "@/theme";
 import { useAuthStore } from "@/store/authStore";
-import { submitLeaveRequest } from "@/firebase/leaveService";
+import { submitLeaveRequest, subscribeToLeaveTypes } from "@/firebase/leaveService";
 import { DateInput } from "../DateInput";
 import { calculateDays } from "../../utils/dateUtils";
-import type { LeaveDurationType, HalfDayPeriod } from "@/types";
+import type { LeaveDurationType, HalfDayPeriod, LeaveType } from "@/types";
 
 interface LeaveModalProps {
   isVisible: boolean;
   onClose: () => void;
+  userLeaveBalance?: any;
 }
 
-export const LeaveModal = ({ isVisible, onClose }: LeaveModalProps) => {
+export const LeaveModal = ({ isVisible, onClose, userLeaveBalance }: LeaveModalProps) => {
   const { user } = useAuthStore();
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [leaveType, setLeaveType] = useState("Casual Leave");
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  const [leaveType, setLeaveType] = useState<string>("");
   const [durationType, setDurationType] = useState<LeaveDurationType>("single_day");
   const [halfDayPeriod, setHalfDayPeriod] = useState<HalfDayPeriod>("first_half");
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  useEffect(() => {
+    if (isVisible) {
+      const unsubscribe = subscribeToLeaveTypes((types) => {
+        let finalTypes = types;
+        
+        if (types.length === 0 && userLeaveBalance) {
+          finalTypes = Object.keys(userLeaveBalance)
+            .filter(key => !key.includes('Taken') && !['employeeId', 'balanceId', 'year', 'adjustmentLogs'].includes(key))
+            .map(key => ({
+              leaveTypeId: key,
+              name: key.charAt(0).toUpperCase() + key.slice(1) + ' Leave',
+              annualQuota: userLeaveBalance[key],
+              status: 'active'
+            }));
+        }
+
+        setLeaveTypes(finalTypes);
+        if (finalTypes.length > 0 && !leaveType) {
+          setLeaveType(finalTypes[0].leaveTypeId);
+        }
+      });
+      return () => unsubscribe();
+    }
+  }, [isVisible, userLeaveBalance]);
 
   const todayDate = new Date().toISOString().split("T")[0];
 
@@ -64,8 +91,8 @@ export const LeaveModal = ({ isVisible, onClose }: LeaveModalProps) => {
     try {
       await submitLeaveRequest(
         user!.uid,
-        user!.role,
         user!.displayName || user!.username,
+        user!.projectId || "",
         leaveType,
         startDate,
         actualEndDate,
@@ -78,7 +105,7 @@ export const LeaveModal = ({ isVisible, onClose }: LeaveModalProps) => {
       setStartDate("");
       setEndDate("");
       setReason("");
-      setLeaveType("Casual Leave");
+      if (leaveTypes.length > 0) setLeaveType(leaveTypes[0].leaveTypeId);
       setDurationType("single_day");
       setHalfDayPeriod("first_half");
     } catch (error) {
@@ -113,22 +140,22 @@ export const LeaveModal = ({ isVisible, onClose }: LeaveModalProps) => {
 
             <Text style={styles.inputLabel}>Leave Type</Text>
             <View style={styles.typeSelectorRow}>
-              {["Casual Leave", "Sick Leave", "Paid Leave"].map((type) => (
+              {leaveTypes.map((type) => (
                 <TouchableOpacity
-                  key={type}
+                  key={type.leaveTypeId}
                   style={[
                     styles.typeButton,
-                    leaveType === type && styles.typeButtonActive,
+                    leaveType === type.leaveTypeId && styles.typeButtonActive,
                   ]}
-                  onPress={() => setLeaveType(type)}
+                  onPress={() => setLeaveType(type.leaveTypeId)}
                 >
                   <Text
                     style={[
                       styles.typeButtonText,
-                      leaveType === type && styles.typeButtonTextActive,
+                      leaveType === type.leaveTypeId && styles.typeButtonTextActive,
                     ]}
                   >
-                    {type.split(" ")[0]}
+                    {type.name}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -286,11 +313,12 @@ const styles = StyleSheet.create({
   },
   typeSelectorRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 8,
     marginBottom: 12,
   },
   typeButton: {
-    flex: 1,
+    paddingHorizontal: 16,
     paddingVertical: Spacing.sm,
     alignItems: "center",
     borderRadius: BorderRadius.full,

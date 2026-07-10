@@ -75,26 +75,74 @@ export function subscribeToAuthState(
 //  collection. The role determines which navigator is shown.
 // ─────────────────────────────────────────────────────────────────
 export async function fetchEmployeeProfile(uid: string): Promise<User | null> {
-  const roles = ['employee', 'project_manager', 'project_coordinator', 'hr_manager', 'administrator', 'finance'];
   try {
-    const promises = roles.map(role => getDoc(doc(db, 'users', role, 'profiles', uid)));
-    const snaps = await Promise.all(promises);
-    const snap = snaps.find(s => s.exists());
+    // 1. Fetch flat user document from new admin schema
+    const userDocRef = doc(db, 'users', uid);
+    const snap = await getDoc(userDocRef);
     
-    if (!snap) return null;
+    if (!snap.exists()) {
+      // Fallback: Check old schema just in case the DB isn't fully migrated
+      const roles = ['employee', 'project_manager', 'project_coordinator', 'hr_manager', 'administrator', 'finance'];
+      const promises = roles.map(role => getDoc(doc(db, 'users', role, 'profiles', uid)));
+      const snaps = await Promise.all(promises);
+      const oldSnap = snaps.find(s => s.exists());
+      
+      if (!oldSnap) return null;
+      
+      const oldData = oldSnap.data();
+      return {
+        uid,
+        email:       oldData.email       ?? '',
+        username:    oldData.username    ?? '',
+        phoneNumber: oldData.phoneNumber ?? null,
+        displayName: oldData.displayName ?? null,
+        role:        (oldData.role as UserRole) ?? 'employee',
+        siteId:      oldData.siteId,
+        managerId:   oldData.managerId,
+        leaveBalances: oldData.leaveBalances,
+        createdAt:   oldData.createdAt?.toDate?.().toISOString() ?? new Date().toISOString(),
+        isActive:    oldData.isActive ?? true,
+      };
+    }
 
     const data = snap.data();
+    
+    // 2. Fetch the dynamic role if roleId is present
+    let roleData = undefined;
+    if (data.roleId) {
+      const roleDoc = await getDoc(doc(db, 'roles', data.roleId));
+      if (roleDoc.exists()) {
+        roleData = roleDoc.data();
+      }
+    }
+
     return {
       uid,
       email:       data.email       ?? '',
       username:    data.username    ?? '',
-      phoneNumber: data.phoneNumber ?? null,
-      displayName: data.displayName ?? null,
-      role:        (data.role as UserRole) ?? 'employee',
+      phoneNumber: data.phone ?? (data.phoneNumber ?? null),
+      displayName: data.displayName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || null,
+      roleId:      data.roleId,
+      roleData:    roleData as any,
+      role:        data.role ?? 'employee', // legacy fallback string
+      
+      // Additional Admin Panel fields
+      employeeId:  data.employeeId,
+      firstName:   data.firstName,
+      lastName:    data.lastName,
+      designation: data.designation,
+      department:  data.department,
+      projectId:   data.projectId,
+      joinDate:    data.joinDate,
+      dateOfBirth: data.dateOfBirth,
+      status:      data.status,
+      profilePicture: data.profilePicture || null,
+      currentReportingManagerId: data.currentReportingManagerId,
+      
       siteId:      data.siteId,
       managerId:   data.managerId,
       leaveBalances: data.leaveBalances,
-      createdAt:   data.createdAt?.toDate?.().toISOString() ?? new Date().toISOString(),
+      createdAt:   data.createdAt ?? new Date().toISOString(),
       isActive:    data.isActive ?? true,
     };
   } catch (error) {
@@ -112,26 +160,51 @@ export function subscribeToEmployeeProfile(
   role: string,
   callback: (user: User | null) => void
 ): () => void {
-  const docRef = doc(db, 'users', role, 'profiles', uid);
+  const docRef = doc(db, 'users', uid);
   return onSnapshot(
     docRef,
-    (snap: any) => {
+    async (snap: any) => {
       if (!snap.exists()) {
         callback(null);
         return;
       }
       const data = snap.data();
+      
+      let roleData = undefined;
+      if (data.roleId) {
+        const roleSnap = await getDoc(doc(db, 'roles', data.roleId));
+        if (roleSnap.exists()) {
+          roleData = roleSnap.data();
+        }
+      }
+
       callback({
         uid,
         email:       data.email       ?? '',
         username:    data.username    ?? '',
-        phoneNumber: data.phoneNumber ?? null,
-        displayName: data.displayName ?? null,
-        role:        (data.role as UserRole) ?? 'employee',
+        phoneNumber: data.phone ?? (data.phoneNumber ?? null),
+        displayName: data.displayName || `${data.firstName || ''} ${data.lastName || ''}`.trim() || null,
+        roleId:      data.roleId,
+        roleData:    roleData as any,
+        role:        data.role ?? 'employee',
+        
+        // Additional Admin Panel fields
+        employeeId:  data.employeeId,
+        firstName:   data.firstName,
+        lastName:    data.lastName,
+        designation: data.designation,
+        department:  data.department,
+        projectId:   data.projectId,
+        joinDate:    data.joinDate,
+        dateOfBirth: data.dateOfBirth,
+        status:      data.status,
+        profilePicture: data.profilePicture || null,
+        currentReportingManagerId: data.currentReportingManagerId,
+        
         siteId:      data.siteId,
         managerId:   data.managerId,
         leaveBalances: data.leaveBalances,
-        createdAt:   data.createdAt?.toDate?.().toISOString() ?? new Date().toISOString(),
+        createdAt:   data.createdAt ?? new Date().toISOString(),
         isActive:    data.isActive ?? true,
       });
     },
@@ -238,8 +311,9 @@ export async function resolveUsernameToEmail(input: string): Promise<string | nu
   const isEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input);
   if (isEmail) return input;
 
+  // Search the flat 'users' collection (Admin panel structure)
   const q = query(
-    collectionGroup(db, 'profiles'),
+    collection(db, 'users'),
     where('username', '==', input.toLowerCase()),
     limit(1)
   );
@@ -302,6 +376,15 @@ export async function loginWithEmail(
     // 4. Fetch full employee profile from Firestore
     let profile = await fetchEmployeeProfile(firebaseUid);
 
+    // 4.1 Enforce Employee-Only Login
+    if (profile?.roleData) {
+      const roleName = profile.roleData.name?.toLowerCase();
+      if (roleName !== 'employee') {
+        await signOut(auth); // Sign out the Firebase user immediately
+        throw new Error('ACCESS_DENIED: Only employees are allowed to use this mobile app.');
+      }
+    }
+
     if (!profile) {
       // Auto-repair missing Firestore profile (e.g. if previous write failed)
       const now = new Date().toISOString();
@@ -315,7 +398,7 @@ export async function loginWithEmail(
         createdAt: now,
         updatedAt: now,
       };
-      await setDoc(doc(db, 'users', 'employee', 'profiles', firebaseUid), repairDoc);
+      await setDoc(doc(db, 'users', firebaseUid), repairDoc);
       profile = { uid: firebaseUid, ...repairDoc } as User;
     }
 
@@ -325,6 +408,7 @@ export async function loginWithEmail(
     // Don't record attempts for our own custom errors
     if (
       error.message?.startsWith('ACCOUNT_LOCKED') ||
+      error.message?.startsWith('ACCESS_DENIED') ||
       error.message === 'PROFILE_NOT_FOUND'
     ) {
       throw error;

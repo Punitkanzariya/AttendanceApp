@@ -18,33 +18,44 @@ import {
 } from "@/theme";
 import { formatDisplayStatus } from "@/utils/statusUtils";
 import { formatLeaveDurationText, formatDateDDMMYYYY } from '@/utils/dateUtils';
-import { subscribeToUserLeaves } from "@/firebase/leaveService";
-import type { LeaveRequest } from "@/types";
+import { subscribeToUserLeaves, subscribeToLeaveTypes, subscribeToUserLeaveBalance } from "@/firebase/leaveService";
+import type { LeaveRequest, LeaveType } from "@/types";
 import { LeaveModal } from "./components/modals/LeaveModal";
+import LeaveBalanceBoxes from "@/components/shared/LeaveBalanceBoxes";
 
 export default function EmployeeLeaveScreen() {
   const { user } = useAuthStore();
   const navigation = useNavigation();
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  const [userLeaveBalance, setUserLeaveBalance] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
   useEffect(() => {
     if (!user?.uid) return;
 
-    const unsubscribe = subscribeToUserLeaves(user.uid, user.role, (data) => {
+    const unsubscribeLeaves = subscribeToUserLeaves(user.uid, user.role, (data) => {
       setLeaves(data);
       setIsLoading(false);
     });
 
-    // We can't directly pass an error callback to our custom hook easily without modifying it,
-    // but the local sort fix in leaveService will prevent the index error.
-    // As a fallback timeout:
+    const unsubscribeTypes = subscribeToLeaveTypes((data) => {
+      setLeaveTypes(data);
+    });
+
+    const currentYear = new Date().getFullYear();
+    const unsubscribeBalance = subscribeToUserLeaveBalance(user.uid, currentYear, (data: any) => {
+      setUserLeaveBalance(data);
+    });
+
     const timeout = setTimeout(() => setIsLoading(false), 3000);
 
     return () => {
       clearTimeout(timeout);
-      unsubscribe();
+      unsubscribeLeaves();
+      unsubscribeTypes();
+      unsubscribeBalance();
     };
   }, [user?.uid]);
 
@@ -61,7 +72,9 @@ export default function EmployeeLeaveScreen() {
     <View style={styles.card}>
       <View style={styles.cardHeader}>
         <View style={{ flex: 1 }}>
-          <Text style={styles.leaveTypeText}>{item.leaveType || "Leave"}</Text>
+          <Text style={styles.leaveTypeText}>
+            {leaveTypes.find(t => t.leaveTypeId === item.type)?.name || item.type}
+          </Text>
           <View style={styles.dateRow}>
             <Ionicons
               name="calendar-outline"
@@ -83,24 +96,11 @@ export default function EmployeeLeaveScreen() {
       <Text style={styles.reasonLabel}>Reason</Text>
       <Text style={styles.reasonText}>{item.reason}</Text>
 
-      {!!item.reviewNotes?.trim() && (
-        <View style={styles.notesContainer}>
-          <Ionicons
-            name="chatbubble-ellipses-outline"
-            size={16}
-            color={getStatusColor(item.status)}
-            style={{ marginTop: 2 }}
-          />
-          <View style={{ flex: 1 }}>
-            <Text style={styles.notesLabel}>Manager Notes</Text>
-            <Text style={styles.notesText}>{item.reviewNotes}</Text>
-          </View>
-        </View>
-      )}
+
 
       <View style={styles.cardFooter}>
         <Text style={styles.appliedDate}>
-          Applied on {formatDateDDMMYYYY(item.createdAt)}
+          Applied on {item.actionLogs?.[0]?.timestamp ? formatDateDDMMYYYY(item.actionLogs[0].timestamp) : "N/A"}
         </Text>
       </View>
     </View>
@@ -109,9 +109,9 @@ export default function EmployeeLeaveScreen() {
   const renderHeader = () => {
     const currentYear = new Date().getFullYear();
 
-    const calculateTaken = (type: string) => {
+    const calculateTaken = (typeId: string) => {
       return leaves
-        .filter((l) => l.leaveType === type && l.status === 'approved')
+        .filter((l) => l.type === typeId && l.status === 'approved')
         .filter((l) => {
           if (!l.startDate) return false;
           let dateYear = currentYear;
@@ -134,16 +134,8 @@ export default function EmployeeLeaveScreen() {
         .reduce((total, l) => total + (Number(l.totalDays) || 1), 0);
     };
 
-    const sickTaken = calculateTaken('Sick Leave');
-    const paidTaken = calculateTaken('Paid Leave');
-    const casualTaken = calculateTaken('Casual Leave');
-
-    const maxSick = user?.leaveBalances?.sickLeave ?? 10;
-    const maxPaid = user?.leaveBalances?.paidLeave ?? 15;
-    const maxCasual = user?.leaveBalances?.casualLeave ?? 8;
-
-    const totalTaken = sickTaken + paidTaken + casualTaken;
-    const totalMax = maxSick + maxPaid + maxCasual;
+    let totalTakenAll = 0;
+    let totalMaxAll = 0;
 
     return (
     <View style={styles.headerContent}>
@@ -151,76 +143,7 @@ export default function EmployeeLeaveScreen() {
         <Text style={styles.sectionTitle}>Leave Balance</Text>
       </View>
 
-      <View style={styles.leaveGrid}>
-        <View style={styles.leaveRow}>
-          <View style={styles.leaveBalanceCard}>
-            <View style={[styles.leaveIconRing, { borderColor: "#2E7D32" }]}>
-              <Ionicons
-                name="briefcase-outline"
-                size={16}
-                color={Colors.text.primary}
-              />
-            </View>
-            <View>
-              <Text style={styles.leaveNum}>
-                {Math.max(0, maxPaid - paidTaken)} <Text style={styles.leaveTotalTxt}>/ {maxPaid} Days</Text>
-              </Text>
-              <Text style={styles.leaveLabel}>Paid Leave</Text>
-              <Text style={styles.leaveTakenTxt}>{paidTaken} Taken</Text>
-            </View>
-          </View>
-          <View style={styles.leaveBalanceCard}>
-            <View style={[styles.leaveIconRing, { borderColor: "#2563EB" }]}>
-              <Ionicons
-                name="briefcase-outline"
-                size={16}
-                color={Colors.text.primary}
-              />
-            </View>
-            <View>
-              <Text style={styles.leaveNum}>
-                {Math.max(0, maxSick - sickTaken)} <Text style={styles.leaveTotalTxt}>/ {maxSick} Days</Text>
-              </Text>
-              <Text style={styles.leaveLabel}>Sick Leave</Text>
-              <Text style={styles.leaveTakenTxt}>{sickTaken} Taken</Text>
-            </View>
-          </View>
-        </View>
-        <View style={styles.leaveRow}>
-          <View style={styles.leaveBalanceCard}>
-            <View style={[styles.leaveIconRing, { borderColor: "#F59E0B" }]}>
-              <Ionicons
-                name="briefcase-outline"
-                size={16}
-                color={Colors.text.primary}
-              />
-            </View>
-            <View>
-              <Text style={styles.leaveNum}>
-                {Math.max(0, maxCasual - casualTaken)} <Text style={styles.leaveTotalTxt}>/ {maxCasual} Days</Text>
-              </Text>
-              <Text style={styles.leaveLabel}>Casual Leave</Text>
-              <Text style={styles.leaveTakenTxt}>{casualTaken} Taken</Text>
-            </View>
-          </View>
-          <View style={styles.leaveBalanceCard}>
-            <View style={[styles.leaveIconRing, { borderColor: "#8B5CF6" }]}>
-              <Ionicons
-                name="briefcase-outline"
-                size={16}
-                color={Colors.text.primary}
-              />
-            </View>
-            <View>
-              <Text style={styles.leaveNum}>
-                {Math.max(0, totalMax - totalTaken)} <Text style={styles.leaveTotalTxt}>/ {totalMax} Days</Text>
-              </Text>
-              <Text style={styles.leaveLabel}>Total Leave</Text>
-              <Text style={styles.leaveTakenTxt}>{totalTaken} Taken</Text>
-            </View>
-          </View>
-        </View>
-      </View>
+      <LeaveBalanceBoxes userLeaveBalance={userLeaveBalance} isLoading={isLoading} leaves={leaves} leaveTypes={leaveTypes} user={user} />
 
       <View style={styles.sectionHeader}>
         <Text style={styles.sectionTitle}>Leave History</Text>
@@ -254,7 +177,7 @@ export default function EmployeeLeaveScreen() {
       ) : (
         <FlatList
           data={leaves}
-          keyExtractor={(item) => item.id}
+          keyExtractor={(item) => item.requestId}
           renderItem={renderItem}
           ListHeaderComponent={renderHeader}
           contentContainerStyle={styles.listContainer}
@@ -275,6 +198,7 @@ export default function EmployeeLeaveScreen() {
       <LeaveModal 
         isVisible={isModalVisible} 
         onClose={() => setIsModalVisible(false)} 
+        userLeaveBalance={userLeaveBalance}
       />
     </SafeAreaView>
   );

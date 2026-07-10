@@ -6,53 +6,47 @@ import { useAuthStore } from '@/store/authStore';
 import { Colors } from '@/theme';
 import { db, firebaseLogout } from '@/firebase';
 import { doc, onSnapshot } from 'firebase/firestore';
-import type { User } from '@/types';
 
 import AuthNavigator from '@/navigation/AuthNavigator';
 import EmployeeNavigator from '@/navigation/EmployeeNavigator';
-import ProjectManagementNavigator from '@/navigation/ProjectManagementNavigator';
-import ManagerNavigator from '@/navigation/ManagerNavigator';
-import AdminNavigator from '@/navigation/AdminNavigator';
-import FinanceNavigator from '@/navigation/FinanceNavigator';
-import PendingApprovalScreen from '@/screens/auth/PendingApprovalScreen';
-import TwoFactorOtpScreen from '@/screens/auth/TwoFactorOtpScreen';
 import NotificationScreen from '@/screens/main/shared/NotificationScreen';
 
 const Root = createNativeStackNavigator<RootStackParamList>();
 
-/**
- * RootNavigator
- *
- * - While restoring session: shows a full-screen spinner
- * - Unauthenticated: shows AuthNavigator
- * - Authenticated: routes to the role-specific navigator
- */
 export default function RootNavigator() {
-  const { isLoading, isAuthenticated, isOtpVerified, user, setUser, persistSession } = useAuthStore();
+  const { isLoading, isAuthenticated, user, setUser, persistSession } = useAuthStore();
 
   React.useEffect(() => {
     if (!isAuthenticated || !user?.uid) return;
 
-    const userRef = doc(db, 'users', user.role, 'profiles', user.uid);
+    // Listen to new flat users collection
+    const userRef = doc(db, 'users', user.uid);
+    
     const unsubscribe = onSnapshot(userRef, async (docSnap) => {
-      if (!docSnap.exists()) {
-        // The user's document was deleted from Firestore (e.g. by an Admin).
-        // Force logout immediately.
+      if (docSnap.exists()) {
+        const userData = docSnap.data();
+        let roleData: any = undefined;
+        if (userData.roleId) {
+          const roleRef = doc(db, 'roles', userData.roleId);
+          const roleSnap = await import('firebase/firestore').then(m => m.getDoc(roleRef));
+          if (roleSnap.exists()) {
+            roleData = roleSnap.data();
+          }
+        }
+
+        const currentUser = useAuthStore.getState().user;
+        
+        if (
+          currentUser && 
+          (userData.isActive !== currentUser.isActive || userData.role !== currentUser.role || roleData)
+        ) {
+          const updatedUser = { ...currentUser, ...userData, roleData };
+          useAuthStore.getState().setUser(updatedUser);
+          useAuthStore.getState().persistSession(updatedUser);
+        }
+      } else {
         await firebaseLogout();
         useAuthStore.getState().logout();
-        return;
-      }
-
-      const userData = docSnap.data() as User;
-      const currentUser = useAuthStore.getState().user;
-      
-      if (
-        currentUser && 
-        (userData.isActive !== currentUser.isActive || userData.role !== currentUser.role)
-      ) {
-        const updatedUser = { ...currentUser, ...userData };
-        useAuthStore.getState().setUser(updatedUser);
-        useAuthStore.getState().persistSession(updatedUser);
       }
     });
 
@@ -71,30 +65,9 @@ export default function RootNavigator() {
     <Root.Navigator screenOptions={{ headerShown: false }}>
       {!isAuthenticated ? (
         <Root.Screen name="Auth" component={AuthNavigator} />
-      ) : !isOtpVerified ? (
-        <Root.Screen name="TwoFactorOtp" component={TwoFactorOtpScreen} />
       ) : (
         <>
-          {/* If the user is authenticated but not active, block access unless they are the admin bypass */}
-          {user && !user.isActive && user.role !== 'administrator' ? (
-            <Root.Screen name="PendingApproval" component={PendingApprovalScreen} />
-          ) : (
-            <>
-              {user?.role === 'employee' && (
-                <Root.Screen name="EmployeeApp" component={EmployeeNavigator} />
-              )}
-          {(user?.role === 'project_manager' || user?.role === 'project_coordinator') && (
-            <Root.Screen name="ProjectManagementApp" component={ProjectManagementNavigator} />
-          )}
-          {user?.role === 'hr_manager' && (
-            <Root.Screen name="ManagerApp" component={ManagerNavigator} />
-          )}
-          {user?.role === 'administrator' && (
-            <Root.Screen name="AdminApp" component={AdminNavigator} />
-          )}
-          {user?.role === 'finance' && (
-            <Root.Screen name="FinanceApp" component={FinanceNavigator} />
-          )}
+          <Root.Screen name="EmployeeApp" component={EmployeeNavigator} />
           <Root.Screen 
             name="Notifications" 
             component={NotificationScreen} 
@@ -103,8 +76,6 @@ export default function RootNavigator() {
               presentation: 'transparentModal'
             }}
           />
-            </>
-          )}
         </>
       )}
     </Root.Navigator>

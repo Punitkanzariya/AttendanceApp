@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuthStore } from '@/store/authStore';
-import { subscribeToUserLeaves, subscribeToLeavesForRole } from '@/firebase/leaveService';
-import { subscribeToUserExpenses, subscribeToExpensesForRole } from '@/firebase/expenseService';
+import { subscribeToUserLeaves } from '@/firebase/leaveService';
+import { subscribeToUserExpenses } from '@/firebase/expenseService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceEventEmitter } from 'react-native';
 
@@ -48,13 +48,8 @@ export function useUnreadNotifications() {
       checkUnread();
     };
 
-    if (isEmployee) {
-      unsubLeaves = subscribeToUserLeaves(user.uid, user.role, onLeavesChange);
-      unsubExpenses = subscribeToUserExpenses(user.uid, user.role, onExpensesChange);
-    } else {
-      unsubLeaves = subscribeToLeavesForRole(user.role, user.uid, onLeavesChange);
-      unsubExpenses = subscribeToExpensesForRole(user.role, user.uid, onExpensesChange);
-    }
+    unsubLeaves = subscribeToUserLeaves(user.uid, user.role, onLeavesChange);
+    unsubExpenses = subscribeToUserExpenses(user.uid, user.role, onExpensesChange);
 
     const subscription = DeviceEventEmitter.addListener('notifications_read_updated', checkUnread);
 

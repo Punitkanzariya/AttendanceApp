@@ -13,14 +13,23 @@ export function getLocalDateString(date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
-// Helper to check if it's late (after 09:30 AM)
-export function checkIsLate(date = new Date()): boolean {
-  const hours = date.getHours();
-  const minutes = date.getMinutes();
-  // 09:30 AM cut-off
-  if (hours > 9) return true;
-  if (hours === 9 && minutes > 30) return true;
-  return false;
+// Helper to check if it's late (after shift start + 15 min grace period)
+export function checkIsLate(date = new Date(), shiftStart?: string): boolean {
+  if (!shiftStart) {
+    // Fallback to 09:30 AM if no shift defined
+    const hours = date.getHours();
+    const minutes = date.getMinutes();
+    if (hours > 9) return true;
+    if (hours === 9 && minutes > 30) return true;
+    return false;
+  }
+  
+  const [shiftHour, shiftMinute] = shiftStart.split(':').map(Number);
+  const shiftTimeInMinutes = shiftHour * 60 + shiftMinute;
+  const currentTimeInMinutes = date.getHours() * 60 + date.getMinutes();
+  
+  const GRACE_PERIOD_MINS = 15;
+  return currentTimeInMinutes > (shiftTimeInMinutes + GRACE_PERIOD_MINS);
 }
 
 export function subscribeToTodayAttendance(
@@ -30,7 +39,7 @@ export function subscribeToTodayAttendance(
 ): () => void {
   const todayStr = getLocalDateString();
   const docId = `${employeeId}_${todayStr}`;
-  const docRef = doc(db, 'users', role, 'profiles', employeeId, 'attendance', docId);
+  const docRef = doc(db, 'attendences', docId);
 
   return onSnapshot(docRef, (docSnap) => {
     if (docSnap.exists()) {
@@ -63,20 +72,19 @@ async function uploadImageToStorage(uri: string, path: string): Promise<string> 
 
 export async function checkInEmployee(
   employeeId: string,
-  role: string,
-  employeeName: string,
   location: AttendanceLocation | null,
   remark?: string,
   selfieUri?: string | null,
-  employeeEmail?: string | null
+  employeeEmail?: string | null,
+  shiftStart?: string
 ): Promise<void> {
   const todayStr = getLocalDateString();
   const docId = `${employeeId}_${todayStr}`;
-  const docRef = doc(db, 'users', role, 'profiles', employeeId, 'attendance', docId);
+  const docRef = doc(db, 'attendences', docId);
   const now = new Date();
   const nowIso = now.toISOString();
 
-  const isLate = checkIsLate(now);
+  const isLate = checkIsLate(now, shiftStart);
   const status = isLate ? 'late' : 'present';
 
   const deviceInfo = `${Platform.OS} ${Platform.Version || ''}`;
@@ -88,9 +96,6 @@ export async function checkInEmployee(
 
   const attendanceData: Omit<AttendanceRecord, 'id'> = {
     employeeId,
-    employeeName,
-    role,
-    employeeEmail: employeeEmail || null,
     dateStr: todayStr,
     checkIn: {
       timestamp: nowIso,
@@ -102,7 +107,6 @@ export async function checkInEmployee(
     checkOut: null,
     status,
     workingHours: 0,
-    verificationStatus: 'pending',
     updatedAt: nowIso,
   };
 
@@ -111,14 +115,13 @@ export async function checkInEmployee(
 
 export async function checkOutEmployee(
   employeeId: string,
-  role: string,
   location: AttendanceLocation | null,
   remark?: string,
   selfieUri?: string | null
 ): Promise<void> {
   const todayStr = getLocalDateString();
   const docId = `${employeeId}_${todayStr}`;
-  const docRef = doc(db, 'users', role, 'profiles', employeeId, 'attendance', docId);
+  const docRef = doc(db, 'attendences', docId);
   const now = new Date();
   const nowIso = now.toISOString();
 
@@ -162,11 +165,10 @@ export async function checkOutEmployee(
 
 export function subscribeToUserAttendanceHistory(
   employeeId: string,
-  role: string,
   callback: (records: AttendanceRecord[]) => void
 ): () => void {
-  const attendanceRef = collection(db, 'users', role, 'profiles', employeeId, 'attendance');
-  const q = query(attendanceRef); // no need for where('employeeId') since it's user scoped
+  const attendanceRef = collection(db, 'attendences');
+  const q = query(attendanceRef, where('employeeId', '==', employeeId));
 
   return onSnapshot(q, (snapshot) => {
     const history: AttendanceRecord[] = [];
@@ -184,7 +186,7 @@ export function subscribeToUserAttendanceHistory(
 export function subscribeToAllAttendance(
   callback: (records: AttendanceRecord[]) => void
 ): () => void {
-  const attendanceRef = collectionGroup(db, 'attendance');
+  const attendanceRef = collection(db, 'attendences');
   const q = query(attendanceRef);
 
   return onSnapshot(q, (snapshot) => {
@@ -206,19 +208,3 @@ export function subscribeToAllAttendance(
   });
 }
 
-export async function updateVerificationStatus(
-  attendanceId: string,
-  role: string,
-  verificationStatus: 'verified' | 'rejected',
-  verifiedBy: string
-): Promise<void> {
-  // Wait, we need employeeId to update verification status. We will extract it from the docId.
-  const employeeId = attendanceId.split('_')[0];
-  const docRef = doc(db, 'users', role, 'profiles', employeeId, 'attendance', attendanceId);
-  await updateDoc(docRef, {
-    verificationStatus,
-    verifiedBy,
-    verifiedAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  });
-}

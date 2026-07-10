@@ -1,190 +1,129 @@
-import { collection, collectionGroup, doc, addDoc, updateDoc, query, orderBy, getDocs, onSnapshot, where } from 'firebase/firestore';
+import { collection, doc, setDoc, query, onSnapshot, where, getDocs, getDoc } from 'firebase/firestore';
 import { db } from '@/firebase/config';
-import type { LeaveRequest, LeaveStatus, Project, LeaveDurationType, HalfDayPeriod } from '@/types';
+import type { LeaveRequest, Project, LeaveDurationType, HalfDayPeriod, LeaveType, LeaveBalance } from '@/types';
 
 export async function submitLeaveRequest(
   employeeId: string,
-  role: string,
   employeeName: string,
-  leaveType: string,
+  projectId: string,
+  type: string,
   startDate: string,
   endDate: string,
   totalDays: number,
   reason: string,
   durationType?: LeaveDurationType,
-  halfDayPeriod?: HalfDayPeriod
+  halfDayPeriod?: HalfDayPeriod,
+  attachmentUrl?: string
 ): Promise<void> {
   const now = new Date().toISOString();
   
-  // Find projects this employee is assigned to
-  const projectsRef = collection(db, 'projects');
-  const projectsSnap = await getDocs(projectsRef);
+  const approvers: string[] = [];
   
-  const projectIds: string[] = [];
-  const coordinatorIds: string[] = [];
-  const managerIds: string[] = [];
-
-  projectsSnap.forEach((docSnap) => {
-    const data = docSnap.data() as Project;
-    const isAssigned = data.siteEmployees?.some(e => e.employeeId === employeeId);
-    if (isAssigned && !data.isClosed) {
-      projectIds.push(data.id);
-      if (data.projectCoordinatorId && !coordinatorIds.includes(data.projectCoordinatorId)) {
-        coordinatorIds.push(data.projectCoordinatorId);
+  if (projectId) {
+    const projSnap = await getDoc(doc(db, 'projects', projectId));
+    if (projSnap.exists()) {
+      const projData = projSnap.data() as Project;
+      if (projData.coordinatorId && !approvers.includes(projData.coordinatorId)) {
+        approvers.push(projData.coordinatorId);
       }
-      if (data.projectManagerId && !managerIds.includes(data.projectManagerId)) {
-        managerIds.push(data.projectManagerId);
+      if (projData.managerId && !approvers.includes(projData.managerId)) {
+        approvers.push(projData.managerId);
       }
     }
-  });
-
-  // Determine initial status based on hierarchy
-  let initialStatus: LeaveStatus = 'pending_hr'; // Default if no project/manager
-  if (coordinatorIds.length > 0) {
-    initialStatus = 'pending_coordinator';
-  } else if (managerIds.length > 0) {
-    initialStatus = 'pending_manager';
   }
 
-  const leavesRef = collection(db, 'users', role, 'profiles', employeeId, 'leaves');
+  const leavesRef = doc(collection(db, 'leaves'));
+  const requestId = leavesRef.id;
   
-  await addDoc(leavesRef, {
+  const leaveData: LeaveRequest = {
+    requestId,
     employeeId,
-    employeeName,
-    role,
-    leaveType,
-    durationType: durationType || 'full_day', // fallback if not provided
-    halfDayPeriod: halfDayPeriod || null,
+    projectId,
+    type,
     startDate,
     endDate,
     totalDays,
+    durationType,
     reason,
-    status: initialStatus,
-    projectIds,
-    coordinatorIds,
-    managerIds,
-    createdAt: now,
-    updatedAt: now,
-  });
+    status: 'pending',
+    approvers,
+    currentApprovalLevel: 0,
+    actionLogs: [
+      {
+        actionBy: employeeId,
+        action: 'submitted',
+        timestamp: now
+      }
+    ]
+  };
+
+  if (halfDayPeriod) {
+    leaveData.halfDayPeriod = halfDayPeriod;
+  }
+
+  if (attachmentUrl) {
+    leaveData.attachmentUrl = attachmentUrl;
+  }
+  
+  await setDoc(leavesRef, leaveData as any);
 }
 
 export function subscribeToUserLeaves(
   employeeId: string,
-  role: string,
+  role: string, // Kept for backwards compatibility in calling functions, but unused
   callback: (leaves: LeaveRequest[]) => void
 ): () => void {
-  const leavesRef = collection(db, 'users', role, 'profiles', employeeId, 'leaves');
-  const q = query(leavesRef); // no need for where() since it's user scoped
+  const leavesRef = collection(db, 'leaves');
+  const q = query(leavesRef, where('employeeId', '==', employeeId));
 
   return onSnapshot(q, (snapshot) => {
     const leaves: LeaveRequest[] = [];
     snapshot.forEach((docSnap) => {
-      leaves.push({ id: docSnap.id, ...docSnap.data() } as LeaveRequest);
+      leaves.push({ ...docSnap.data() } as LeaveRequest);
     });
-    // Sort locally to avoid requiring a Firestore composite index
-    leaves.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    
+    // Sort locally
+    leaves.sort((a, b) => {
+      const timeA = a.actionLogs?.[0]?.timestamp ? new Date(a.actionLogs[0].timestamp).getTime() : 0;
+      const timeB = b.actionLogs?.[0]?.timestamp ? new Date(b.actionLogs[0].timestamp).getTime() : 0;
+      return timeB - timeA;
+    });
     callback(leaves);
   }, (error) => {
     console.error('Error subscribing to user leaves:', error);
   });
 }
 
-export function subscribeToLeavesForRole(
-  userRole: string,
-  userUid: string,
-  callback: (leaves: LeaveRequest[]) => void
-): () => void {
-  const leavesRef = collectionGroup(db, 'leaves');
-  
-  // Notice we sort in JS because collectionGroup + where + orderBy requires many composite indexes
-  const q = query(leavesRef);
+export function subscribeToLeaveTypes(callback: (types: LeaveType[]) => void): () => void {
+  const typesRef = collection(db, 'leaveTypes');
+  const q = query(typesRef);
 
   return onSnapshot(q, (snapshot) => {
-    const allLeaves: LeaveRequest[] = [];
+    const types: LeaveType[] = [];
     snapshot.forEach((docSnap) => {
-      allLeaves.push({ id: docSnap.id, ...docSnap.data() } as LeaveRequest);
+      types.push({ ...docSnap.data() } as LeaveType);
     });
-
-    // Filter based on role
-    const filtered = allLeaves.filter(leave => {
-      if (userRole === 'administrator' || userRole === 'hr_manager') {
-        // HR/Admin sees pending_hr, approved, and rejected
-        return leave.status === 'pending_hr' || leave.status === 'approved' || leave.status === 'rejected';
-      }
-      if (userRole === 'project_manager') {
-        // Manager sees their pending_manager leaves, or leaves they have already approved (now pending_hr or approved)
-        if (leave.status === 'pending_manager' && leave.managerIds?.includes(userUid)) return true;
-        // Also show historical leaves they interacted with
-        if (leave.managerIds?.includes(userUid) && (leave.status === 'pending_hr' || leave.status === 'approved' || leave.status === 'rejected')) return true;
-        return false;
-      }
-      if (userRole === 'project_coordinator') {
-        // Coordinator sees their pending_coordinator leaves
-        if (leave.status === 'pending_coordinator' && leave.coordinatorIds?.includes(userUid)) return true;
-        // And historical leaves they interacted with
-        if (leave.coordinatorIds?.includes(userUid) && (leave.status === 'pending_manager' || leave.status === 'pending_hr' || leave.status === 'approved' || leave.status === 'rejected')) return true;
-        return false;
-      }
-      return false;
-    });
-
-    filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    callback(filtered);
+    callback(types);
   }, (error) => {
-    console.error('Error subscribing to leaves:', error);
+    console.error('Error subscribing to leave types:', error);
   });
 }
 
-export async function updateLeaveStatus(
-  leaveId: string,
+export function subscribeToUserLeaveBalance(
   employeeId: string,
-  role: string,
-  status: LeaveStatus,
-  reviewedBy: string,
-  reviewNotes?: string
-): Promise<void> {
-  const leaveRef = doc(db, 'users', role, 'profiles', employeeId, 'leaves', leaveId);
-  await updateDoc(leaveRef, {
-    status,
-    reviewedBy,
-    reviewNotes: reviewNotes || null,
-    updatedAt: new Date().toISOString(),
-  });
-}
-
-/**
- * Subscribe to ALL leave requests across all users (no role-based filtering).
- * Used by Reports screens that need the full dataset.
- */
-export function subscribeToAllLeaves(
-  callback: (leaves: LeaveRequest[]) => void
+  year: number,
+  callback: (balance: LeaveBalance | null) => void
 ): () => void {
-  const leavesRef = collectionGroup(db, 'leaves');
-  const q = query(leavesRef);
+  const leavesRef = collection(db, 'leaveBalances');
+  const q = query(leavesRef, where('employeeId', '==', employeeId), where('year', '==', year));
 
   return onSnapshot(q, (snapshot) => {
-    const allLeaves: LeaveRequest[] = [];
-    snapshot.forEach((docSnap) => {
-      allLeaves.push({ id: docSnap.id, ...docSnap.data() } as LeaveRequest);
-    });
-    allLeaves.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-    callback(allLeaves);
+    if (!snapshot.empty) {
+      callback({ ...snapshot.docs[0].data() } as LeaveBalance);
+    } else {
+      callback(null);
+    }
   }, (error) => {
-    console.error('Error subscribing to all leaves:', error);
+    console.error('Error subscribing to leave balance:', error);
   });
-}
-
-/**
- * Calculates the next appropriate status for a leave request based on the current approving role
- * and the existence of specific roles on the project.
- */
-export function getNextLeaveStatus(leave: LeaveRequest, currentUserRole: string): LeaveStatus {
-  if (currentUserRole === 'project_coordinator') {
-    return (leave.managerIds && leave.managerIds.length > 0) ? 'pending_manager' : 'pending_hr';
-  } else if (currentUserRole === 'project_manager') {
-    return 'pending_hr';
-  } else if (currentUserRole === 'hr_manager' || currentUserRole === 'administrator') {
-    return 'approved';
-  }
-  return 'approved';
 }

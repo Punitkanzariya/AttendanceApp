@@ -17,13 +17,14 @@ import { useAuthStore } from "@/store/authStore";
 import { Image } from "react-native";
 import GradientHeader from "@/components/shared/GradientHeader";
 import AnimatedSuccessModal from "@/components/shared/AnimatedSuccessModal";
+import LeaveBalanceBoxes from "@/components/shared/LeaveBalanceBoxes";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { EmployeeTabParamList, AttendanceRecord } from "@/types";
 import { subscribeToTodayAttendance, checkInEmployee, checkOutEmployee, subscribeToUserAttendanceHistory } from "@/firebase";
 import { getEmployeeActiveProject } from "@/firebase/projectService";
-import { subscribeToUserLeaves } from "@/firebase/leaveService";
-import type { LeaveRequest } from "@/types";
+import { subscribeToUserLeaves, subscribeToLeaveTypes, subscribeToUserLeaveBalance } from "@/firebase/leaveService";
+import type { LeaveRequest, LeaveType } from "@/types";
 import MonthPickerModal from "@/components/shared/MonthPickerModal";
 import { useLiveWorkingHours } from "@/hooks/useLiveWorkingHours";
 import { useUnreadNotifications } from "@/hooks/useUnreadNotifications";
@@ -113,8 +114,9 @@ export default function EmployeeDashboard() {
   const [successMessage, setSuccessMessage] = useState("");
   const [geofenceViolationData, setGeofenceViolationData] = useState<any>(null);
 
-  // Leaves for dynamic balances
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  const [userLeaveBalance, setUserLeaveBalance] = useState<any>(null);
   const [isLeavesLoading, setIsLeavesLoading] = useState(true);
 
   // Subscribe to today's attendance and history
@@ -125,7 +127,7 @@ export default function EmployeeDashboard() {
       setIsAttendanceLoading(false);
     });
     
-    const unsubHistory = subscribeToUserAttendanceHistory(user.uid, user.role, (records) => {
+    const unsubHistory = subscribeToUserAttendanceHistory(user.uid, (records) => {
       setHistory(records);
     });
 
@@ -135,13 +137,26 @@ export default function EmployeeDashboard() {
     };
   }, [user?.uid]);
 
-  // Subscribe to user leaves
   useEffect(() => {
     if (!user?.uid) return;
-    return subscribeToUserLeaves(user.uid, user.role, (data) => {
+    const unsubLeaves = subscribeToUserLeaves(user.uid, user.role, (data) => {
       setLeaves(data);
       setIsLeavesLoading(false);
     });
+    const unsubTypes = subscribeToLeaveTypes((data) => {
+      setLeaveTypes(data);
+    });
+    
+    const currentYear = new Date().getFullYear();
+    const unsubBalance = subscribeToUserLeaveBalance(user.uid, currentYear, (data: any) => {
+      setUserLeaveBalance(data);
+    });
+
+    return () => {
+      unsubLeaves();
+      unsubTypes();
+      unsubBalance();
+    };
   }, [user?.uid]);
 
   // Fetch location on mount
@@ -212,14 +227,14 @@ export default function EmployeeDashboard() {
       // 2. Fetch cached location + activeProject IN PARALLEL
       const [lastKnownLoc, activeProject] = await Promise.all([
         Location.getLastKnownPositionAsync(),
-        getEmployeeActiveProject(user.uid),
+        getEmployeeActiveProject(user.uid, user.projectId),
       ]);
 
       // 3. Geofence validation helper (pure math, instant)
       const validateGeofence = (lat: number, lng: number) => {
-        if (!activeProject?.geoFencing?.enabled || !activeProject.geoFencing.latitude || !activeProject.geoFencing.longitude) return true;
-        const distance = calculateDistanceMeters(lat, lng, activeProject.geoFencing.latitude, activeProject.geoFencing.longitude);
-        const radius = activeProject.geoFencing.radiusMeters || 200;
+        if (!activeProject?.isGeofenceEnabled || !activeProject.location?.latitude || !activeProject.location?.longitude) return true;
+        const distance = calculateDistanceMeters(lat, lng, activeProject.location.latitude, activeProject.location.longitude);
+        const radius = activeProject.geofenceRadius || 200;
         if (distance > radius) return { distance, radius, failed: true };
         return true;
       };
@@ -230,8 +245,8 @@ export default function EmployeeDashboard() {
           distance: Math.round(distance),
           radius,
           userLat, userLng,
-          siteLat: activeProject!.geoFencing!.latitude,
-          siteLng: activeProject!.geoFencing!.longitude,
+          siteLat: activeProject!.location!.latitude,
+          siteLng: activeProject!.location!.longitude,
         });
         setIsClocking(false);
       };
@@ -324,15 +339,15 @@ export default function EmployeeDashboard() {
 
       // 8. Execute Check In/Out
       if (!todayRecord) {
+        const shiftStart = activeProject?.workingHours?.start;
         await checkInEmployee(
-          user.uid, user.role, user!.displayName || 'Employee',
-          attendanceLoc, '', selfieUri, user!.username
+          user.uid, attendanceLoc, '', selfieUri, shiftStart
         );
         setSuccessMessage('Successfully Clocked In');
         setSuccessModalVisible(true);
       } else if (!todayRecord.checkOut) {
         await checkOutEmployee(
-          user!.uid, user.role, attendanceLoc, '', selfieUri
+          user!.uid, attendanceLoc, '', selfieUri
         );
         setSuccessMessage('Successfully Clocked Out');
         setSuccessModalVisible(true);
@@ -408,8 +423,8 @@ export default function EmployeeDashboard() {
                 {hasUnreadNotifications && <View style={styles.notificationDot} />}
               </TouchableOpacity>
               <View style={styles.avatarWrap}>
-                {user?.photoURL ? (
-                  <Image source={{ uri: user.photoURL }} style={{ width: 36, height: 36, borderRadius: 18 }} />
+                {user?.profilePicture ? (
+                  <Image source={{ uri: user.profilePicture }} style={{ width: 36, height: 36, borderRadius: 18 }} />
                 ) : (
                   <Text style={styles.avatarInitials}>
                     {user?.displayName
@@ -569,11 +584,6 @@ export default function EmployeeDashboard() {
               currentMonthRecords.forEach(r => {
                 if (r.status === 'late') {
                   lateCount++;
-                } else if (r.checkIn?.timestamp) {
-                  const d = new Date(r.checkIn.timestamp);
-                  if (d.getHours() > 9 || (d.getHours() === 9 && d.getMinutes() > 30)) {
-                    lateCount++;
-                  }
                 }
               });
 
@@ -629,127 +639,7 @@ export default function EmployeeDashboard() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Leave Balance</Text>
           </View>
-          <View style={styles.leaveGrid}>
-            {(() => {
-              const currentYear = new Date().getFullYear();
-              const calculateTaken = (type: string) => {
-                return leaves
-                  .filter((l) => l.leaveType === type && l.status === 'approved')
-                  .filter((l) => {
-                    if (!l.startDate) return false;
-                    let dateYear = currentYear;
-                    try {
-                      if (l.startDate.includes('-')) {
-                        const parts = l.startDate.split('-');
-                        if (parts[0].length === 4) {
-                          dateYear = parseInt(parts[0], 10);
-                        } else if (parts[2]?.length === 4) {
-                          dateYear = parseInt(parts[2], 10);
-                        } else {
-                          dateYear = new Date(l.startDate).getFullYear();
-                        }
-                      } else {
-                        dateYear = new Date(l.startDate).getFullYear();
-                      }
-                    } catch (e) {}
-                    return dateYear === currentYear;
-                  })
-                  .reduce((total, l) => total + (Number(l.totalDays) || 1), 0);
-              };
-
-              const sickTaken = calculateTaken('Sick Leave');
-              const paidTaken = calculateTaken('Paid Leave');
-              const casualTaken = calculateTaken('Casual Leave');
-
-              const maxSick = user?.leaveBalances?.sickLeave ?? 10;
-              const maxPaid = user?.leaveBalances?.paidLeave ?? 15;
-              const maxCasual = user?.leaveBalances?.casualLeave ?? 8;
-
-              const totalTaken = sickTaken + paidTaken + casualTaken;
-              const totalMax = maxSick + maxPaid + maxCasual;
-
-              return (
-                <>
-                  <View style={styles.leaveRow}>
-                    <View style={styles.leaveCard}>
-                      <View
-                        style={[styles.leaveIconRing, { borderColor: "#2E7D32" }]}
-                      >
-                  <Ionicons
-                    name="briefcase-outline"
-                    size={16}
-                    color={Colors.text.primary}
-                  />
-                </View>
-                <View>
-                  <Text style={styles.leaveNum}>
-                    {isLeavesLoading ? "-" : Math.max(0, maxPaid - paidTaken)} <Text style={styles.leaveTotalTxt}>/ {maxPaid} Days</Text>
-                  </Text>
-                  <Text style={styles.leaveLabel}>Paid Leave</Text>
-                  <Text style={styles.leaveTakenTxt}>{isLeavesLoading ? "-" : paidTaken} Taken</Text>
-                </View>
-              </View>
-              <View style={styles.leaveCard}>
-                <View
-                  style={[styles.leaveIconRing, { borderColor: "#2563EB" }]}
-                >
-                  <Ionicons
-                    name="briefcase-outline"
-                    size={16}
-                    color={Colors.text.primary}
-                  />
-                </View>
-                <View>
-                  <Text style={styles.leaveNum}>
-                    {isLeavesLoading ? "-" : Math.max(0, maxSick - sickTaken)} <Text style={styles.leaveTotalTxt}>/ {maxSick} Days</Text>
-                  </Text>
-                  <Text style={styles.leaveLabel}>Sick Leave</Text>
-                  <Text style={styles.leaveTakenTxt}>{isLeavesLoading ? "-" : sickTaken} Taken</Text>
-                </View>
-              </View>
-            </View>
-            <View style={styles.leaveRow}>
-              <View style={styles.leaveCard}>
-                <View
-                  style={[styles.leaveIconRing, { borderColor: "#F59E0B" }]}
-                >
-                  <Ionicons
-                    name="briefcase-outline"
-                    size={16}
-                    color={Colors.text.primary}
-                  />
-                </View>
-                <View>
-                  <Text style={styles.leaveNum}>
-                    {isLeavesLoading ? "-" : Math.max(0, maxCasual - casualTaken)} <Text style={styles.leaveTotalTxt}>/ {maxCasual} Days</Text>
-                  </Text>
-                  <Text style={styles.leaveLabel}>Casual Leave</Text>
-                  <Text style={styles.leaveTakenTxt}>{isLeavesLoading ? "-" : casualTaken} Taken</Text>
-                </View>
-              </View>
-              <View style={styles.leaveCard}>
-                <View
-                  style={[styles.leaveIconRing, { borderColor: "#8B5CF6" }]}
-                >
-                  <Ionicons
-                    name="briefcase-outline"
-                    size={16}
-                    color={Colors.text.primary}
-                  />
-                </View>
-                <View>
-                  <Text style={styles.leaveNum}>
-                    {isLeavesLoading ? "-" : Math.max(0, totalMax - totalTaken)} <Text style={styles.leaveTotalTxt}>/ {totalMax} Days</Text>
-                  </Text>
-                  <Text style={styles.leaveLabel}>Total Leave</Text>
-                  <Text style={styles.leaveTakenTxt}>{isLeavesLoading ? "-" : totalTaken} Taken</Text>
-                </View>
-              </View>
-              </View>
-                </>
-              );
-            })()}
-          </View>
+          <LeaveBalanceBoxes userLeaveBalance={userLeaveBalance} isLoading={isLeavesLoading} leaves={leaves} leaveTypes={leaveTypes} user={user} />
         </ScrollView>
       </View>
 
@@ -765,7 +655,15 @@ export default function EmployeeDashboard() {
             </View>
             
             <Text style={styles.modalDesc}>
-              You are <Text style={{ fontWeight: 'bold', color: '#EF4444' }}>{geofenceViolationData?.distance}m</Text> away from the site. You must be within <Text style={{ fontWeight: 'bold' }}>{geofenceViolationData?.radius}m</Text> to {(!todayRecord || todayRecord.checkOut) ? 'Clock In' : 'Clock Out'}.
+              You are <Text style={{ fontWeight: 'bold', color: '#EF4444' }}>
+                {geofenceViolationData?.distance > 1000 
+                  ? `${(geofenceViolationData.distance / 1000).toFixed(1)} km` 
+                  : `${geofenceViolationData?.distance} meters`}
+              </Text> away from the site. You must be within <Text style={{ fontWeight: 'bold' }}>
+                {geofenceViolationData?.radius > 1000 
+                  ? `${(geofenceViolationData.radius / 1000).toFixed(1)} km` 
+                  : `${geofenceViolationData?.radius} meters`}
+              </Text> to {(!todayRecord || todayRecord.checkOut) ? 'Clock In' : 'Clock Out'}.
             </Text>
 
             {geofenceViolationData && (

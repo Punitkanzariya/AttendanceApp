@@ -53,18 +53,17 @@ export default function AttendanceDetailModal({
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
 
   useEffect(() => {
-    if (!initialRecord?.employeeId || !initialRecord?.role) {
+    if (!initialRecord?.employeeId) {
       setUserHistory([]);
       setLeaves([]);
       return;
     }
     
-    // Fetch full history for the calendar
-    const unsubHistory = subscribeToUserAttendanceHistory(initialRecord.employeeId, initialRecord.role, (records) => {
+    const unsubHistory = subscribeToUserAttendanceHistory(initialRecord.employeeId, (records) => {
       setUserHistory(records);
     });
 
-    const unsubLeaves = subscribeToUserLeaves(initialRecord.employeeId, initialRecord.role, (data) => {
+    const unsubLeaves = subscribeToUserLeaves(initialRecord.employeeId, '', (data) => {
       setLeaves(data.filter(l => l.status === 'approved'));
     });
 
@@ -72,7 +71,7 @@ export default function AttendanceDetailModal({
       unsubHistory();
       unsubLeaves();
     };
-  }, [initialRecord?.employeeId, initialRecord?.role]);
+  }, [initialRecord?.employeeId]);
 
   const leaveDateSet = React.useMemo(() => {
     const set = new Set<string>();
@@ -89,32 +88,7 @@ export default function AttendanceDetailModal({
     return set;
   }, [leaves]);
 
-  useEffect(() => {
-    if (!activeRecord) {
-      setEmployeeEmail(null);
-      return;
-    }
-    if (activeRecord.employeeEmail) {
-      setEmployeeEmail(activeRecord.employeeEmail);
-      return;
-    }
-    
-    const fetchEmail = async () => {
-      try {
-        const userDocRef = doc(db, 'users', activeRecord.employeeId);
-        const docSnap = await getDoc(userDocRef);
-        if (docSnap.exists()) {
-          const data = docSnap.data();
-          if (data && data.email) {
-            setEmployeeEmail(data.email);
-          }
-        }
-      } catch (err) {
-        console.warn('Failed to fetch employee email:', err);
-      }
-    };
-    fetchEmail();
-  }, [activeRecord]);
+
 
   useEffect(() => {
     if (previewSelfie?.url) {
@@ -148,16 +122,7 @@ export default function AttendanceDetailModal({
     return formatDateDDMMYYYY(dateObj);
   };
 
-  const getVerificationBadgeStyles = (status: string) => {
-    switch (status) {
-      case 'verified':
-        return { bg: '#E8F5E9', border: '#C8E6C9', color: '#2E7D32', text: 'VERIFIED' };
-      case 'rejected':
-        return { bg: '#FFEBEE', border: '#FFCDD2', color: '#C62828', text: 'REJECTED' };
-      default:
-        return { bg: '#FFF8E1', border: '#FFE082', color: '#F57F17', text: 'PENDING VERIFICATION' };
-    }
-  };
+
 
   const openMap = (latitude: number, longitude: number, label: string) => {
     const scheme = Platform.select({ ios: 'maps:0,0?q=', android: 'geo:0,0?q=' });
@@ -175,7 +140,6 @@ export default function AttendanceDetailModal({
     });
   };
 
-  const badge = getVerificationBadgeStyles(activeRecord.verificationStatus);
 
   const handleDateClick = (dateStr: string) => {
     const found = userHistory.find(r => r.dateStr === dateStr);
@@ -208,18 +172,10 @@ export default function AttendanceDetailModal({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
-            {/* Employee Name & Verification Status */}
+            {/* Employee ID */}
             <View style={styles.metaRow}>
               <View style={{ flex: 1, marginRight: 10 }}>
-                <Text style={styles.empName}>{activeRecord.employeeName}</Text>
-                {employeeEmail ? (
-                  <Text style={styles.empIdLabel} numberOfLines={1} ellipsizeMode="tail">
-                    {employeeEmail}
-                  </Text>
-                ) : null}
-              </View>
-              <View style={[styles.badge, { backgroundColor: badge.bg, borderColor: badge.border }]}>
-                <Text style={[styles.badgeText, { color: badge.color }]}>{badge.text}</Text>
+                <Text style={styles.empName}>Emp ID: {activeRecord.employeeId}</Text>
               </View>
             </View>
 

@@ -83,46 +83,24 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 }));
 
-// Role permission helpers
-export const ROLE_PERMISSIONS: Record<UserRole, string[]> = {
-  employee: [
-    'mark_attendance',
-    'apply_leave',
-    'view_attendance_history',
-    'submit_expenses',
-    'upload_bills',
-    'view_expense_status',
-  ],
-  project_manager: [
-    'approve_expenses',
-    'reject_expenses',
-    'approve_leave',
-    'view_team_attendance',
-    'generate_reports',
-  ],
-  project_coordinator: [
-    'view_assigned_employees',
-    'verify_attendance',
-    'view_site_reports',
-  ],
-  hr_manager: [
-    'manage_employees',
-    'manage_roles',
-  ],
-  administrator: [
-    'manage_employees',
-    'manage_sites',
-    'manage_roles',
-    'configure_settings',
-    'generate_reports',
-    'export_data',
-  ],
-  finance: [
-    'verify_expenses',
-    'process_reimbursements',
-    'export_accounting_reports',
-  ],
-};
+export const hasPermission = (user: User | null, moduleName: string, action: string = 'read'): boolean => {
+  if (!user) return false;
 
-export const hasPermission = (role: UserRole, permission: string): boolean =>
-  ROLE_PERMISSIONS[role]?.includes(permission) ?? false;
+  // 1. Dynamic permission check
+  if (user.roleData && user.roleData.permissions && user.roleData.permissions[moduleName]) {
+    return user.roleData.permissions[moduleName].includes(action);
+  }
+
+  // 2. Legacy fallback if roleData is missing (for transition)
+  if (user.role === 'administrator') return true;
+  if (user.role === 'employee') {
+    const legacyModules = ['attendance', 'leave', 'expenses', 'profile'];
+    if (legacyModules.includes(moduleName)) return true;
+  }
+  if (user.role === 'hr_manager') {
+    const legacyModules = ['employees', 'roles', 'profile'];
+    if (legacyModules.includes(moduleName)) return true;
+  }
+
+  return false;
+};

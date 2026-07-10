@@ -55,30 +55,65 @@ export default function ProfileScreen() {
     }
 
     if (user?.role === 'employee') {
-      const q = query(collection(db, 'projects'), where('isClosed', '==', false));
-      unsubscribeProject = onSnapshot(q, (snapshot) => {
-        let foundProject = false;
-        for (const docSnap of snapshot.docs) {
-          const projData = docSnap.data() as Project;
-          if (projData.siteEmployees) {
-            const empRecord = projData.siteEmployees.find(e => e.employeeId === user.uid);
-            if (empRecord) {
-              setAssignedProject(projData.projectName);
-              setAssignedShift(empRecord.shift);
-              setProjectManager(projData.projectManagerName || null);
-              setProjectCoordinator(projData.projectCoordinatorName || null);
-              foundProject = true;
-              break;
+      if (user?.projectId) {
+        unsubscribeProject = onSnapshot(doc(db, 'projects', user.projectId), async (docSnap) => {
+          if (docSnap.exists()) {
+            const projData = docSnap.data() as Project;
+            setAssignedProject(projData.name || null);
+            
+            // Set shift from working hours
+            if (projData.workingHours) {
+              setAssignedShift(`${projData.workingHours.start} - ${projData.workingHours.end}`);
+            } else {
+              setAssignedShift(null);
             }
+
+            // Fetch Project Manager Name
+            if (projData.managerId) {
+              try {
+                const mgrSnap = await getDoc(doc(db, 'users', projData.managerId));
+                if (mgrSnap.exists()) {
+                  const mgrData = mgrSnap.data();
+                  setProjectManager(mgrData.firstName ? `${mgrData.firstName} ${mgrData.lastName || ''}`.trim() : mgrData.displayName || "Unknown");
+                } else {
+                  setProjectManager(null);
+                }
+              } catch (e) {
+                setProjectManager(null);
+              }
+            } else {
+              setProjectManager(null);
+            }
+
+            // Fetch Project Coordinator Name
+            if (projData.coordinatorId) {
+              try {
+                const coordSnap = await getDoc(doc(db, 'users', projData.coordinatorId));
+                if (coordSnap.exists()) {
+                  const coordData = coordSnap.data();
+                  setProjectCoordinator(coordData.firstName ? `${coordData.firstName} ${coordData.lastName || ''}`.trim() : coordData.displayName || "Unknown");
+                } else {
+                  setProjectCoordinator(null);
+                }
+              } catch (e) {
+                setProjectCoordinator(null);
+              }
+            } else {
+              setProjectCoordinator(null);
+            }
+          } else {
+            setAssignedProject(null);
+            setAssignedShift(null);
+            setProjectManager(null);
+            setProjectCoordinator(null);
           }
-        }
-        if (!foundProject) {
-          setAssignedProject(null);
-          setAssignedShift(null);
-          setProjectManager(null);
-          setProjectCoordinator(null);
-        }
-      }, (err) => console.warn("Failed to listen to projects:", err));
+        }, (err) => console.warn("Failed to listen to project:", err));
+      } else {
+        setAssignedProject(null);
+        setAssignedShift(null);
+        setProjectManager(null);
+        setProjectCoordinator(null);
+      }
     }
 
     return () => {
@@ -133,14 +168,14 @@ export default function ProfileScreen() {
         setIsUploading(true);
         const base64Uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
 
-        if (auth.currentUser && user?.role) {
-          // Update Firestore (Bypass Firebase Auth photoURL length limit)
-          await updateDoc(doc(db, "users", user.role, "profiles", user.uid), {
-            photoURL: base64Uri,
+        if (auth.currentUser && user?.uid) {
+          // Update Firestore using the new flat users collection
+          await updateDoc(doc(db, "users", user.uid), {
+            profilePicture: base64Uri,
           });
 
           // Update local state
-          const updatedUser = { ...user!, photoURL: base64Uri };
+          const updatedUser = { ...user!, profilePicture: base64Uri };
           useAuthStore.setState({ user: updatedUser });
         }
       }
@@ -188,8 +223,8 @@ export default function ProfileScreen() {
             >
               {isUploading ? (
                 <ActivityIndicator color={Colors.primary} />
-              ) : user?.photoURL ? (
-                <Image source={{ uri: user.photoURL }} style={styles.avatarImage} />
+              ) : user?.profilePicture ? (
+                <Image source={{ uri: user.profilePicture }} style={styles.avatarImage} />
               ) : (
                 <Text style={styles.avatarText}>
                   {getInitials(user?.displayName)}
@@ -200,12 +235,12 @@ export default function ProfileScreen() {
               </View>
             </TouchableOpacity>
             <Text style={styles.profileName}>
-              {user?.displayName || "Your account"}
+              {user?.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : (user?.displayName || "Your account")}
             </Text>
             <Text style={styles.profilePhone}>
-              {user?.phoneNumber || "N/A"}
+              {user?.phoneNumber || "No Phone"}
             </Text>
-            <Text style={styles.profilePhone}>@{user?.username || "N/A"}</Text>
+            <Text style={styles.profilePhone}>{user?.email || "No Email"}</Text>
           </View>
 
           {/* Profile Details */}
@@ -216,12 +251,13 @@ export default function ProfileScreen() {
                 user?.employeeId || user?.uid.slice(0, 8).toUpperCase() || "EMP001",
               )}
               {renderRow("Date of Birth", user?.dateOfBirth || "N/A")}
-              {renderRow("Job Position", formatRole(user?.role))}
+              {renderRow("Department", user?.department || "N/A")}
+              {renderRow("Designation", user?.designation || formatRole(user?.role))}
               {user?.role === 'employee' && renderRow("Assigned Project", assignedProject || "Not Assigned")}
               {user?.role === 'employee' && renderRow("Shift", assignedShift || "Not Assigned")}
               {user?.role === 'employee' && renderRow("Project Manager", projectManager || "Not Assigned")}
               {user?.role === 'employee' && renderRow("Project Coordinator", projectCoordinator || "Not Assigned", true)}
-              {(user?.panCard || user?.aadharCard) && (
+              {(user?.panCard || user?.aadharCard || (user?.documents && user.documents.length > 0)) && (
                 <View style={[styles.row, { borderBottomWidth: 0, paddingBottom: 0 }]}>
                   <Text style={styles.label}>Documents</Text>
                   <TouchableOpacity onPress={() => setIsDocModalVisible(true)} style={{ backgroundColor: Colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 }}>
@@ -255,36 +291,58 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: Spacing.md }}>
-              {user?.panCard && (
-                <View style={styles.docSection}>
-                  <Text style={styles.docLabel}>PAN Card Number</Text>
-                  <Text style={styles.docValue}>{user.panCard}</Text>
-                  {user.panCardPhotoUrl && (
-                    <Image source={{ uri: user.panCardPhotoUrl }} style={styles.docImage} resizeMode="contain" />
-                  )}
-                </View>
-              )}
-              
-              {user?.aadharCard && (
-                <View style={styles.docSection}>
-                  <Text style={styles.docLabel}>Aadhar Card Number</Text>
-                  <Text style={styles.docValue}>{user.aadharCard}</Text>
-                  
-                  <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
-                    {user.aadharCardPhotoUrl && (
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.docLabel, { fontSize: 11, marginBottom: 2 }]}>Front Side</Text>
-                        <Image source={{ uri: user.aadharCardPhotoUrl }} style={[styles.docImage, { height: 120 }]} resizeMode="contain" />
-                      </View>
-                    )}
-                    {user.aadharCardBackPhotoUrl && (
-                      <View style={{ flex: 1 }}>
-                        <Text style={[styles.docLabel, { fontSize: 11, marginBottom: 2 }]}>Back Side</Text>
-                        <Image source={{ uri: user.aadharCardBackPhotoUrl }} style={[styles.docImage, { height: 120 }]} resizeMode="contain" />
-                      </View>
+              {user?.documents && user.documents.length > 0 ? (
+                user.documents.map((docItem, index) => (
+                  <View key={docItem.id || index.toString()} style={styles.docSection}>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                      <Text style={styles.docLabel}>{docItem.type || "Document"}</Text>
+                      {docItem.verified && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Ionicons name="checkmark-circle" size={14} color="#10B981" />
+                          <Text style={{ fontSize: 11, color: '#10B981', marginLeft: 4, fontWeight: '600' }}>Verified</Text>
+                        </View>
+                      )}
+                    </View>
+                    <Text style={styles.docValue}>{docItem.name}</Text>
+                    {docItem.url && (
+                      <Image source={{ uri: docItem.url }} style={styles.docImage} resizeMode="contain" />
                     )}
                   </View>
-                </View>
+                ))
+              ) : (
+                <>
+                  {user?.panCard && (
+                    <View style={styles.docSection}>
+                      <Text style={styles.docLabel}>PAN Card Number</Text>
+                      <Text style={styles.docValue}>{user.panCard}</Text>
+                      {user.panCardPhotoUrl && (
+                        <Image source={{ uri: user.panCardPhotoUrl }} style={styles.docImage} resizeMode="contain" />
+                      )}
+                    </View>
+                  )}
+                  
+                  {user?.aadharCard && (
+                    <View style={styles.docSection}>
+                      <Text style={styles.docLabel}>Aadhar Card Number</Text>
+                      <Text style={styles.docValue}>{user.aadharCard}</Text>
+                      
+                      <View style={{ flexDirection: 'row', gap: Spacing.sm }}>
+                        {user.aadharCardPhotoUrl && (
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.docLabel, { fontSize: 11, marginBottom: 2 }]}>Front Side</Text>
+                            <Image source={{ uri: user.aadharCardPhotoUrl }} style={[styles.docImage, { height: 120 }]} resizeMode="contain" />
+                          </View>
+                        )}
+                        {user.aadharCardBackPhotoUrl && (
+                          <View style={{ flex: 1 }}>
+                            <Text style={[styles.docLabel, { fontSize: 11, marginBottom: 2 }]}>Back Side</Text>
+                            <Image source={{ uri: user.aadharCardBackPhotoUrl }} style={[styles.docImage, { height: 120 }]} resizeMode="contain" />
+                          </View>
+                        )}
+                      </View>
+                    </View>
+                  )}
+                </>
               )}
             </ScrollView>
           </View>

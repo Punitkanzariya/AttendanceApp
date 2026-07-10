@@ -21,7 +21,7 @@ import { loginWithEmail, checkAccountLockout, resolveUsernameToEmail } from '@/f
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
 const loginSchema = z.object({
-  username: z.string().min(1, 'Username is required').regex(/^[^\s]+$/, 'Username cannot contain spaces'),
+  username: z.string().min(1, 'Username or Email is required').regex(/^[^\s]+$/, 'Cannot contain spaces'),
   password: z.string().min(1, 'Password is required'),
 });
 
@@ -127,7 +127,7 @@ export default function LoginScreen() {
       if (!credsRaw) {
         Alert.alert(
           'Biometrics Not Configured',
-          'Please sign in with your username and password first to enable biometric login.'
+          'Please sign in with your email/username and password first to enable biometric login.'
         );
         return;
       }
@@ -172,7 +172,7 @@ export default function LoginScreen() {
       }
     } catch (err) {
       console.log('Biometric error', err);
-      Alert.alert('Validation Error', 'Please enter your username.');
+      Alert.alert('Validation Error', 'Please enter your email or username.');
       return false;
     }
   };
@@ -213,9 +213,9 @@ export default function LoginScreen() {
 
             {/* Form */}
             <View style={styles.form}>
-              {/* Username */}
+              {/* Username / Email */}
               <View style={styles.field}>
-                <Text style={styles.label}>Username</Text>
+                <Text style={styles.label}>Email or Username</Text>
                 <View style={[styles.inputRow, { borderColor: border('username') }, lockout?.locked && styles.inputDisabled]}>
                   <Ionicons name="person-outline" size={18} color={focused === 'username' ? '#2563EB' : '#94A3B8'} style={styles.icon} />
                   <Controller
@@ -224,7 +224,7 @@ export default function LoginScreen() {
                     render={({ field: { onChange, onBlur, value } }) => (
                       <TextInput
                         style={styles.input}
-                        placeholder="Enter your username"
+                        placeholder="Enter email or username"
                         placeholderTextColor="#CBD5E1"
                         autoCapitalize="none"
                         returnKeyType="next"
@@ -304,16 +304,18 @@ export default function LoginScreen() {
               )}
             </View>
 
-            {/* Divider */}
+            {/* Divider 
             <View style={styles.divRow}>
               <View style={styles.divLine} /><Text style={styles.divTxt}>or</Text><View style={styles.divLine} />
             </View>
+            */}
 
-            {/* OTP Option */}
+            {/* OTP Option 
             <TouchableOpacity style={styles.btnOutline} onPress={() => navigation.navigate('PhoneLogin')} activeOpacity={0.88}>
               <Ionicons name="chatbubbles-outline" size={18} color="#2563EB" />
               <Text style={styles.btnOutlineTxt}>Sign in with OTP</Text>
             </TouchableOpacity>
+            */}
 
           </Animated.View>
         </ScrollView>

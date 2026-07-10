@@ -23,12 +23,13 @@ import {
   saveExpenseDraft,
   getExpenseDraft,
 } from "@/firebase/expenseService";
-import type { ExpenseRequest } from "@/types";
+import type { Expense } from "@/types";
+import { DateInput } from "../DateInput";
 
 interface ExpenseModalProps {
   isVisible: boolean;
   onClose: () => void;
-  expenseToEdit?: ExpenseRequest | null;
+  expenseToEdit?: Expense | null;
 }
 
 export const ExpenseModal = ({
@@ -58,7 +59,7 @@ export const ExpenseModal = ({
       setCategory(expenseToEdit.category);
       setDate(expenseToEdit.date);
       setDescription(expenseToEdit.description);
-      setExistingAttachmentUrl(expenseToEdit.attachmentUrl || null);
+      setExistingAttachmentUrl(expenseToEdit.billUrls?.[0] || null);
       setAttachment(null);
     } else {
       // If we're opening as new, let's see if we have a draft
@@ -122,9 +123,8 @@ export const ExpenseModal = ({
     try {
       if (expenseToEdit) {
         await updateExpenseRequest(
-          expenseToEdit.id,
+          expenseToEdit.expenseId,
           user!.uid,
-          user!.role,
           category,
           parseFloat(amount),
           date,
@@ -135,8 +135,7 @@ export const ExpenseModal = ({
       } else {
         await submitExpenseRequest(
           user!.uid,
-          user!.role,
-          user!.displayName || "Employee",
+          user!.projectId || "",
           category,
           parseFloat(amount),
           date,
@@ -184,7 +183,6 @@ export const ExpenseModal = ({
       // Check for duplicates
       const isDuplicate = await checkDuplicateExpense(
         user!.uid,
-        user!.role,
         parseFloat(amount),
         date,
         category,
@@ -260,30 +258,11 @@ export const ExpenseModal = ({
             />
 
             <Text style={styles.inputLabel}>Date</Text>
-            {Platform.OS === "web" ? (
-              <input
-                type="date"
-                value={date}
-                onChange={(e) => setDate(e.target.value)}
-                style={{
-                  width: "100%",
-                  padding: 12,
-                  fontSize: 16,
-                  borderWidth: 1,
-                  borderColor: "#E5E7EB",
-                  borderRadius: 8,
-                  marginBottom: 12,
-                  boxSizing: "border-box",
-                }}
-              />
-            ) : (
-              <TextInput
-                style={styles.input}
-                placeholder="YYYY-MM-DD"
-                value={date}
-                onChangeText={setDate}
-              />
-            )}
+            <DateInput
+              placeholder="YYYY-MM-DD"
+              value={date}
+              onChangeText={setDate}
+            />
 
             <Text style={styles.inputLabel}>Description</Text>
             <TextInput

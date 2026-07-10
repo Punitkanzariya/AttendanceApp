@@ -4,9 +4,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/theme';
 import { useAuthStore } from '@/store/authStore';
-import { subscribeToUserLeaves, subscribeToLeavesForRole } from '@/firebase/leaveService';
-import { subscribeToUserExpenses, subscribeToExpensesForRole } from '@/firebase/expenseService';
-import { LeaveRequest, ExpenseRequest } from '@/types';
+import { subscribeToUserLeaves } from '@/firebase/leaveService';
+import { subscribeToUserExpenses } from '@/firebase/expenseService';
+import { LeaveRequest, Expense } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -30,7 +30,7 @@ export default function NotificationScreen({ navigation }: any) {
   const backdropOpacity = useRef(new Animated.Value(0)).current;
   const { user } = useAuthStore();
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
-  const [expenses, setExpenses] = useState<ExpenseRequest[]>([]);
+  const [expenses, setExpenses] = useState<Expense[]>([]);
   const [readIds, setReadIds] = useState<Set<string>>(new Set());
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
 
@@ -145,19 +145,14 @@ export default function NotificationScreen({ navigation }: any) {
     let unsubLeaves: () => void;
     let unsubExpenses: () => void;
 
-    if (isEmployee) {
-      unsubLeaves = subscribeToUserLeaves(user.uid, user.role, setLeaves);
-      unsubExpenses = subscribeToUserExpenses(user.uid, user.role, setExpenses);
-    } else {
-      unsubLeaves = subscribeToLeavesForRole(user.role, user.uid, setLeaves);
-      unsubExpenses = subscribeToExpensesForRole(user.role, user.uid, setExpenses);
-    }
+    unsubLeaves = subscribeToUserLeaves(user.uid, user.role, setLeaves);
+    unsubExpenses = subscribeToUserExpenses(user.uid, user.role, setExpenses);
 
     return () => {
       if (unsubLeaves) unsubLeaves();
       if (unsubExpenses) unsubExpenses();
     };
-  }, [user, isEmployee]);
+  }, [user]);
 
   const getStatusColor = (status: string) => {
     if (status === 'approved' || status === 'reimbursed') return '#16A34A';
@@ -174,14 +169,14 @@ export default function NotificationScreen({ navigation }: any) {
       const statusText = leave.status.startsWith('pending') ? 'pending' : leave.status.replace(/_/g, ' ');
 
       items.push({
-        id: `leave_${leave.id}`,
+        id: `leave_${leave.requestId}`,
         type: 'leave',
-        title: isEmployee ? leave.leaveType : `Leave Request — ${leave.employeeName}`,
+        title: isEmployee ? leave.type : `Leave Request — ${leave.employeeId}`,
         description: isEmployee
-          ? `Your ${leave.leaveType} request (${leave.startDate} to ${leave.endDate}) is ${statusText}.`
-          : `${leave.employeeName} requested ${leave.leaveType} leave from ${leave.startDate} to ${leave.endDate}.`,
+          ? `Your ${leave.type} request (${leave.startDate} to ${leave.endDate}) is ${statusText}.`
+          : `${leave.employeeId} requested ${leave.type} leave from ${leave.startDate} to ${leave.endDate}.`,
         status: leave.status,
-        createdAt: leave.createdAt,
+        createdAt: leave.actionLogs?.[0]?.timestamp || new Date().toISOString(),
         icon: 'calendar-outline',
         iconColor: statusColor,
         iconBg,
@@ -195,14 +190,14 @@ export default function NotificationScreen({ navigation }: any) {
       const statusText = exp.status.startsWith('pending') ? 'pending' : exp.status.replace(/_/g, ' ');
 
       items.push({
-        id: `expense_${exp.id}`,
+        id: `expense_${exp.expenseId}`,
         type: 'expense',
-        title: isEmployee ? `${exp.category} Expense` : `Expense — ${exp.employeeName}`,
+        title: isEmployee ? `${exp.category} Expense` : `Expense — ${exp.employeeId}`,
         description: isEmployee
           ? `Your ${exp.category} expense of ₹${exp.amount} is ${statusText}.`
-          : `${exp.employeeName} submitted a ${exp.category} expense of ₹${exp.amount}.`,
+          : `${exp.employeeId} submitted a ${exp.category} expense of ₹${exp.amount}.`,
         status: exp.status,
-        createdAt: exp.createdAt,
+        createdAt: exp.actionLogs?.[0]?.timestamp || new Date().toISOString(),
         icon: 'cash-outline',
         iconColor: statusColor,
         iconBg,

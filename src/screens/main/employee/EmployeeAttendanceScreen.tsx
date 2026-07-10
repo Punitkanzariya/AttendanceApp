@@ -50,8 +50,7 @@ export default function EmployeeAttendanceScreen() {
 
     const unsubHistory = subscribeToUserAttendanceHistory(
       user.uid,
-      user.role,
-      (records) => {
+      (records: AttendanceRecord[]) => {
         const todayStr = getLocalDateString();
         const filtered = records.filter((r) => r.dateStr !== todayStr);
         setHistory(filtered);
@@ -341,7 +340,7 @@ export default function EmployeeAttendanceScreen() {
                           <Ionicons name="calendar" size={20} color="#6D28D9" />
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.leaveTypeText}>{item.leave.leaveType}</Text>
+                          <Text style={styles.leaveTypeText}>{item.leave.type}</Text>
                           <Text style={styles.leaveReasonText} numberOfLines={1}>
                             {item.leave.reason}
                           </Text>

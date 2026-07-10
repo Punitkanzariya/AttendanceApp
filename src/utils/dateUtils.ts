@@ -20,14 +20,17 @@ export function formatLeaveDurationText(
   halfDayPeriod?: HalfDayPeriod
 ): string {
   const formattedStart = formatDateDDMMYYYY(startDate);
+  const formattedEnd = formatDateDDMMYYYY(endDate);
+  
   if (durationType === "half_day") {
     const period = halfDayPeriod === "second_half" ? "Second Half" : "First Half";
     return `${formattedStart} (Half Day - ${period})`;
   } else if (durationType === "single_day") {
     return `${formattedStart} (1 Day)`;
   } else {
-    // Fallback or multiple_days
-    const formattedEnd = formatDateDDMMYYYY(endDate);
-    return `${formattedStart} to ${formattedEnd} (${totalDays || 1} Days)`;
+    if (startDate === endDate) {
+      return `${formattedStart} (1 Day)`;
+    }
+    return `${formattedStart} to ${formattedEnd} (${totalDays} Days)`;
   }
 }
