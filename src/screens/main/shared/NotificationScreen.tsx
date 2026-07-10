@@ -304,8 +304,7 @@ export default function NotificationScreen({ navigation }: any) {
 
 const styles = StyleSheet.create({
   rootContainer: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 9999,
+    flex: 1,
   },
   backdrop: {
     ...StyleSheet.absoluteFillObject,

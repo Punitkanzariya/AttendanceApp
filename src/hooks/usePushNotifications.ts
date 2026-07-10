@@ -81,8 +81,7 @@ async function registerForPushNotificationsAsync(uid: string) {
     }
     
     // Get the native FCM/APNs token for firebase-admin compatibility
-    // On web, this relies on app.json notification.vapidPublicKey
-    const pushTokenData = await Notifications.getExpoPushTokenAsync();
+    const pushTokenData = await Notifications.getDevicePushTokenAsync();
     token = pushTokenData.data;
     console.log('Device Push Token (FCM/APNs):', token);
     
