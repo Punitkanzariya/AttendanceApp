@@ -9,11 +9,15 @@ import { useAuthStore } from './src/store/authStore';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { db } from './src/firebase/config';
 import type { User } from './src/types';
+import { usePushNotifications } from './src/hooks/usePushNotifications';
 
 export default function App() {
   const restoreSession = useAuthStore((s) => s.restoreSession);
   const user = useAuthStore((s) => s.user);
   const updateUser = useAuthStore((s) => s.updateUser);
+
+  // Setup Push Notifications when the user logs in
+  usePushNotifications(user?.uid);
 
   // On mount, restore any persisted session from SecureStore
   useEffect(() => {

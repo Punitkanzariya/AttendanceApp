@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, query, onSnapshot, where, getDocs, getDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, query, onSnapshot, where, getDocs, getDoc, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/firebase/config';
 import type { LeaveRequest, Project, LeaveDurationType, HalfDayPeriod, LeaveType, LeaveBalance } from '@/types';
 
@@ -71,9 +71,8 @@ export async function submitLeaveRequest(
   if (approvers.length > 0) {
     const firstApproverId = approvers[0];
     const notifRef = collection(db, 'notifications', firstApproverId, 'items');
-    // Using simple addDoc without importing serverTimestamp to avoid modifying imports at top unnecessarily
-    import('firebase/firestore').then(({ addDoc, serverTimestamp }) => {
-      addDoc(notifRef, {
+    try {
+      await addDoc(notifRef, {
         title: "New Leave Request",
         message: `${employeeName} has applied for a leave that requires your approval.`,
         type: "info",
@@ -81,8 +80,10 @@ export async function submitLeaveRequest(
         link: "/dashboard/leave/approval-queue",
         isRead: false,
         createdAt: serverTimestamp(),
-      }).catch(console.error);
-    });
+      });
+    } catch (error) {
+      console.error("Failed to send notification:", error);
+    }
   }
 }
 

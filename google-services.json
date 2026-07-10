@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "615807400535",
+    "project_id": "darshan-hrms",
+    "storage_bucket": "darshan-hrms.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:615807400535:android:edb43f0fa53d6dfbf54112",
+        "android_client_info": {
+          "package_name": "com.techsture.hrms"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "615807400535-8nlrnb1aqepi28318f0dmip4spvbmcm9.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBOQREqk0R2fk5v2Qn_hXpK0cEDoUZOow4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "615807400535-8nlrnb1aqepi28318f0dmip4spvbmcm9.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
