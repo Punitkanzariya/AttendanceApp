@@ -32,6 +32,15 @@ export async function submitLeaveRequest(
     }
   }
 
+  if (approvers.length === 0) {
+    const usersRef = collection(db, 'users');
+    const adminQuery = query(usersRef, where('role', '==', 'admin'));
+    const adminSnap = await getDocs(adminQuery);
+    adminSnap.forEach(doc => {
+      approvers.push(doc.id);
+    });
+  }
+
   const leavesRef = doc(collection(db, 'leaves'));
   const requestId = leavesRef.id;
   
@@ -67,22 +76,42 @@ export async function submitLeaveRequest(
   
   await setDoc(leavesRef, leaveData as any);
 
-  // Push notification to the first approver (Coordinator or Manager)
+  // Push notification to approvers (Coordinator, Manager, or Admins)
   if (approvers.length > 0) {
-    const firstApproverId = approvers[0];
-    const notifRef = collection(db, 'notifications', firstApproverId, 'items');
-    try {
-      await addDoc(notifRef, {
-        title: "New Leave Request",
-        message: `${employeeName} has applied for a leave that requires your approval.`,
-        type: "info",
-        module: "leave",
-        link: "/dashboard/leave/approval-queue",
-        isRead: false,
-        createdAt: serverTimestamp(),
-      });
-    } catch (error) {
-      console.error("Failed to send notification:", error);
+    for (const approverId of approvers) {
+      const notifRef = collection(db, 'notifications');
+      try {
+        await addDoc(notifRef, {
+          userId: approverId,
+          title: "New Leave Request",
+          message: `${employeeName} has applied for a leave that requires your approval.`,
+          type: "info",
+          module: "leave",
+          link: "/dashboard/leave/approval-queue",
+          isRead: false,
+          createdAt: serverTimestamp(),
+        });
+
+        // Trigger actual push notification via the Admin Panel's API
+        const adminApiUrl = process.env.EXPO_PUBLIC_ADMIN_API_URL;
+        if (adminApiUrl) {
+          fetch(`${adminApiUrl}/api/notifications/push`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              uid: approverId,
+              payload: {
+                title: "New Leave Request",
+                message: `${employeeName} has applied for a leave that requires your approval.`,
+                module: "leave",
+                link: "/dashboard/leave/approval-queue"
+              }
+            })
+          }).catch(err => console.error("Failed to push notification via Admin API", err));
+        }
+      } catch (error) {
+        console.error("Failed to send notification to", approverId, error);
+      }
     }
   }
 }

@@ -75,7 +75,13 @@ async function registerForPushNotificationsAsync(uid: string) {
   }
 
   try {
+    if (Platform.OS === 'web') {
+      console.log('Push notifications not fully supported on web. Skipping native push token.');
+      return;
+    }
+    
     // Get the native FCM/APNs token for firebase-admin compatibility
+    // On web, this relies on app.json notification.vapidPublicKey
     const pushTokenData = await Notifications.getDevicePushTokenAsync();
     token = pushTokenData.data;
     console.log('Device Push Token (FCM/APNs):', token);

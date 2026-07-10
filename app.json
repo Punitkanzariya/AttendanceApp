@@ -29,6 +29,9 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "notification": {
+      "vapidPublicKey": "BAsC7GuHOnrQt7NrN4740Q7VbeaUE8b5BTTX0jBLOEjdu0Jd01hsoxXlw3yYpIrmHV-rziBHxzaDG9j2X3f4fbQ"
+    },
     "plugins": [
       [
         "expo-local-authentication",
