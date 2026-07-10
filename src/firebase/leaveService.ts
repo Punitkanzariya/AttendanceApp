@@ -66,6 +66,24 @@ export async function submitLeaveRequest(
   }
   
   await setDoc(leavesRef, leaveData as any);
+
+  // Push notification to the first approver (Coordinator or Manager)
+  if (approvers.length > 0) {
+    const firstApproverId = approvers[0];
+    const notifRef = collection(db, 'notifications', firstApproverId, 'items');
+    // Using simple addDoc without importing serverTimestamp to avoid modifying imports at top unnecessarily
+    import('firebase/firestore').then(({ addDoc, serverTimestamp }) => {
+      addDoc(notifRef, {
+        title: "New Leave Request",
+        message: `${employeeName} has applied for a leave that requires your approval.`,
+        type: "info",
+        module: "leave",
+        link: "/dashboard/leave/approval-queue",
+        isRead: false,
+        createdAt: serverTimestamp(),
+      }).catch(console.error);
+    });
+  }
 }
 
 export function subscribeToUserLeaves(
