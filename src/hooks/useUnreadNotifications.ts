@@ -1,7 +1,6 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuthStore } from '@/store/authStore';
-import { subscribeToUserLeaves } from '@/firebase/leaveService';
-import { subscribeToUserExpenses } from '@/firebase/expenseService';
+import { subscribeToUserNotifications } from '@/firebase/notificationService';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DeviceEventEmitter } from 'react-native';
 
@@ -12,51 +11,30 @@ export function useUnreadNotifications() {
   useEffect(() => {
     if (!user?.uid) return;
 
-    let unsubLeaves: () => void;
-    let unsubExpenses: () => void;
-    let leaves: any[] = [];
-    let expenses: any[] = [];
+    let currentNotifications: any[] = [];
     
     const checkUnread = async () => {
       try {
-        const readStr = await AsyncStorage.getItem(`@notifs_read_${user.uid}`);
         const delStr = await AsyncStorage.getItem(`@notifs_del_${user.uid}`);
-        const readIds = readStr ? new Set(JSON.parse(readStr)) : new Set();
         const delIds = delStr ? new Set(JSON.parse(delStr)) : new Set();
-
-        const allIds = [
-          ...leaves.map(l => `leave_${l.requestId || l.id}`),
-          ...expenses.map(e => `expense_${e.expenseId || e.id}`)
-        ];
         
-        const hasAnyUnread = allIds.some(id => !readIds.has(id) && !delIds.has(id));
+        const hasAnyUnread = currentNotifications.some(n => !n.isRead && !delIds.has(n.notifId));
         setHasUnread(hasAnyUnread);
       } catch (e) {
-        console.error('Error checking unread notifications:', e);
+        console.error(e);
       }
     };
 
-    const isEmployee = user.role === 'employee';
-
-    const onLeavesChange = (data: any[]) => {
-      leaves = data;
+    const unsubscribe = subscribeToUserNotifications(user.uid, (notifications) => {
+      currentNotifications = notifications;
       checkUnread();
-    };
-    
-    const onExpensesChange = (data: any[]) => {
-      expenses = data;
-      checkUnread();
-    };
-
-    unsubLeaves = subscribeToUserLeaves(user.uid, user.role, onLeavesChange);
-    unsubExpenses = subscribeToUserExpenses(user.uid, user.role, onExpensesChange);
+    });
 
     const subscription = DeviceEventEmitter.addListener('notifications_read_updated', checkUnread);
 
     return () => {
+      unsubscribe();
       subscription.remove();
-      if (unsubLeaves) unsubLeaves();
-      if (unsubExpenses) unsubExpenses();
     };
   }, [user]);
 

@@ -11,6 +11,8 @@ import { db } from './src/firebase/config';
 import type { User } from './src/types';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
 
+import { GlobalNotificationToast } from './src/components/GlobalNotificationToast';
+
 export default function App() {
   const restoreSession = useAuthStore((s) => s.restoreSession);
   const user = useAuthStore((s) => s.user);
@@ -35,8 +37,6 @@ export default function App() {
           ...data,
           role: data.role || user.role,
         };
-        // Update store with new data (like photoURL)
-        // using updateUser to preserve existing session state (like isOtpVerified)
         updateUser(updatedUser);
       }
     });
@@ -48,6 +48,7 @@ export default function App() {
       <NavigationContainer documentTitle={{ formatter: () => 'Attendance App' }}>
         <StatusBar style="auto" />
         <RootNavigator />
+        <GlobalNotificationToast />
       </NavigationContainer>
     </GestureHandlerRootView>
   );

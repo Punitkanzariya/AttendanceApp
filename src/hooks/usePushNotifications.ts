@@ -38,10 +38,10 @@ export function usePushNotifications(uid?: string | null) {
 
     return () => {
       if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
+        notificationListener.current.remove();
       }
       if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
+        responseListener.current.remove();
       }
     };
   }, [uid]);
@@ -82,7 +82,7 @@ async function registerForPushNotificationsAsync(uid: string) {
     
     // Get the native FCM/APNs token for firebase-admin compatibility
     // On web, this relies on app.json notification.vapidPublicKey
-    const pushTokenData = await Notifications.getDevicePushTokenAsync();
+    const pushTokenData = await Notifications.getExpoPushTokenAsync();
     token = pushTokenData.data;
     console.log('Device Push Token (FCM/APNs):', token);
     

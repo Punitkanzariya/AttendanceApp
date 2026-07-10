@@ -79,16 +79,23 @@ export async function submitLeaveRequest(
   // Push notification to approvers (Coordinator, Manager, or Admins)
   if (approvers.length > 0) {
     for (const approverId of approvers) {
-      const notifRef = collection(db, 'notifications');
+      const newNotifRef = doc(collection(db, 'notifications', approverId, 'items'));
       try {
-        await addDoc(notifRef, {
-          userId: approverId,
+        await setDoc(newNotifRef, {
+          notifId: newNotifRef.id,
           title: "New Leave Request",
           message: `${employeeName} has applied for a leave that requires your approval.`,
           type: "info",
-          module: "leave",
-          link: "/dashboard/leave/approval-queue",
           isRead: false,
+          link: "/dashboard/leave/approval-queue",
+          
+          sentBy: employeeId,
+          senderName: employeeName,
+          receivedBy: approverId,
+          isBroadcast: false,
+          
+          module: "leave",
+          entityId: requestId,
           createdAt: serverTimestamp(),
         });
 
@@ -113,6 +120,29 @@ export async function submitLeaveRequest(
         console.error("Failed to send notification to", approverId, error);
       }
     }
+  }
+
+  // Also send a self-notification to the employee so they know it was submitted
+  const selfNotifRef = doc(collection(db, 'notifications', employeeId, 'items'));
+  try {
+    await setDoc(selfNotifRef, {
+      notifId: selfNotifRef.id,
+      title: "Leave Request Submitted",
+      message: `Your leave request has been submitted successfully and is pending approval.`,
+      type: "success",
+      isRead: false,
+      
+      sentBy: "system",
+      senderName: "System",
+      receivedBy: employeeId,
+      isBroadcast: false,
+      
+      module: "leave",
+      entityId: requestId,
+      createdAt: serverTimestamp(),
+    });
+  } catch (error) {
+    console.error("Failed to send self-notification", error);
   }
 }
 
