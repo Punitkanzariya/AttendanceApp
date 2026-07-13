@@ -199,6 +199,7 @@ export default function EmployeeLeaveScreen() {
         isVisible={isModalVisible} 
         onClose={() => setIsModalVisible(false)} 
         userLeaveBalance={userLeaveBalance}
+        existingLeaves={leaves}
       />
     </SafeAreaView>
   );

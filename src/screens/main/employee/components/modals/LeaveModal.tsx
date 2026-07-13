@@ -24,9 +24,10 @@ interface LeaveModalProps {
   isVisible: boolean;
   onClose: () => void;
   userLeaveBalance?: any;
+  existingLeaves?: any[];
 }
 
-export const LeaveModal = ({ isVisible, onClose, userLeaveBalance }: LeaveModalProps) => {
+export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeaves = [] }: LeaveModalProps) => {
   const { user } = useAuthStore();
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -36,6 +37,7 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance }: LeaveModalP
   const [halfDayPeriod, setHalfDayPeriod] = useState<HalfDayPeriod>("first_half");
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorPopup, setErrorPopup] = useState<{ visible: boolean; title: string; message: string }>({ visible: false, title: "", message: "" });
 
   useEffect(() => {
     if (isVisible) {
@@ -82,9 +84,71 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance }: LeaveModalP
       days = calculateDays(startDate, actualEndDate);
     }
 
+    const showAlert = (title: string, message: string) => {
+      setErrorPopup({ visible: true, title, message });
+    };
+
     if (days <= 0) {
-      Alert.alert("Error", "End date must be on or after start date");
+      showAlert("Invalid Dates", "The end date must be on or after the start date.");
       return;
+    }
+
+    // 1. Same-day / Overlapping Leave Validation
+    if (existingLeaves && existingLeaves.length > 0) {
+      const start = new Date(startDate);
+      const end = new Date(actualEndDate);
+      // Reset hours to compare purely by date
+      start.setHours(0, 0, 0, 0);
+      end.setHours(0, 0, 0, 0);
+
+      const hasOverlap = existingLeaves.some(l => {
+        if (l.status === 'rejected' || l.status === 'cancelled') return false;
+        
+        const lStart = new Date(l.startDate);
+        const lEnd = new Date(l.endDate);
+        lStart.setHours(0, 0, 0, 0);
+        lEnd.setHours(0, 0, 0, 0);
+
+        return start <= lEnd && end >= lStart;
+      });
+
+      if (hasOverlap) {
+        showAlert("Dates Overlapping", "You have already applied for a leave that overlaps with these dates.");
+        return;
+      }
+    }
+
+    // 2. Insufficient Leave Balance Validation
+    let remainingBalance = 0;
+    const leaveTypeObj = leaveTypes.find(t => t.leaveTypeId === leaveType);
+    const typeName = leaveTypeObj?.name || leaveType;
+
+    let categoryKey = leaveType;
+    if (leaveTypeObj?.name.toLowerCase().includes('sick')) categoryKey = 'sick';
+    if (leaveTypeObj?.name.toLowerCase().includes('casual')) categoryKey = 'casual';
+    if (leaveTypeObj?.name.toLowerCase().includes('earned')) categoryKey = 'earned';
+
+    if (userLeaveBalance && userLeaveBalance[categoryKey] !== undefined) {
+      const max = userLeaveBalance[categoryKey];
+      const taken = userLeaveBalance[`${categoryKey}Taken`] || 0;
+      remainingBalance = Math.max(0, max - taken);
+      
+      if (days > remainingBalance) {
+        showAlert("Insufficient Balance", `Insufficient balance. You only have ${remainingBalance} ${typeName} remaining, but you applied for ${days} days.`);
+        return;
+      }
+    } else if (user?.leaveBalances?.[categoryKey] !== undefined) {
+      const max = user.leaveBalances[categoryKey];
+      const taken = 0; // fallback if exact taken not tracked in legacy structure
+      remainingBalance = Math.max(0, max - taken);
+      if (days > remainingBalance) {
+        showAlert("Insufficient Balance", `Insufficient balance. You only have ${remainingBalance} ${typeName} remaining, but you applied for ${days} days.`);
+        return;
+      }
+    } else if (leaveTypeObj?.annualQuota !== undefined) {
+      const max = leaveTypeObj.annualQuota;
+      // Without balance data, this is a rough fallback. If needed, assume 0 taken.
+      // We skip strict validation here if we don't know the taken amount, to be safe.
     }
 
     setIsSubmitting(true);
@@ -279,6 +343,27 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance }: LeaveModalP
           </ScrollView>
         </View>
       </KeyboardAvoidingView>
+
+      {/* Custom Error Popup */}
+      <Modal visible={errorPopup.visible} transparent={true} animationType="fade">
+        <View style={styles.errorOverlay}>
+          <View style={styles.errorContent}>
+            <View style={styles.errorIconContainer}>
+              <Ionicons name="alert-circle" size={40} color={Colors.error} />
+            </View>
+            <Text style={styles.errorTitle}>{errorPopup.title}</Text>
+            <Text style={styles.errorMessage}>{errorPopup.message}</Text>
+            <TouchableOpacity 
+              style={styles.errorBtn} 
+              activeOpacity={0.7}
+              onPress={() => setErrorPopup(prev => ({ ...prev, visible: false }))}
+            >
+              <Text style={styles.errorBtnText}>Okay</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
     </Modal>
   );
 };
@@ -363,6 +448,62 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   submitBtnText: {
+    color: Colors.white,
+    fontWeight: FontWeight.bold,
+    fontSize: FontSize.md,
+  },
+  errorOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.6)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  errorContent: {
+    backgroundColor: Colors.white,
+    borderRadius: BorderRadius.xl,
+    padding: 24,
+    width: "100%",
+    maxWidth: 400,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  errorIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: Colors.error + "15",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  errorTitle: {
+    fontSize: FontSize.lg,
+    fontWeight: FontWeight.bold,
+    color: Colors.text.primary,
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  errorMessage: {
+    fontSize: FontSize.md,
+    color: Colors.text.secondary,
+    textAlign: "center",
+    marginBottom: 24,
+    lineHeight: 22,
+  },
+  errorBtn: {
+    backgroundColor: Colors.error,
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: BorderRadius.full,
+    width: "100%",
+    alignItems: "center",
+  },
+  errorBtnText: {
     color: Colors.white,
     fontWeight: FontWeight.bold,
     fontSize: FontSize.md,
