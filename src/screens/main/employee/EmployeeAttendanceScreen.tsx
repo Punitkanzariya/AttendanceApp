@@ -322,7 +322,7 @@ export default function EmployeeAttendanceScreen() {
 
               if (item.type === 'leave') {
                 return (
-                  <View key={`leave_${item.dateStr}`} style={[styles.card, styles.leaveCard]}>
+                  <View key={`leave_${item.dateStr}_${index}`} style={[styles.card, styles.leaveCard]}>
                     <View style={styles.cardInner}>
                       {/* Top Row */}
                       <View style={styles.cardTopRow}>

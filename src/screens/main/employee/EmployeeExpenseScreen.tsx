@@ -77,10 +77,17 @@ export default function EmployeeExpenseScreen() {
   };
 
   const getStatusColor = (status: string) => {
-    if (status.includes('pending')) return Colors.warning;
-    if (status === 'approved' || status === 'reimbursed' || status === 'verified') return Colors.success;
-    if (status === 'rejected') return Colors.error;
-    return Colors.text.tertiary;
+    if (status === "reimbursed" || status === "verified" || status === "approved") return Colors.success;
+    if (status === "rejected") return Colors.error;
+    if (status === "draft") return Colors.text.tertiary;
+    return Colors.warning; // all pending and intermediate stages
+  };
+
+  const getStatusDisplay = (status: string) => {
+    if (status === "reimbursed" || status === "verified" || status === "approved") return "Approved";
+    if (status === "rejected") return "Rejected";
+    if (status === "draft") return "Draft";
+    return "Pending";
   };
 
   const renderItem = ({ item }: { item: Expense }) => (
@@ -147,7 +154,7 @@ export default function EmployeeExpenseScreen() {
           ]}
         >
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status.includes('pending') ? 'Pending' : formatDisplayStatus(item.status)}
+            {getStatusDisplay(item.status)}
           </Text>
         </View>
 
@@ -169,7 +176,7 @@ export default function EmployeeExpenseScreen() {
       .filter((e) => e.status !== "reimbursed" && e.status !== "rejected" && e.status !== "draft")
       .reduce((sum, e) => sum + e.amount, 0);
     const totalApproved = expenses
-      .filter((e) => e.status === "reimbursed" || e.status.endsWith("_approved"))
+      .filter((e) => e.status === "reimbursed")
       .reduce((sum, e) => sum + e.amount, 0);
 
     return (
@@ -267,7 +274,7 @@ export default function EmployeeExpenseScreen() {
                     <Text style={styles.detailLabel}>Status:</Text>
                     <View style={[styles.statusBadge, { backgroundColor: getStatusColor(expenseToView.status) + '20', alignSelf: 'flex-start', marginTop: 2, borderWidth: 0 }]}>
                       <Text style={[styles.statusText, { color: getStatusColor(expenseToView.status), fontSize: 11 }]}>
-                        {expenseToView.status.includes('pending') ? 'PENDING' : formatDisplayStatus(expenseToView.status).toUpperCase()}
+                        {getStatusDisplay(expenseToView.status).toUpperCase()}
                       </Text>
                     </View>
                   </View>

@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, onSnapshot, query, where, getDocs, updateDoc } from 'firebase/firestore';
+import { collection, doc, setDoc, onSnapshot, query, where, getDocs, updateDoc, getDoc } from 'firebase/firestore';
 import { db } from './config';
 import type { Expense, Project } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -55,6 +55,30 @@ export const submitExpenseRequest = async (
 
   const now = new Date().toISOString();
 
+  const approvers: string[] = [];
+  
+  if (projectId) {
+    const projSnap = await getDoc(doc(db, 'projects', projectId));
+    if (projSnap.exists()) {
+      const projData = projSnap.data() as Project;
+      if (projData.coordinatorId && !approvers.includes(projData.coordinatorId)) {
+        approvers.push(projData.coordinatorId);
+      }
+      if (projData.managerId && !approvers.includes(projData.managerId)) {
+        approvers.push(projData.managerId);
+      }
+    }
+  }
+
+  if (approvers.length === 0) {
+    const usersRef = collection(db, 'users');
+    const adminQuery = query(usersRef, where('role', '==', 'admin'));
+    const adminSnap = await getDocs(adminQuery);
+    adminSnap.forEach(doc => {
+      approvers.push(doc.id);
+    });
+  }
+
   const expenseRef = doc(collection(db, EXPENSE_COLLECTION));
   const expenseId = expenseRef.id;
   
@@ -81,6 +105,33 @@ export const submitExpenseRequest = async (
 
   await setDoc(expenseRef, expenseData as any);
   
+  // Push notification to approvers (Coordinator, Manager, or Admins)
+  if (approvers.length > 0) {
+    for (const approverId of approvers) {
+      const newNotifRef = doc(collection(db, 'notifications', approverId, 'items'));
+      try {
+        await setDoc(newNotifRef, {
+          notifId: newNotifRef.id,
+          title: "New Expense Claim",
+          message: `An employee has submitted a new expense claim of ₹${amount} for ${category}.`,
+          type: "info",
+          isRead: false,
+          link: "/dashboard/expenses/approval-queue",
+          
+          sentBy: employeeId,
+          receivedBy: approverId,
+          isBroadcast: false,
+          
+          module: "expense",
+          entityId: expenseId,
+          createdAt: new Date(),
+        });
+      } catch (err) {
+        console.error("Failed to send expense notification to", approverId, err);
+      }
+    }
+  }
+
   // Clear draft if successful
   await clearExpenseDraft();
 

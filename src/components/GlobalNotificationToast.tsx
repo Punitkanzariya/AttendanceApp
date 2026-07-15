@@ -148,11 +148,17 @@ export function GlobalNotificationToast() {
   }
 
   if (activeBanner.type === 'success') {
+    icon = 'checkmark-circle-outline';
     iconColor = '#16A34A'; iconBg = '#F0FDF4';
   } else if (activeBanner.type === 'error') {
+    icon = 'alert-circle-outline';
     iconColor = '#EF4444'; iconBg = '#FEF2F2';
   } else if (activeBanner.type === 'warning') {
+    icon = 'warning-outline';
     iconColor = '#D97706'; iconBg = '#FFFBEB';
+  } else if (activeBanner.type === 'info') {
+    icon = 'information-circle-outline';
+    iconColor = '#3B82F6'; iconBg = '#EFF6FF';
   }
 
   return (
