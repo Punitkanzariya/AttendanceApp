@@ -19,14 +19,14 @@ export default function UserMonthCalendar({ records, selectedDate, onDateClick, 
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    if (dateObj > today) return 'future';
-
     // Local date string in format YYYY-MM-DD
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const record = records.find((r) => r.dateStr === dateStr);
 
     if (record) return 'present';
     if (leaveDateSet && leaveDateSet.has(dateStr)) return 'leave';
+
+    if (dateObj > today) return 'future';
     if (dateObj.getDay() === 0) return 'weekend'; // Sunday
 
     return 'absent';

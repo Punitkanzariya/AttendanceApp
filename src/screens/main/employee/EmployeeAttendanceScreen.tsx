@@ -126,13 +126,13 @@ export default function EmployeeAttendanceScreen() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    if (dateObj > today) return 'future';
-
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
     const record = filteredRecords.find(r => r.dateStr === dateStr);
 
     if (record) return 'present';
     if (leaveDateSet.has(dateStr)) return 'leave';
+    
+    if (dateObj > today) return 'future';
     if (dateObj.getDay() === 0) return 'weekend'; // Sunday
 
     return 'absent';
@@ -278,31 +278,8 @@ export default function EmployeeAttendanceScreen() {
               style={{ marginTop: 40 }}
             />
           ) : (() => {
-            // Build leave day cards for the selected month
-            const leaveDayCards: Array<{ dateStr: string; leave: LeaveRequest }> = [];
-            leaves.forEach(leave => {
-              const start = new Date(leave.startDate);
-              const end = new Date(leave.endDate);
-              const cur = new Date(start);
-              while (cur <= end) {
-                const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
-                if (
-                  cur.getMonth() === selectedDate.getMonth() &&
-                  cur.getFullYear() === selectedDate.getFullYear()
-                ) {
-                  // Only add if no attendance record exists for this day
-                  const hasAttendance = filteredRecords.some(r => r.dateStr === key);
-                  if (!hasAttendance) {
-                    leaveDayCards.push({ dateStr: key, leave });
-                  }
-                }
-                cur.setDate(cur.getDate() + 1);
-              }
-            });
-
             const allCards = [
               ...filteredRecords.map(r => ({ type: 'attendance' as const, dateStr: r.dateStr, record: r })),
-              ...leaveDayCards.map(l => ({ type: 'leave' as const, dateStr: l.dateStr, leave: l.leave })),
             ].sort((a, b) => b.dateStr.localeCompare(a.dateStr));
 
             if (allCards.length === 0) {
@@ -319,41 +296,6 @@ export default function EmployeeAttendanceScreen() {
               const month = String(dateObj.getMonth() + 1).padStart(2, '0');
               const year = dateObj.getFullYear();
               const dayStr = `${day}-${month}-${year}`;
-
-              if (item.type === 'leave') {
-                return (
-                  <View key={`leave_${item.dateStr}_${index}`} style={[styles.card, styles.leaveCard]}>
-                    <View style={styles.cardInner}>
-                      {/* Top Row */}
-                      <View style={styles.cardTopRow}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                          <View style={[styles.cardIndicator, { backgroundColor: '#6D28D9' }]} />
-                          <Text style={styles.dateText}>{dayStr}</Text>
-                        </View>
-                        <View style={[styles.badge, { backgroundColor: '#EDE9FE' }]}>
-                          <Text style={[styles.badgeText, { color: '#6D28D9' }]}>ON LEAVE</Text>
-                        </View>
-                      </View>
-
-                      {/* Leave Info */}
-                      <View style={styles.leaveInfoRow}>
-                        <View style={[styles.leaveIconBg]}>
-                          <Ionicons name="calendar" size={20} color="#6D28D9" />
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <Text style={styles.leaveTypeText}>{item.leave.type}</Text>
-                          <Text style={styles.leaveReasonText} numberOfLines={1}>
-                            {item.leave.reason}
-                          </Text>
-                        </View>
-                        <View style={styles.leaveDurationBadge}>
-                          <Text style={styles.leaveDurationText}>{item.leave.totalDays} Day{item.leave.totalDays > 1 ? 's' : ''}</Text>
-                        </View>
-                      </View>
-                    </View>
-                  </View>
-                );
-              }
 
               const record = item.record;
               const hrs = Number(record.workingHours || 0);

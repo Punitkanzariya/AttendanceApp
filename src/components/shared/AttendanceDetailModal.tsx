@@ -20,6 +20,7 @@ import { Colors, Spacing, BorderRadius } from '@/theme';
 import type { AttendanceRecord, AttendanceLocation, LeaveRequest } from '@/types';
 import { subscribeToUserAttendanceHistory } from '@/firebase';
 import { subscribeToUserLeaves } from '@/firebase/leaveService';
+import { useAuthStore } from '@/store/authStore';
 import UserMonthCalendar from './UserMonthCalendar';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -35,6 +36,7 @@ export default function AttendanceDetailModal({
   onClose,
   record: initialRecord,
 }: AttendanceDetailModalProps) {
+  const { user } = useAuthStore();
   const [activeRecord, setActiveRecord] = useState<AttendanceRecord | null>(null);
 
   useEffect(() => {
@@ -175,7 +177,11 @@ export default function AttendanceDetailModal({
             {/* Employee ID */}
             <View style={styles.metaRow}>
               <View style={{ flex: 1, marginRight: 10 }}>
-                <Text style={styles.empName}>Emp ID: {activeRecord.employeeId}</Text>
+                <Text style={styles.empName}>
+                  Employee: {activeRecord.employeeId === user?.uid 
+                    ? `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.displayName || activeRecord.employeeId
+                    : activeRecord.employeeId}
+                </Text>
               </View>
             </View>
 
@@ -202,13 +208,13 @@ export default function AttendanceDetailModal({
               />
             </View>
 
-            {/* Clock In Details */}
+            {/* Check In Details */}
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
                 <View style={styles.iconContainer18}>
                   <Ionicons name="enter-outline" size={18} color="#2E7D32" />
                 </View>
-                <Text style={[styles.sectionTitle, { color: '#2E7D32' }]}>Clock In Details</Text>
+                <Text style={[styles.sectionTitle, { color: '#2E7D32' }]}>Check In Details</Text>
               </View>
 
               {activeRecord.checkIn ? (
@@ -245,7 +251,7 @@ export default function AttendanceDetailModal({
                           <TouchableOpacity
                             style={styles.mapBtn}
                             activeOpacity={0.7}
-                            onPress={() => openMap(activeRecord.checkIn!.location!.latitude, activeRecord.checkIn!.location!.longitude, 'Clock In Location')}
+                            onPress={() => openMap(activeRecord.checkIn!.location!.latitude, activeRecord.checkIn!.location!.longitude, 'Check In Location')}
                           >
                             <Ionicons name="map-outline" size={14} color="#1E88E5" />
                             <Text style={styles.mapBtnTxt}>View on Map</Text>
@@ -283,7 +289,7 @@ export default function AttendanceDetailModal({
                   )}
                 </View>
               ) : (
-                <Text style={styles.emptySectionText}>No Clock In record</Text>
+                <Text style={styles.emptySectionText}>No Check In record</Text>
               )}
 
               {/* Remark */}
@@ -295,13 +301,13 @@ export default function AttendanceDetailModal({
               )}
             </View>
 
-            {/* Clock Out Details */}
+            {/* Check Out Details */}
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
                 <View style={styles.iconContainer18}>
                   <Ionicons name="exit-outline" size={18} color="#C62828" />
                 </View>
-                <Text style={[styles.sectionTitle, { color: '#C62828' }]}>Clock Out Details</Text>
+                <Text style={[styles.sectionTitle, { color: '#C62828' }]}>Check Out Details</Text>
               </View>
 
               {activeRecord.checkOut ? (
@@ -338,7 +344,7 @@ export default function AttendanceDetailModal({
                           <TouchableOpacity
                             style={styles.mapBtn}
                             activeOpacity={0.7}
-                            onPress={() => openMap(activeRecord.checkOut!.location!.latitude, activeRecord.checkOut!.location!.longitude, 'Clock Out Location')}
+                            onPress={() => openMap(activeRecord.checkOut!.location!.latitude, activeRecord.checkOut!.location!.longitude, 'Check Out Location')}
                           >
                             <Ionicons name="map-outline" size={14} color="#1E88E5" />
                             <Text style={styles.mapBtnTxt}>View on Map</Text>
@@ -377,7 +383,7 @@ export default function AttendanceDetailModal({
                 </View>
               ) : (
                 <Text style={styles.emptySectionText}>
-                  {activeRecord.checkIn ? 'Shift still in progress (Active)' : 'No Clock Out record'}
+                  {activeRecord.checkIn ? 'Shift still in progress (Active)' : 'No Check Out record'}
                 </Text>
               )}
 

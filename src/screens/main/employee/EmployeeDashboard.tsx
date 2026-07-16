@@ -9,6 +9,7 @@ import {
   Alert,
   Modal,
   ActivityIndicator,
+  Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -22,7 +23,8 @@ import LeaveBalanceBoxes from "@/components/shared/LeaveBalanceBoxes";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { EmployeeTabParamList, AttendanceRecord } from "@/types";
-import { subscribeToTodayAttendance, checkInEmployee, checkOutEmployee, subscribeToUserAttendanceHistory } from "@/firebase";
+import { db, subscribeToTodayAttendance, checkInEmployee, checkOutEmployee, subscribeToUserAttendanceHistory } from "@/firebase";
+import { doc, collection, setDoc } from 'firebase/firestore';
 import { getEmployeeActiveProject } from "@/firebase/projectService";
 import { subscribeToUserLeaves, subscribeToLeaveTypes, subscribeToUserLeaveBalance } from "@/firebase/leaveService";
 import type { LeaveRequest, LeaveType } from "@/types";
@@ -33,6 +35,16 @@ import { calculateDistanceMeters } from "@/utils/locationUtils";
 import GeoFenceMap from "@/components/shared/GeoFenceMap";
 import * as Location from "expo-location";
 import * as ImagePicker from "expo-image-picker";
+import * as Notifications from "expo-notifications";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
 
 async function getShortAddress(latitude: number, longitude: number): Promise<string> {
   let address = '';
@@ -100,6 +112,18 @@ export default function EmployeeDashboard() {
   const [refreshing, setRefreshing] = useState(false);
   const [todayRecord, setTodayRecord] = useState<AttendanceRecord | null>(null);
   const [history, setHistory] = useState<AttendanceRecord[]>([]);
+
+  useEffect(() => {
+    (async () => {
+      if (Platform.OS !== 'web') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        if (status !== 'granted') {
+          console.log('Notification permissions not granted');
+        }
+      }
+    })();
+  }, []);
+
   const [selectedMonth, setSelectedMonth] = useState(new Date());
   const [isMonthPickerVisible, setMonthPickerVisible] = useState(false);
   const [isAttendanceLoading, setIsAttendanceLoading] = useState(true);
@@ -215,7 +239,7 @@ export default function EmployeeDashboard() {
       ]);
 
       if (locPerm.status !== 'granted') {
-        Alert.alert('Permission Required', 'Location permission is required to clock in/out.');
+        Alert.alert('Permission Required', 'Location permission is required to check in/out.');
         setIsClocking(false);
         return;
       }
@@ -331,7 +355,7 @@ export default function EmployeeDashboard() {
       });
 
       if (cameraResult.canceled || !cameraResult.assets || cameraResult.assets.length === 0) {
-        Alert.alert('Action Canceled', 'Selfie verification is required to clock in/out.');
+        Alert.alert('Action Canceled', 'Selfie verification is required to check in/out.');
         setIsClocking(false);
         return;
       }
@@ -341,17 +365,49 @@ export default function EmployeeDashboard() {
       // 8. Execute Check In/Out
       if (!todayRecord) {
         const shiftStart = activeProject?.workingHours?.start;
+        const shiftEnd = activeProject?.workingHours?.end;
+        
         await checkInEmployee(
-          user.uid, attendanceLoc, '', selfieUri, shiftStart
+          user.uid, attendanceLoc, '', selfieUri, user.email, shiftStart
         );
-        setSuccessMessage('Successfully Clocked In');
+        setSuccessMessage('Successfully Checked In');
         setSuccessModalVisible(true);
+        
+        // Schedule checkout reminder
+        if (shiftEnd && Platform.OS !== 'web') {
+          const [endH, endM] = shiftEnd.split(':').map(Number);
+          const triggerDate = new Date();
+          triggerDate.setHours(endH + 1, endM, 0, 0); // 1 hour after shift ends
+          
+          if (triggerDate > new Date()) {
+            const notifId = await Notifications.scheduleNotificationAsync({
+              content: {
+                title: 'Check Out Reminder ⏰',
+                body: 'Your shift ended an hour ago. Do not forget to Check Out for today!',
+                sound: true,
+              },
+              trigger: { date: triggerDate },
+            });
+            await AsyncStorage.setItem('@checkout_reminder_id', notifId);
+          }
+        }
       } else if (!todayRecord.checkOut) {
         await checkOutEmployee(
           user!.uid, attendanceLoc, '', selfieUri
         );
-        setSuccessMessage('Successfully Clocked Out');
+        setSuccessMessage('Successfully Checked Out');
         setSuccessModalVisible(true);
+        
+        // Cancel scheduled reminder if it exists
+        try {
+          const notifId = await AsyncStorage.getItem('@checkout_reminder_id');
+          if (notifId) {
+            await Notifications.cancelScheduledNotificationAsync(notifId);
+            await AsyncStorage.removeItem('@checkout_reminder_id');
+          }
+        } catch (e) {
+          console.log('Failed to cancel reminder', e);
+        }
       }
     } catch (err: any) {
       setIsClocking(false);
@@ -458,13 +514,13 @@ export default function EmployeeDashboard() {
               <View style={styles.summaryCard}>
                 <View style={styles.summaryTopRow}>
                   <View style={styles.summaryCol}>
-                    <Text style={styles.summaryLabel}>Clock In</Text>
+                    <Text style={styles.summaryLabel}>Check In</Text>
                     <Text style={styles.summaryValue}>
                       {formatTime(todayRecord?.checkIn?.timestamp)}
                     </Text>
                   </View>
                   <View style={styles.summaryCol}>
-                    <Text style={styles.summaryLabel}>Clock Out</Text>
+                    <Text style={styles.summaryLabel}>Check Out</Text>
                     <Text style={styles.summaryValue}>
                       {formatTime(todayRecord?.checkOut?.timestamp)}
                     </Text>
@@ -482,10 +538,16 @@ export default function EmployeeDashboard() {
                   }}
                 />
                 <View style={{ alignItems: "center", paddingVertical: 10 }}>
-                  {todayLeave && !todayRecord ? (
+                  {todayLeave && todayLeave.durationType !== 'half_day' && !todayRecord ? (
                     <Text style={{ fontSize: 16, fontWeight: '600', color: '#6D28D9' }}>You are on leave today</Text>
                   ) : (
-                    <TouchableOpacity
+                    <View style={{ width: '100%', alignItems: 'center' }}>
+                      {todayLeave && todayLeave.durationType === 'half_day' && (
+                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#6D28D9', marginBottom: 12 }}>
+                          On Half Day Leave ({todayLeave.halfDayPeriod === 'first_half' ? '1st Half' : '2nd Half'})
+                        </Text>
+                      )}
+                      <TouchableOpacity
                       style={[
                         styles.clockBtn,
                         { paddingHorizontal: 40 },
@@ -510,13 +572,14 @@ export default function EmployeeDashboard() {
                       ) : (
                         <Text style={styles.clockBtnTxt}>
                           {!todayRecord
-                            ? "Clock In"
+                            ? "Check In"
                             : !todayRecord.checkOut
-                              ? "Clock Out"
+                              ? "Check Out"
                               : "Completed"}
                         </Text>
                       )}
-                    </TouchableOpacity>
+                      </TouchableOpacity>
+                    </View>
                   )}
                 </View>
               </View>
@@ -665,7 +728,7 @@ export default function EmployeeDashboard() {
                 {geofenceViolationData?.radius > 1000 
                   ? `${(geofenceViolationData.radius / 1000).toFixed(1)} km` 
                   : `${geofenceViolationData?.radius} meters`}
-              </Text> to {(!todayRecord || todayRecord.checkOut) ? 'Clock In' : 'Clock Out'}.
+              </Text> to {(!todayRecord || todayRecord.checkOut) ? 'Check In' : 'Check Out'}.
             </Text>
 
             {geofenceViolationData && (
