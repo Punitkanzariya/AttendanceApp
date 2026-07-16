@@ -161,6 +161,14 @@ export function GlobalNotificationToast() {
     iconColor = '#3B82F6'; iconBg = '#EFF6FF';
   }
 
+  if (activeBanner.module?.toLowerCase() === 'birthday') {
+    icon = 'gift-outline';
+    iconColor = '#F59E0B'; iconBg = '#FEF3C7';
+  } else if (activeBanner.module?.toLowerCase() === 'anniversary') {
+    icon = 'ribbon-outline';
+    iconColor = '#8B5CF6'; iconBg = '#EDE9FE';
+  }
+
   return (
     <Animated.View style={[styles.container, { transform: [{ translateY }], opacity }]}>
       <TouchableOpacity 
@@ -172,8 +180,8 @@ export function GlobalNotificationToast() {
           <Ionicons name={icon as any} size={24} color={iconColor} />
         </View>
         <View style={styles.textContainer}>
-          <Text style={styles.title} numberOfLines={1}>{activeBanner.title}</Text>
-          <Text style={styles.message} numberOfLines={2}>{activeBanner.message}</Text>
+          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">{activeBanner.title}</Text>
+          <Text style={styles.message} numberOfLines={2} ellipsizeMode="tail">{activeBanner.message}</Text>
         </View>
         <TouchableOpacity style={styles.closeBtn} onPress={hideBanner} hitSlop={{top:10, bottom:10, left:10, right:10}}>
           <Ionicons name="close" size={20} color={Colors.text.tertiary} />

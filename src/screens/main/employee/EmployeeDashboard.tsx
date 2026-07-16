@@ -17,6 +17,7 @@ import { useAuthStore } from "@/store/authStore";
 import { Image } from "react-native";
 import GradientHeader from "@/components/shared/GradientHeader";
 import AnimatedSuccessModal from "@/components/shared/AnimatedSuccessModal";
+import { BirthdayModal } from "@/components/shared/BirthdayModal";
 import LeaveBalanceBoxes from "@/components/shared/LeaveBalanceBoxes";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
@@ -378,6 +379,7 @@ export default function EmployeeDashboard() {
         message={successMessage} 
         onClose={() => setSuccessModalVisible(false)} 
       />
+      <BirthdayModal user={user} />
       <View style={styles.root}>
         <GradientHeader />
         <ScrollView

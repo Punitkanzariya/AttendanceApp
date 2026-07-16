@@ -159,7 +159,24 @@ export default function NotificationScreen({ navigation }: any) {
       iconBg = '#EFF6FF';
     }
 
-    return { icon, iconColor, iconBg };
+    let cardBg = '#FFFFFF';
+    let cardBorder = '#F1F5F9';
+
+    if (module?.toLowerCase() === 'birthday') {
+      icon = 'gift-outline';
+      iconColor = '#F59E0B'; // Amber
+      iconBg = '#FEF3C7';
+      cardBg = '#FFFBEB';
+      cardBorder = '#FDE68A';
+    } else if (module?.toLowerCase() === 'anniversary') {
+      icon = 'ribbon-outline';
+      iconColor = '#8B5CF6';
+      iconBg = '#EDE9FE';
+      cardBg = '#F5F3FF';
+      cardBorder = '#DDD6FE';
+    }
+
+    return { icon, iconColor, iconBg, cardBg, cardBorder };
   };
 
   // Group notifications by date
@@ -228,12 +245,16 @@ export default function NotificationScreen({ navigation }: any) {
                 <Text style={styles.sectionTitle}>{groupLabel}</Text>
                 {items.map(item => {
                   const timeStr = new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                  const { icon, iconColor, iconBg } = getIconConfig(item.type, item.module);
+                  const { icon, iconColor, iconBg, cardBg, cardBorder } = getIconConfig(item.type, item.module);
                   
                   return (
                     <View 
                       key={item.notifId} 
-                      style={[styles.notificationCard, !item.isRead && styles.unreadCard]}
+                      style={[
+                        styles.notificationCard, 
+                        !item.isRead && styles.unreadCard,
+                        { backgroundColor: cardBg, borderColor: cardBorder }
+                      ]}
                     >
                       <TouchableOpacity 
                         style={styles.cardContent}
