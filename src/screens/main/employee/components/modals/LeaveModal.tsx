@@ -16,6 +16,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from "@/theme";
 import { useAuthStore } from "@/store/authStore";
 import { submitLeaveRequest, subscribeToLeaveTypes } from "@/firebase/leaveService";
+import { logAuditAction } from "@/firebase/auditService";
 import { DateInput } from "../DateInput";
 import { calculateDays } from "../../utils/dateUtils";
 import type { LeaveDurationType, HalfDayPeriod, LeaveType } from "@/types";
@@ -165,6 +166,18 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
         durationType,
         durationType === "half_day" ? halfDayPeriod : undefined
       );
+      
+      await logAuditAction({
+        userId: user!.uid,
+        userEmail: user!.email || '',
+        userName: user!.displayName || 'Unknown',
+        userRole: user!.role || 'employee',
+        module: 'leave',
+        action: 'SUBMIT',
+        description: `Applied for ${days} days of ${leaveType} leave`,
+        severity: 'low',
+      });
+      
       onClose();
       setStartDate("");
       setEndDate("");

@@ -23,6 +23,7 @@ import {
   saveExpenseDraft,
   getExpenseDraft,
 } from "@/firebase/expenseService";
+import { logAuditAction } from "@/firebase/auditService";
 import type { Expense } from "@/types";
 import { DateInput } from "../DateInput";
 
@@ -132,6 +133,17 @@ export const ExpenseModal = ({
           attachment?.uri || null,
           existingAttachmentUrl,
         );
+        
+        await logAuditAction({
+          userId: user!.uid,
+          userEmail: user!.email || '',
+          userName: user!.displayName || 'Unknown',
+          userRole: user!.role || 'employee',
+          module: 'expenses',
+          action: 'UPDATE',
+          description: `Updated expense for ₹${amount} in category ${category}`,
+          severity: 'medium',
+        });
       } else {
         await submitExpenseRequest(
           user!.uid,
@@ -142,6 +154,17 @@ export const ExpenseModal = ({
           description,
           attachment?.uri || null,
         );
+        
+        await logAuditAction({
+          userId: user!.uid,
+          userEmail: user!.email || '',
+          userName: user!.displayName || 'Unknown',
+          userRole: user!.role || 'employee',
+          module: 'expenses',
+          action: 'SUBMIT',
+          description: `Submitted new expense for ₹${amount} in category ${category}`,
+          severity: 'medium',
+        });
       }
 
       handleClose();

@@ -17,3 +17,4 @@ export * from './adminService';
 export * from './attendanceService';
 export * from './leaveService';
 export * from './expenseService';
+export * from './auditService';

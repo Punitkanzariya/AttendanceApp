@@ -23,7 +23,8 @@ import LeaveBalanceBoxes from "@/components/shared/LeaveBalanceBoxes";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { EmployeeTabParamList, AttendanceRecord } from "@/types";
-import { db, subscribeToTodayAttendance, checkInEmployee, checkOutEmployee, subscribeToUserAttendanceHistory } from "@/firebase";
+import { db, subscribeToTodayAttendance, checkInEmployee, checkOutEmployee, subscribeToUserAttendanceHistory, logFailedGeofenceAttempt } from "@/firebase";
+import { logAuditAction } from "@/firebase/auditService";
 import { doc, collection, setDoc } from 'firebase/firestore';
 import { getEmployeeActiveProject } from "@/firebase/projectService";
 import { subscribeToUserLeaves, subscribeToLeaveTypes, subscribeToUserLeaveBalance } from "@/firebase/leaveService";
@@ -264,7 +265,7 @@ export default function EmployeeDashboard() {
         return true;
       };
 
-      const showViolation = (userLat: number, userLng: number, distance: number, radius: number) => {
+      const showViolation = async (userLat: number, userLng: number, distance: number, radius: number) => {
         setGeofenceViolationData({
           type: 'GEO_FENCE_VIOLATION',
           distance: Math.round(distance),
@@ -274,6 +275,29 @@ export default function EmployeeDashboard() {
           siteLng: activeProject!.location!.longitude,
         });
         setIsClocking(false);
+
+        const attemptAction = !todayRecord ? 'Check In' : (!todayRecord.checkOut ? 'Check Out' : 'Unknown');
+        
+        await logAuditAction({
+          userId: user.uid,
+          userEmail: user.email || '',
+          userName: user.displayName || 'Unknown',
+          userRole: user.role || 'employee',
+          module: 'attendance',
+          action: 'GEOFENCE_FAILED',
+          description: `Geofence violation during ${attemptAction}. Distance: ${Math.round(distance)}m`,
+          severity: 'medium',
+        });
+
+        if (user.projectId) {
+          await logFailedGeofenceAttempt(
+            user.uid, 
+            user.displayName || user.email || 'Unknown', 
+            user.projectId, 
+            attemptAction,
+            distance
+          );
+        }
       };
 
       // 4. Determine location
@@ -370,6 +394,18 @@ export default function EmployeeDashboard() {
         await checkInEmployee(
           user.uid, attendanceLoc, '', selfieUri, user.email, shiftStart
         );
+
+        await logAuditAction({
+          userId: user.uid,
+          userEmail: user.email || '',
+          userName: user.displayName || 'Unknown',
+          userRole: user.role || 'employee',
+          module: 'attendance',
+          action: 'CHECK_IN',
+          description: `Clocked In at ${attendanceLoc?.latitude}, ${attendanceLoc?.longitude}`,
+          severity: 'low',
+        });
+
         setSuccessMessage('Successfully Checked In');
         setSuccessModalVisible(true);
         
@@ -395,6 +431,21 @@ export default function EmployeeDashboard() {
         await checkOutEmployee(
           user!.uid, attendanceLoc, '', selfieUri
         );
+
+        await logAuditAction({
+          userId: user!.uid,
+          userEmail: user!.email || '',
+          userName: user!.displayName || 'Unknown',
+          userRole: user!.role || 'employee',
+          module: 'attendance',
+          action: 'CHECK_OUT',
+          description: `Clocked Out at ${attendanceLoc?.latitude}, ${attendanceLoc?.longitude}`,
+          metadata: {
+            changedFields: ['checkOut']
+          },
+          severity: 'low',
+        });
+
         setSuccessMessage('Successfully Checked Out');
         setSuccessModalVisible(true);
         

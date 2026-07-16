@@ -1,4 +1,4 @@
-import { collection, collectionGroup, doc, setDoc, updateDoc, query, where, onSnapshot, getDoc } from 'firebase/firestore';
+import { collection, collectionGroup, doc, setDoc, updateDoc, query, where, onSnapshot, getDoc, getDocs, serverTimestamp } from 'firebase/firestore';
 import { db, storage } from '@/firebase/config';
 import type { AttendanceRecord, AttendanceLocation } from '@/types';
 import { Platform } from 'react-native';
@@ -206,5 +206,60 @@ export function subscribeToAllAttendance(
   }, (error) => {
     console.error('Error subscribing to all attendance:', error);
   });
+}
+
+export async function logFailedGeofenceAttempt(
+  employeeId: string, 
+  employeeName: string, 
+  projectId: string, 
+  action: string,
+  distance: number
+) {
+  const approvers: string[] = [];
+  
+  if (projectId) {
+    const projSnap = await getDoc(doc(db, 'projects', projectId));
+    if (projSnap.exists()) {
+      const projData = projSnap.data();
+      if (projData.coordinatorId && !approvers.includes(projData.coordinatorId)) {
+        approvers.push(projData.coordinatorId);
+      }
+      if (projData.managerId && !approvers.includes(projData.managerId)) {
+        approvers.push(projData.managerId);
+      }
+    }
+  }
+
+  const usersRef = collection(db, 'users');
+  const adminQuery = query(usersRef, where('role', '==', 'admin'));
+  const adminSnap = await getDocs(adminQuery);
+  adminSnap.forEach((docItem) => {
+    if (!approvers.includes(docItem.id)) approvers.push(docItem.id);
+  });
+
+  const message = `${employeeName} attempted to ${action} but was blocked by geofencing (${Math.round(distance)}m away).`;
+
+  for (const approverId of approvers) {
+    const newNotifRef = doc(collection(db, 'notifications', approverId, 'items'));
+    try {
+      await setDoc(newNotifRef, {
+        notifId: newNotifRef.id,
+        title: `Geofence Violation Attempt`,
+        message,
+        type: "warning",
+        isRead: false,
+        link: "/dashboard/attendance",
+        sentBy: employeeId,
+        senderName: employeeName,
+        receivedBy: approverId,
+        isBroadcast: false,
+        module: "attendance",
+        entityId: `${employeeId}_${getLocalDateString()}`,
+        createdAt: serverTimestamp(),
+      });
+    } catch (error) {
+      console.error("Failed to send geofence notification to", approverId, error);
+    }
+  }
 }
 

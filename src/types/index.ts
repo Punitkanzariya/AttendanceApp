@@ -210,6 +210,7 @@ export interface AttendanceDetails {
   remark?: string;
   deviceInfo?: string;
   selfieUrl?: string | null;
+  isOutOfGeofence?: boolean;
 }
 
 export interface AttendanceRecord {
@@ -314,3 +315,57 @@ export interface SystemSettings {
   notificationsEnabled: boolean;
 }
 
+export type AuditAction =
+  | "LOGIN"
+  | "LOGOUT"
+  | "LOGIN_FAILED"
+  | "CREATE"
+  | "UPDATE"
+  | "DELETE"
+  | "APPROVE"
+  | "REJECT"
+  | "SUBMIT"
+  | "EXPORT"
+  | "VIEW"
+  | "BULK_DELETE"
+  | "CHECK_IN"
+  | "CHECK_OUT"
+  | "GEOFENCE_FAILED";
+
+export type AuditSeverity = "low" | "medium" | "high" | "critical";
+
+export interface AuditLog {
+  id: string;
+  // Who
+  userId: string;
+  userEmail: string;
+  userName: string;
+  userRole: string;
+  // What
+  module: "attendance" | "leave" | "expenses" | "users" | "roles" | "projects" | "settings" | "system" | "auth";
+  action: AuditAction;
+  description: string;
+  // Diff (before/after)
+  metadata?: {
+    before?: Record<string, any>;
+    after?: Record<string, any>;
+    changedFields?: string[];
+  };
+  // Device
+  deviceInfo: {
+    userAgent: string;
+    platform: string;
+    browser: string;
+    os: string;
+    isMobile: boolean;
+  };
+  // Risk
+  severity: AuditSeverity;
+  // Entity
+  entityId?: string;
+  entityName?: string;
+  // Session
+  sessionId?: string;
+  // When
+  timestamp: string;
+}

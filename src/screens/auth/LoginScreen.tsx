@@ -17,6 +17,7 @@ import { z } from 'zod';
 import type { AuthStackParamList } from '@/types';
 import { useAuthStore } from '@/store/authStore';
 import { loginWithEmail, checkAccountLockout, resolveUsernameToEmail } from '@/firebase';
+import { logAuditAction } from '@/firebase/auditService';
 
 type Nav = NativeStackNavigationProp<AuthStackParamList, 'Login'>;
 
@@ -107,6 +108,17 @@ export default function LoginScreen() {
         password: data.password
       }));
       await persistSession(result.user);
+
+      await logAuditAction({
+        userId: result.user.uid,
+        userEmail: result.user.email || '',
+        userName: result.user.displayName || 'Unknown',
+        userRole: (result.user as any).role || 'employee',
+        module: 'auth',
+        action: 'LOGIN',
+        description: 'User successfully logged in with password',
+        severity: 'low',
+      });
     } catch (err: any) {
       if (err.message?.startsWith('ACCOUNT_LOCKED')) {
         const mins = err.message.split(':')[1] || '15';
@@ -158,6 +170,17 @@ export default function LoginScreen() {
         try {
           const loginResult = await loginWithEmail(loginIdentifier, creds.password);
           await persistSession(loginResult.user);
+          
+          await logAuditAction({
+            userId: loginResult.user.uid,
+            userEmail: loginResult.user.email || '',
+            userName: loginResult.user.displayName || 'Unknown',
+            userRole: (loginResult.user as any).role || 'employee',
+            module: 'auth',
+            action: 'LOGIN',
+            description: 'User successfully logged in with biometrics',
+            severity: 'low',
+          });
         } catch (err: any) {
           if (err.message?.startsWith('ACCOUNT_LOCKED')) {
             const mins = err.message.split(':')[1] || '15';
