@@ -23,7 +23,7 @@ import LeaveBalanceBoxes from "@/components/shared/LeaveBalanceBoxes";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { EmployeeTabParamList, AttendanceRecord } from "@/types";
-import { db, subscribeToTodayAttendance, checkInEmployee, checkOutEmployee, subscribeToUserAttendanceHistory, logFailedGeofenceAttempt } from "@/firebase";
+import { db, subscribeToTodayAttendance, checkInEmployee, checkOutEmployee, subscribeToUserAttendanceHistory, logFailedGeofenceAttempt, markMissedCheckouts } from "@/firebase";
 import { logAuditAction } from "@/firebase/auditService";
 import { doc, collection, setDoc } from 'firebase/firestore';
 import { getEmployeeActiveProject } from "@/firebase/projectService";
@@ -44,6 +44,8 @@ Notifications.setNotificationHandler({
     shouldShowAlert: true,
     shouldPlaySound: true,
     shouldSetBadge: false,
+    shouldShowBanner: true,
+    shouldShowList: true,
   }),
 });
 
@@ -144,24 +146,40 @@ export default function EmployeeDashboard() {
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [userLeaveBalance, setUserLeaveBalance] = useState<any>(null);
   const [isLeavesLoading, setIsLeavesLoading] = useState(true);
+  
+  const [activeProject, setActiveProject] = useState<any>(null);
+
+  useEffect(() => {
+    if (user?.uid && user?.projectId) {
+      getEmployeeActiveProject(user.uid, user.projectId).then(proj => {
+        if (proj) {
+          setActiveProject(proj);
+        }
+      });
+    }
+  }, [user]);
 
   // Subscribe to today's attendance and history
   useEffect(() => {
     if (!user?.uid) return;
+    const shiftStart = activeProject?.workingHours?.start;
+    const shiftEnd = activeProject?.workingHours?.end;
+
     const unsubToday = subscribeToTodayAttendance(user.uid, user.role, (record) => {
       setTodayRecord(record);
       setIsAttendanceLoading(false);
-    });
+    }, shiftStart, shiftEnd);
     
     const unsubHistory = subscribeToUserAttendanceHistory(user.uid, (records) => {
       setHistory(records);
+      markMissedCheckouts(user.uid, records, shiftStart, shiftEnd);
     });
 
     return () => {
       unsubToday();
       unsubHistory();
     };
-  }, [user?.uid]);
+  }, [user?.uid, activeProject?.workingHours?.start, activeProject?.workingHours?.end]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -250,17 +268,24 @@ export default function EmployeeDashboard() {
         return;
       }
 
-      // 2. Fetch cached location + activeProject IN PARALLEL
-      const [lastKnownLoc, activeProject] = await Promise.all([
-        Location.getLastKnownPositionAsync(),
-        getEmployeeActiveProject(user.uid, user.projectId),
-      ]);
+      // 2. Fetch cached location + fetch project if not already available
+      let currentActiveProject = activeProject;
+      const promises: any[] = [Location.getLastKnownPositionAsync()];
+      if (!currentActiveProject) {
+        promises.push(getEmployeeActiveProject(user.uid, user.projectId));
+      }
+      const results = await Promise.all(promises);
+      const lastKnownLoc = results[0];
+      if (!currentActiveProject) {
+        currentActiveProject = results[1];
+        setActiveProject(currentActiveProject);
+      }
 
       // 3. Geofence validation helper (pure math, instant)
       const validateGeofence = (lat: number, lng: number) => {
-        if (!activeProject?.isGeofenceEnabled || !activeProject.location?.latitude || !activeProject.location?.longitude) return true;
-        const distance = calculateDistanceMeters(lat, lng, activeProject.location.latitude, activeProject.location.longitude);
-        const radius = activeProject.geofenceRadius || 200;
+        if (!currentActiveProject?.isGeofenceEnabled || !currentActiveProject.location?.latitude || !currentActiveProject.location?.longitude) return true;
+        const distance = calculateDistanceMeters(lat, lng, currentActiveProject.location.latitude, currentActiveProject.location.longitude);
+        const radius = currentActiveProject.geofenceRadius || 200;
         if (distance > radius) return { distance, radius, failed: true };
         return true;
       };
@@ -271,8 +296,8 @@ export default function EmployeeDashboard() {
           distance: Math.round(distance),
           radius,
           userLat, userLng,
-          siteLat: activeProject!.location!.latitude,
-          siteLng: activeProject!.location!.longitude,
+          siteLat: currentActiveProject!.location!.latitude,
+          siteLng: currentActiveProject!.location!.longitude,
         });
         setIsClocking(false);
 
@@ -388,11 +413,10 @@ export default function EmployeeDashboard() {
 
       // 8. Execute Check In/Out
       if (!todayRecord) {
-        const shiftStart = activeProject?.workingHours?.start;
-        const shiftEnd = activeProject?.workingHours?.end;
+        const { start: shiftStart, end: shiftEnd, name: shiftName } = getActiveShiftDetails();
         
         await checkInEmployee(
-          user.uid, attendanceLoc, '', selfieUri, user.email, shiftStart
+          user.uid, attendanceLoc, '', selfieUri, user.email, shiftStart, shiftEnd, shiftName
         );
 
         await logAuditAction({
@@ -422,7 +446,7 @@ export default function EmployeeDashboard() {
                 body: 'Your shift ended an hour ago. Do not forget to Check Out for today!',
                 sound: true,
               },
-              trigger: { date: triggerDate },
+              trigger: { type: 'date', date: triggerDate } as any,
             });
             await AsyncStorage.setItem('@checkout_reminder_id', notifId);
           }
@@ -469,12 +493,81 @@ export default function EmployeeDashboard() {
     }
   };
 
+  const getActiveShiftDetails = () => {
+    let start = activeProject?.workingHours?.start;
+    let end = activeProject?.workingHours?.end;
+    let name = "General Shift";
+
+    if (user?.currentShiftId && activeProject?.availableShifts) {
+      const matched = activeProject.availableShifts.find(s => s.id === user.currentShiftId);
+      if (matched) {
+        start = matched.startTime;
+        end = matched.endTime;
+        name = matched.name;
+      }
+    }
+
+    if (start && end && name === "General Shift") {
+      const [startH] = start.split(':').map(Number);
+      const [endH] = end.split(':').map(Number);
+      name = startH > endH ? "Night Shift" : "Day Shift";
+    }
+
+    return { start, end, name };
+  };
+
   const formatTime = (isoString?: string) => {
     if (!isoString) return "--";
     return new Date(isoString).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
-    });
+      hour12: true,
+    }).toUpperCase();
+  };
+
+  const formatHHMMtoAMPM = (timeStr: string) => {
+    const [h, m] = timeStr.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const displayH = h % 12 || 12;
+    return `${String(displayH).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+  };
+
+  const getExpectedCheckOut = () => {
+    const { start: startStr, end: endStr } = getActiveShiftDetails();
+    if (!startStr || !endStr) return null;
+    if (!todayRecord?.checkIn?.timestamp) return formatHHMMtoAMPM(endStr);
+
+    const [startH, startM] = startStr.split(':').map(Number);
+    const [endH, endM] = endStr.split(':').map(Number);
+    const isNightShift = startH > endH;
+
+    let shiftStartMins = startH * 60 + startM;
+    let shiftEndMins = endH * 60 + endM;
+    if (isNightShift) shiftEndMins += 24 * 60;
+    
+    const durationMins = shiftEndMins - shiftStartMins;
+
+    const checkInDate = new Date(todayRecord.checkIn.timestamp);
+    let checkInMins = checkInDate.getHours() * 60 + checkInDate.getMinutes();
+
+    if (isNightShift && checkInMins <= (endH * 60 + endM)) {
+      checkInMins += 24 * 60;
+    }
+
+    if (checkInMins > shiftStartMins) {
+      let outMins = checkInMins + durationMins;
+      
+      if (isNightShift) {
+        if (outMins >= 2160) outMins = 2159; // Cap at 11:59 AM next day
+      } else {
+        if (outMins >= 1440) outMins = 1439; // Cap at 11:59 PM today
+      }
+      
+      const outH = Math.floor(outMins / 60) % 24;
+      const outM = outMins % 60;
+      return formatHHMMtoAMPM(`${outH}:${outM}`);
+    }
+    return formatHHMMtoAMPM(endStr);
   };
 
   const workingHoursText = useLiveWorkingHours(todayRecord);
@@ -561,20 +654,57 @@ export default function EmployeeDashboard() {
             const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
             const todayLeave = leaves.find(l => l.status === 'approved' && l.startDate <= todayStr && l.endDate >= todayStr);
 
+            const { start: shiftStart, end: shiftEnd, name } = getActiveShiftDetails();
+            let shiftName = name;
+            let cutOffTime = "12:00 AM (Midnight)";
+            
+            if (shiftStart && shiftEnd) {
+              const startH = Number(shiftStart.split(':')[0]);
+              const endH = Number(shiftEnd.split(':')[0]);
+              if (startH > endH) cutOffTime = "12:00 PM (Noon)";
+            }
+
+            if (todayRecord?.shift?.name) shiftName = todayRecord.shift.name;
+            if (todayRecord?.shift?.startTime) {
+               const sH = Number(todayRecord.shift.startTime.split(':')[0]);
+               const eH = Number(todayRecord.shift.endTime.split(':')[0]);
+               if (sH > eH) cutOffTime = "12:00 PM (Noon)";
+               else cutOffTime = "12:00 AM (Midnight)";
+            }
+
+            const isNight = shiftName.includes("Night");
+            const shiftColor = isNight ? "#4F46E5" : Colors.primary;
+
             return (
               <View style={styles.summaryCard}>
+                <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: Colors.border, marginBottom: 12}}>
+                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
+                    <Ionicons name={isNight ? "moon" : "sunny"} size={16} color={shiftColor} style={{marginRight: 6}} />
+                    <Text style={{fontSize: 14, color: shiftColor, fontWeight: 'bold'}}>{shiftName}</Text>
+                  </View>
+                </View>
                 <View style={styles.summaryTopRow}>
                   <View style={styles.summaryCol}>
                     <Text style={styles.summaryLabel}>Check In</Text>
                     <Text style={styles.summaryValue}>
-                      {formatTime(todayRecord?.checkIn?.timestamp)}
+                      {todayRecord?.checkIn?.timestamp ? formatTime(todayRecord.checkIn.timestamp) : '--'}
                     </Text>
+                    {todayRecord?.status === 'late' && (
+                      <Text style={{ fontSize: 12, color: Colors.error, marginTop: 2, fontWeight: 'bold' }}>
+                        (Late)
+                      </Text>
+                    )}
                   </View>
                   <View style={styles.summaryCol}>
                     <Text style={styles.summaryLabel}>Check Out</Text>
                     <Text style={styles.summaryValue}>
-                      {formatTime(todayRecord?.checkOut?.timestamp)}
+                      {todayRecord?.checkOut?.timestamp ? formatTime(todayRecord.checkOut.timestamp) : '--'}
                     </Text>
+                    {getExpectedCheckOut() && todayRecord?.checkIn?.timestamp && !todayRecord?.checkOut?.timestamp && (
+                      <Text style={{ fontSize: 12, color: Colors.text.secondary, marginTop: 2 }}>
+                        (Exp: {getExpectedCheckOut()})
+                      </Text>
+                    )}
                   </View>
                   <View style={styles.summaryCol}>
                     <Text style={styles.summaryLabel}>Working Hours</Text>

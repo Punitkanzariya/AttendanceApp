@@ -75,6 +75,7 @@ export interface User {
   dateOfBirth?: string;
   status?: "active" | "suspended" | "terminated";
   profilePicture?: string | null;
+  currentShiftId?: string;
   panCard?: string;
   panCardPhotoUrl?: string | null;
   aadharCard?: string;
@@ -222,6 +223,12 @@ export interface AttendanceRecord {
   status: 'present' | 'absent' | 'late';
   workingHours: number; // in hours, computed on check-out
   updatedAt: string; // ISO date
+  missedCheckout?: boolean;
+  shift?: {
+    name: string;
+    startTime: string;
+    endTime: string;
+  };
 }
 
 // ─── Project Management ────────────────────────────────────────────────────────
@@ -259,6 +266,12 @@ export interface Project {
     start: string; // e.g. "09:00"
     end: string;   // e.g. "18:00"
   };
+  availableShifts?: {
+    id: string;
+    name: string;
+    startTime: string;
+    endTime: string;
+  }[];
   managerId?: string;
   coordinatorId?: string;
   employeeIds?: string[];

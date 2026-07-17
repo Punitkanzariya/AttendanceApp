@@ -17,7 +17,7 @@ export function GlobalNotificationToast() {
   const opacity = useRef(new Animated.Value(0)).current;
   
   const prevIdsRef = useRef<Set<string> | null>(null);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!user?.uid) {

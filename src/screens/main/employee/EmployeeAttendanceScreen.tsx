@@ -18,7 +18,10 @@ import {
   subscribeToTodayAttendance,
   subscribeToUserAttendanceHistory,
   getLocalDateString,
+  markMissedCheckouts,
+  getLogicalShiftDate
 } from "@/firebase";
+import { getEmployeeActiveProject } from "@/firebase/projectService";
 import type { AttendanceRecord, LeaveRequest } from "@/types";
 import AttendanceDetailModal from "@/components/shared/AttendanceDetailModal";
 import MonthPickerModal from "@/components/shared/MonthPickerModal";
@@ -39,21 +42,44 @@ export default function EmployeeAttendanceScreen() {
   const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
   const [isDetailVisible, setDetailVisible] = useState(false);
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
+  const [activeProject, setActiveProject] = useState<any>(null);
+
+  useEffect(() => {
+    if (user?.uid && user?.projectId) {
+      getEmployeeActiveProject(user.uid, user.projectId).then(proj => {
+        if (proj) {
+          setActiveProject(proj);
+        }
+      });
+    }
+  }, [user]);
 
   useEffect(() => {
     if (!user?.uid) return;
+    let shiftStart = activeProject?.workingHours?.start;
+    let shiftEnd = activeProject?.workingHours?.end;
+
+    if (user?.currentShiftId && activeProject?.availableShifts) {
+      const matched = activeProject.availableShifts.find(s => s.id === user.currentShiftId);
+      if (matched) {
+        shiftStart = matched.startTime;
+        shiftEnd = matched.endTime;
+      }
+    }
 
     const unsubToday = subscribeToTodayAttendance(user.uid, user.role, (record) => {
       setTodayRecord(record);
       setLoadingRecord(false);
-    });
+    }, shiftStart, shiftEnd);
 
     const unsubHistory = subscribeToUserAttendanceHistory(
       user.uid,
       (records: AttendanceRecord[]) => {
-        const todayStr = getLocalDateString();
-        const filtered = records.filter((r) => r.dateStr !== todayStr);
+        // We filter out the active logical date from history
+        const logicalDateStr = getLogicalShiftDate(new Date(), shiftStart, shiftEnd);
+        const filtered = records.filter((r) => r.dateStr !== logicalDateStr);
         setHistory(filtered);
+        markMissedCheckouts(user.uid, records, shiftStart, shiftEnd);
       },
     );
 
@@ -66,7 +92,7 @@ export default function EmployeeAttendanceScreen() {
       unsubHistory();
       unsubLeaves();
     };
-  }, [user?.uid]);
+  }, [user, activeProject]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -79,7 +105,66 @@ export default function EmployeeAttendanceScreen() {
     return new Date(isoString).toLocaleTimeString([], {
       hour: "2-digit",
       minute: "2-digit",
-    });
+      hour12: true,
+    }).toUpperCase();
+  };
+
+  const formatHHMMtoAMPM = (timeStr: string) => {
+    const [h, m] = timeStr.split(':').map(Number);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    const displayH = h % 12 || 12;
+    return `${String(displayH).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+  };
+
+  const getExpectedCheckOut = (record: AttendanceRecord) => {
+    const isPast = record.dateStr !== getLocalDateString();
+    if (isPast) return null;
+
+    let startStr = record.shift?.startTime || activeProject?.workingHours?.start;
+    let endStr = record.shift?.endTime || activeProject?.workingHours?.end;
+
+    if (!record.shift?.startTime && user?.currentShiftId && activeProject?.availableShifts) {
+      const matched = activeProject.availableShifts.find(s => s.id === user.currentShiftId);
+      if (matched) {
+        startStr = matched.startTime;
+        endStr = matched.endTime;
+      }
+    }
+
+    if (!startStr || !endStr) return null;
+    if (!record.checkIn?.timestamp) return formatHHMMtoAMPM(endStr);
+
+    const [startH, startM] = startStr.split(':').map(Number);
+    const [endH, endM] = endStr.split(':').map(Number);
+    const isNightShift = startH > endH;
+
+    let shiftStartMins = startH * 60 + startM;
+    let shiftEndMins = endH * 60 + endM;
+    if (isNightShift) shiftEndMins += 24 * 60;
+    
+    const durationMins = shiftEndMins - shiftStartMins;
+
+    const checkInDate = new Date(record.checkIn.timestamp);
+    let checkInMins = checkInDate.getHours() * 60 + checkInDate.getMinutes();
+
+    if (isNightShift && checkInMins <= (endH * 60 + endM)) {
+      checkInMins += 24 * 60;
+    }
+
+    if (checkInMins > shiftStartMins) {
+      let outMins = checkInMins + durationMins;
+      
+      if (isNightShift) {
+        if (outMins >= 2160) outMins = 2159; // Cap at 11:59 AM next day
+      } else {
+        if (outMins >= 1440) outMins = 1439; // Cap at 11:59 PM today
+      }
+      
+      const outH = Math.floor(outMins / 60) % 24;
+      const outM = outMins % 60;
+      return formatHHMMtoAMPM(`${outH}:${outM}`);
+    }
+    return formatHHMMtoAMPM(endStr);
   };
 
   const getWorkingHours = (record: AttendanceRecord) => {
@@ -92,6 +177,8 @@ export default function EmployeeAttendanceScreen() {
       }
       return `${record.workingHours} Hrs`;
     }
+    const isPast = record.dateStr !== getLocalDateString();
+    if (isPast) return "Missed";
     return "In Progress";
   };
 
@@ -331,13 +418,23 @@ export default function EmployeeAttendanceScreen() {
                           {formatTime(record.checkIn?.timestamp)}
                         </Text>
                         <Text style={styles.statLabel}>Check In</Text>
+                        {record.status === 'late' && (
+                          <Text style={{ fontSize: 10, color: Colors.error, marginTop: 2, fontWeight: 'bold' }}>
+                            (Late)
+                          </Text>
+                        )}
                       </View>
 
                       <View style={styles.statCol}>
                         <Text style={[styles.statValue, { color: Colors.error }]}>
-                          {record.checkOut ? formatTime(record.checkOut.timestamp) : '--:--'}
+                          {record.checkOut ? formatTime(record.checkOut.timestamp) : (record.dateStr !== getLocalDateString() ? 'Missed' : '--:--')}
                         </Text>
                         <Text style={styles.statLabel}>Check Out</Text>
+                        {getExpectedCheckOut(record) && !record.checkOut?.timestamp && (
+                          <Text style={{ fontSize: 10, color: Colors.text.secondary, marginTop: 2 }}>
+                            (Exp: {getExpectedCheckOut(record)})
+                          </Text>
+                        )}
                       </View>
 
                       <View style={[styles.statCol, { alignItems: 'flex-end' }]}>

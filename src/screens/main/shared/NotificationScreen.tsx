@@ -335,7 +335,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   backdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#000',
   },
   drawer: {
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: Spacing['3xl'] * 2,
+    marginTop: Spacing.xxl * 2,
   },
   emptyTitle: {
     fontSize: FontSize.lg,

@@ -51,8 +51,9 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
             .map(key => ({
               leaveTypeId: key,
               name: key.charAt(0).toUpperCase() + key.slice(1) + ' Leave',
-              annualQuota: userLeaveBalance[key],
-              status: 'active'
+              annualQuota: userLeaveBalance[key] as number,
+              carryForwardMax: 0,
+              status: 'active' as const
             }));
         }
 

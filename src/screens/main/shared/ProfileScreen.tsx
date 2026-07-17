@@ -32,8 +32,10 @@ export default function ProfileScreen() {
   const [isDocModalVisible, setIsDocModalVisible] = useState(false);
   const [assignedProject, setAssignedProject] = useState<string | null>(null);
   const [assignedShift, setAssignedShift] = useState<string | null>(null);
+  const [assignedShiftName, setAssignedShiftName] = useState<string | null>(null);
   const [projectManager, setProjectManager] = useState<string | null>(null);
   const [projectCoordinator, setProjectCoordinator] = useState<string | null>(null);
+  const [isFetchingProject, setIsFetchingProject] = useState(!!user?.projectId);
 
   useEffect(() => {
     let unsubscribeManager: (() => void) | undefined;
@@ -61,12 +63,24 @@ export default function ProfileScreen() {
             const projData = docSnap.data() as Project;
             setAssignedProject(projData.name || null);
             
-            // Set shift from working hours
-            if (projData.workingHours) {
-              setAssignedShift(`${projData.workingHours.start} - ${projData.workingHours.end}`);
-            } else {
-              setAssignedShift(null);
+            // Set shift from working hours or availableShifts
+            let shiftStr = null;
+            let sName = null;
+            if (user?.currentShiftId && projData.availableShifts) {
+              const matched = projData.availableShifts.find(s => s.id === user.currentShiftId);
+              if (matched) {
+                shiftStr = `${matched.startTime} - ${matched.endTime}`;
+                sName = matched.name;
+              }
             }
+            if (!shiftStr && projData.workingHours) {
+              shiftStr = `${projData.workingHours.start} - ${projData.workingHours.end}`;
+              const startH = Number(projData.workingHours.start.split(':')[0]);
+              const endH = Number(projData.workingHours.end.split(':')[0]);
+              sName = startH > endH ? "Night Shift" : "Day Shift";
+            }
+            setAssignedShift(shiftStr);
+            setAssignedShiftName(sName);
 
             // Fetch Project Manager Name
             if (projData.managerId) {
@@ -101,6 +115,7 @@ export default function ProfileScreen() {
             } else {
               setProjectCoordinator(null);
             }
+            setIsFetchingProject(false);
           } else {
             setAssignedProject(null);
             setAssignedShift(null);
@@ -122,12 +137,16 @@ export default function ProfileScreen() {
     };
   }, [user?.managerId, user?.uid, user?.role]);
 
-  const renderRow = (label: string, value: string, noBorder = false) => (
+  const renderRow = (label: string, value: any, noBorder = false) => (
     <View style={[styles.row, noBorder && { borderBottomWidth: 0 }]}>
       <Text style={styles.label}>{label}</Text>
-      <Text style={styles.value} numberOfLines={1} ellipsizeMode="tail">
-        {value}
-      </Text>
+      {typeof value === 'string' ? (
+        <Text style={styles.value} numberOfLines={1} ellipsizeMode="tail">
+          {value}
+        </Text>
+      ) : (
+        <View style={{alignItems: 'flex-end'}}>{value}</View>
+      )}
     </View>
   );
 
@@ -253,10 +272,15 @@ export default function ProfileScreen() {
               {renderRow("Date of Birth", formatDateDDMMYYYY(user?.dateOfBirth) || "N/A")}
               {renderRow("Department", user?.department || "N/A")}
               {renderRow("Designation", user?.designation || formatRole(user?.role))}
-              {user?.role === 'employee' && renderRow("Assigned Project", assignedProject || "Not Assigned")}
-              {user?.role === 'employee' && renderRow("Shift", assignedShift || "Not Assigned")}
-              {user?.role === 'employee' && renderRow("Project Manager", projectManager || "Not Assigned")}
-              {user?.role === 'employee' && renderRow("Project Coordinator", projectCoordinator || "Not Assigned", true)}
+              {user?.role === 'employee' && renderRow("Assigned Project", isFetchingProject ? <ActivityIndicator size="small" color={Colors.primary} /> : (assignedProject || "Not Assigned"))}
+              {user?.role === 'employee' && renderRow("Shift", isFetchingProject ? <ActivityIndicator size="small" color={Colors.primary} /> : (assignedShift ? (
+                <View style={{alignItems: 'flex-end'}}>
+                  <Text style={styles.value}>{assignedShift}</Text>
+                  {assignedShiftName && <Text style={{fontSize: 11, color: Colors.text.secondary, marginTop: 2}}>({assignedShiftName})</Text>}
+                </View>
+              ) : "Not Assigned"))}
+              {user?.role === 'employee' && renderRow("Project Manager", isFetchingProject ? <ActivityIndicator size="small" color={Colors.primary} /> : (projectManager || "Not Assigned"))}
+              {user?.role === 'employee' && renderRow("Project Coordinator", isFetchingProject ? <ActivityIndicator size="small" color={Colors.primary} /> : (projectCoordinator || "Not Assigned"), true)}
               {(user?.panCard || user?.aadharCard || (user?.documents && user.documents.length > 0)) && (
                 <View style={[styles.row, { borderBottomWidth: 0, paddingBottom: 0 }]}>
                   <Text style={styles.label}>Documents</Text>

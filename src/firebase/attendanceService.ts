@@ -13,6 +13,31 @@ export function getLocalDateString(date = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
+// Helper to get logical shift date string YYYY-MM-DD
+export function getLogicalShiftDate(date = new Date(), shiftStart?: string, shiftEnd?: string): string {
+  if (!shiftStart || !shiftEnd) return getLocalDateString(date);
+
+  const [startH, startM] = shiftStart.split(':').map(Number);
+  const [endH, endM] = shiftEnd.split(':').map(Number);
+  const startMins = startH * 60 + startM;
+  const endMins = endH * 60 + endM;
+
+  // If Night Shift
+  if (startMins > endMins) {
+    const currentMins = date.getHours() * 60 + date.getMinutes();
+    // Cut-off at 12:00 PM (Noon) = 720 mins
+    if (currentMins < 720) {
+      // Logical date is yesterday
+      const yesterday = new Date(date);
+      yesterday.setDate(yesterday.getDate() - 1);
+      return getLocalDateString(yesterday);
+    }
+  }
+
+  // Day shift or after noon for Night shift
+  return getLocalDateString(date);
+}
+
 // Helper to check if it's late (after shift start + 15 min grace period)
 export function checkIsLate(date = new Date(), shiftStart?: string): boolean {
   if (!shiftStart) {
@@ -35,10 +60,12 @@ export function checkIsLate(date = new Date(), shiftStart?: string): boolean {
 export function subscribeToTodayAttendance(
   employeeId: string,
   role: string,
-  callback: (record: AttendanceRecord | null) => void
+  callback: (record: AttendanceRecord | null) => void,
+  shiftStart?: string,
+  shiftEnd?: string
 ): () => void {
-  const todayStr = getLocalDateString();
-  const docId = `${employeeId}_${todayStr}`;
+  const logicalDateStr = getLogicalShiftDate(new Date(), shiftStart, shiftEnd);
+  const docId = `${employeeId}_${logicalDateStr}`;
   const docRef = doc(db, 'attendences', docId);
 
   return onSnapshot(docRef, (docSnap) => {
@@ -76,10 +103,12 @@ export async function checkInEmployee(
   remark?: string,
   selfieUri?: string | null,
   employeeEmail?: string | null,
-  shiftStart?: string
+  shiftStart?: string,
+  shiftEnd?: string,
+  shiftName?: string
 ): Promise<void> {
-  const todayStr = getLocalDateString();
-  const docId = `${employeeId}_${todayStr}`;
+  const logicalDateStr = getLogicalShiftDate(new Date(), shiftStart, shiftEnd);
+  const docId = `${employeeId}_${logicalDateStr}`;
   const docRef = doc(db, 'attendences', docId);
   const now = new Date();
   const nowIso = now.toISOString();
@@ -91,12 +120,12 @@ export async function checkInEmployee(
 
   let selfieUrl = null;
   if (selfieUri) {
-    selfieUrl = await uploadImageToStorage(selfieUri, `attendance/${employeeId}/${todayStr}_checkin.jpg`);
+    selfieUrl = await uploadImageToStorage(selfieUri, `attendance/${employeeId}/${logicalDateStr}_checkin.jpg`);
   }
 
   const attendanceData: Omit<AttendanceRecord, 'id'> = {
     employeeId,
-    dateStr: todayStr,
+    dateStr: logicalDateStr,
     checkIn: {
       timestamp: nowIso,
       location,
@@ -109,6 +138,10 @@ export async function checkInEmployee(
     workingHours: 0,
     updatedAt: nowIso,
   };
+
+  if (shiftStart && shiftEnd) {
+    attendanceData.shift = { name: shiftName || 'General', startTime: shiftStart, endTime: shiftEnd };
+  }
 
   await setDoc(docRef, attendanceData);
 }
@@ -263,3 +296,21 @@ export async function logFailedGeofenceAttempt(
   }
 }
 
+export async function markMissedCheckouts(employeeId: string, history: AttendanceRecord[], activeShiftStart?: string, activeShiftEnd?: string): Promise<void> {
+  const logicalDateStr = getLogicalShiftDate(new Date(), activeShiftStart, activeShiftEnd);
+  const batchUpdates = [];
+
+  for (const record of history) {
+    if (record.dateStr !== logicalDateStr && !record.checkOut && !record.missedCheckout) {
+      batchUpdates.push(
+        updateDoc(doc(db, 'attendences', record.id), {
+          missedCheckout: true
+        })
+      );
+    }
+  }
+
+  if (batchUpdates.length > 0) {
+    await Promise.all(batchUpdates);
+  }
+}
