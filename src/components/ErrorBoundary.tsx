@@ -1,5 +1,6 @@
 import React from 'react';
-import { View, Text, StyleSheet, ScrollView, SafeAreaView } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, SafeAreaView, TouchableOpacity, Clipboard } from 'react-native';
+import { logCrashToFirestore } from '@/firebase/crashLogger';
 
 interface Props {
   children: React.ReactNode;
@@ -8,12 +9,13 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  logged: boolean;
 }
 
 export class ErrorBoundary extends React.Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, logged: false };
   }
 
   static getDerivedStateFromError(error: Error) {
@@ -21,15 +23,34 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error("ErrorBoundary caught an error:", error, errorInfo);
+    console.error('[ErrorBoundary] Caught error:', error, errorInfo);
+
+    // Log to Firestore with component stack for easier debugging
+    logCrashToFirestore(error, 'js_error', true, {
+      componentStack: errorInfo.componentStack?.substring(0, 1000) ?? 'N/A',
+    });
+
+    this.setState({ logged: true });
   }
+
+  handleCopy = () => {
+    const text = `${this.state.error?.message}\n\n${this.state.error?.stack}`;
+    Clipboard.setString(text);
+  };
 
   render() {
     if (this.state.hasError) {
       return (
         <SafeAreaView style={styles.container}>
-          <Text style={styles.title}>Oops! Application Crashed</Text>
-          <Text style={styles.subtitle}>Please take a screenshot of this error.</Text>
+          <View style={styles.header}>
+            <Text style={styles.title}>💥 App Crashed</Text>
+            <Text style={styles.subtitle}>
+              {this.state.logged
+                ? '✅ Error logged to Firebase automatically'
+                : '⏳ Logging error...'}
+            </Text>
+          </View>
+
           <ScrollView style={styles.errorBox}>
             <Text style={styles.errorText}>
               {this.state.error?.message || this.state.error?.toString()}
@@ -38,6 +59,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
               <Text style={styles.stackText}>{this.state.error.stack}</Text>
             )}
           </ScrollView>
+
+          <TouchableOpacity style={styles.copyBtn} onPress={this.handleCopy}>
+            <Text style={styles.copyBtnTxt}>Copy Error</Text>
+          </TouchableOpacity>
         </SafeAreaView>
       );
     }
@@ -47,43 +72,57 @@ export class ErrorBoundary extends React.Component<Props, State> {
 }
 
 const styles = StyleSheet.create({
-  container: { 
-    flex: 1, 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    padding: 20, 
-    backgroundColor: '#fff' 
+  container: {
+    flex: 1,
+    padding: 20,
+    backgroundColor: '#fff',
   },
-  title: { 
-    fontSize: 22, 
-    fontWeight: 'bold', 
-    color: '#D32F2F', 
-    marginBottom: 5,
-    marginTop: 40
+  header: {
+    marginTop: 40,
+    marginBottom: 16,
+    alignItems: 'center',
+  },
+  title: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#D32F2F',
+    marginBottom: 6,
   },
   subtitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 20
+    fontSize: 13,
+    color: '#555',
+    textAlign: 'center',
   },
-  errorBox: { 
-    flex: 1, 
-    width: '100%', 
-    padding: 15, 
-    backgroundColor: '#FFF3F3', 
+  errorBox: {
+    flex: 1,
+    padding: 15,
+    backgroundColor: '#FFF3F3',
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FFCDD2'
+    borderColor: '#FFCDD2',
+    marginBottom: 12,
   },
-  errorText: { 
+  errorText: {
     color: '#B71C1C',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
-    marginBottom: 10
+    marginBottom: 10,
   },
   stackText: {
     color: '#333',
-    fontSize: 12,
-    fontFamily: 'monospace'
-  }
+    fontSize: 11,
+    fontFamily: 'monospace',
+  },
+  copyBtn: {
+    backgroundColor: '#1E293B',
+    borderRadius: 10,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  copyBtnTxt: {
+    color: '#fff',
+    fontWeight: '600',
+    fontSize: 14,
+  },
 });

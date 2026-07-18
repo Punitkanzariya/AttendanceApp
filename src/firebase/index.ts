@@ -18,3 +18,4 @@ export * from './attendanceService';
 export * from './leaveService';
 export * from './expenseService';
 export * from './auditService';
+export { logCrashToFirestore, setupCrashLogging } from './crashLogger';

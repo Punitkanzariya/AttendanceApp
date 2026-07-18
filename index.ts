@@ -1,27 +1,21 @@
+/**
+ * ─────────────────────────────────────────────────────────────────
+ *  FILE: index.ts
+ *  PURPOSE: App entry point.
+ *           Sets up remote crash logging FIRST (before anything
+ *           else loads) so even startup crashes are captured in
+ *           Firestore → crash_logs collection.
+ * ─────────────────────────────────────────────────────────────────
+ */
+
 import 'react-native-gesture-handler';
 import { registerRootComponent } from 'expo';
-import { Alert } from 'react-native';
+import { setupCrashLogging } from './src/firebase/crashLogger';
 
-const defaultErrorHandler = (global as any).ErrorUtils?.getGlobalHandler();
-(global as any).ErrorUtils?.setGlobalHandler((error: any, isFatal: boolean) => {
-  Alert.alert(
-    'Application Error',
-    `Error: ${error?.message || error}\n\nPlease take a screenshot and send it to the developer.`,
-    [
-      {
-        text: 'OK',
-        onPress: () => {
-          // You can call default handler if you want it to crash afterwards
-          // if (defaultErrorHandler) defaultErrorHandler(error, isFatal);
-        }
-      }
-    ]
-  );
-});
+// ─── Initialize crash logging BEFORE anything else ───────────────
+// This must run first so even Firebase init errors are captured.
+setupCrashLogging();
 
 import App from './App';
 
-// registerRootComponent calls AppRegistry.registerComponent('main', () => App);
-// It also ensures that whether you load the app in Expo Go or in a native build,
-// the environment is set up appropriately
 registerRootComponent(App);
