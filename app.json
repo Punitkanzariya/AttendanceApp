@@ -45,7 +45,12 @@
       ],
       "expo-secure-store",
       "expo-sharing",
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      "expo-notifications",
+      "expo-camera",
+      "expo-location",
+      "expo-image-picker",
+      "expo-document-picker"
     ],
     "extra": {
       "eas": {
