@@ -30,9 +30,20 @@ export default function App() {
   // Listen to profile updates in real-time
   useEffect(() => {
     if (!user?.uid || !user?.role) return;
-    const unsub = onSnapshot(doc(db, 'users', user.role, 'profiles', user.uid), (snap) => {
+    const unsub = onSnapshot(doc(db, 'users', user.uid), (snap) => {
       if (snap.exists()) {
         const data = snap.data();
+        // Only update if relevant fields actually changed
+        const current = useAuthStore.getState().user;
+        if (
+          current &&
+          current.displayName === (data.displayName ?? current.displayName) &&
+          current.profilePicture === (data.profilePicture ?? current.profilePicture) &&
+          current.role === (data.role ?? current.role) &&
+          current.isActive === (data.isActive ?? current.isActive)
+        ) {
+          return; // Nothing meaningful changed, skip update
+        }
         const updatedUser: User = {
           ...user,
           ...data,

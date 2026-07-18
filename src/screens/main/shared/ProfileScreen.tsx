@@ -121,8 +121,12 @@ export default function ProfileScreen() {
             setAssignedShift(null);
             setProjectManager(null);
             setProjectCoordinator(null);
+            setIsFetchingProject(false);
           }
-        }, (err) => console.warn("Failed to listen to project:", err));
+        }, (err) => {
+          console.warn("Failed to listen to project:", err);
+          setIsFetchingProject(false);
+        });
       } else {
         setAssignedProject(null);
         setAssignedShift(null);
