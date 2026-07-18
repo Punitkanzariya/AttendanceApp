@@ -28,7 +28,7 @@ export default function App() {
 
   // Listen to profile updates in real-time
   useEffect(() => {
-    if (!user?.uid) return;
+    if (!user?.uid || !user?.role) return;
     const unsub = onSnapshot(doc(db, 'users', user.role, 'profiles', user.uid), (snap) => {
       if (snap.exists()) {
         const data = snap.data();

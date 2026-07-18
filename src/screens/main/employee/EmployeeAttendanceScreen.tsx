@@ -60,7 +60,7 @@ export default function EmployeeAttendanceScreen() {
     let shiftEnd = activeProject?.workingHours?.end;
 
     if (user?.currentShiftId && activeProject?.availableShifts) {
-      const matched = activeProject.availableShifts.find(s => s.id === user.currentShiftId);
+      const matched = activeProject.availableShifts.find((s: any) => s.id === user.currentShiftId);
       if (matched) {
         shiftStart = matched.startTime;
         shiftEnd = matched.endTime;
@@ -124,7 +124,7 @@ export default function EmployeeAttendanceScreen() {
     let endStr = record.shift?.endTime || activeProject?.workingHours?.end;
 
     if (!record.shift?.startTime && user?.currentShiftId && activeProject?.availableShifts) {
-      const matched = activeProject.availableShifts.find(s => s.id === user.currentShiftId);
+      const matched = activeProject.availableShifts.find((s: any) => s.id === user.currentShiftId);
       if (matched) {
         startStr = matched.startTime;
         endStr = matched.endTime;

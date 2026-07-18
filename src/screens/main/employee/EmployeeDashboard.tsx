@@ -499,7 +499,7 @@ export default function EmployeeDashboard() {
     let name = "General Shift";
 
     if (user?.currentShiftId && activeProject?.availableShifts) {
-      const matched = activeProject.availableShifts.find(s => s.id === user.currentShiftId);
+      const matched = activeProject.availableShifts.find((s: any) => s.id === user.currentShiftId);
       if (matched) {
         start = matched.startTime;
         end = matched.endTime;
