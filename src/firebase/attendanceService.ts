@@ -1,8 +1,7 @@
 import { collection, collectionGroup, doc, setDoc, updateDoc, query, where, onSnapshot, getDoc, getDocs, serverTimestamp } from 'firebase/firestore';
-import { db, storage } from '@/firebase/config';
+import { db } from '@/firebase/config';
 import type { AttendanceRecord, AttendanceLocation } from '@/types';
 import { Platform } from 'react-native';
-import * as FileSystem from 'expo-file-system/legacy';
 import * as ImageManipulator from 'expo-image-manipulator';
 
 // Helper to get local date string YYYY-MM-DD
@@ -150,10 +149,13 @@ export async function checkOutEmployee(
   employeeId: string,
   location: AttendanceLocation | null,
   remark?: string,
-  selfieUri?: string | null
+  selfieUri?: string | null,
+  shiftStart?: string,
+  shiftEnd?: string
 ): Promise<void> {
-  const todayStr = getLocalDateString();
-  const docId = `${employeeId}_${todayStr}`;
+  // Use logical shift date (same as check-in) to find the correct document
+  const logicalDateStr = getLogicalShiftDate(new Date(), shiftStart, shiftEnd);
+  const docId = `${employeeId}_${logicalDateStr}`;
   const docRef = doc(db, 'attendences', docId);
   const now = new Date();
   const nowIso = now.toISOString();
@@ -180,7 +182,7 @@ export async function checkOutEmployee(
 
   let selfieUrl = null;
   if (selfieUri) {
-    selfieUrl = await uploadImageToStorage(selfieUri, `attendance/${employeeId}/${todayStr}_checkout.jpg`);
+    selfieUrl = await uploadImageToStorage(selfieUri, `attendance/${employeeId}/${logicalDateStr}_checkout.jpg`);
   }
 
   await updateDoc(docRef, {

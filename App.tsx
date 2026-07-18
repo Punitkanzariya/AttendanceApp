@@ -12,6 +12,7 @@ import type { User } from './src/types';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
 
 import { GlobalNotificationToast } from './src/components/GlobalNotificationToast';
+import { ErrorBoundary } from './src/components/ErrorBoundary';
 
 export default function App() {
   const restoreSession = useAuthStore((s) => s.restoreSession);
@@ -44,13 +45,15 @@ export default function App() {
   }, [user?.uid]);
 
   return (
-    <GestureHandlerRootView style={styles.root}>
-      <NavigationContainer documentTitle={{ formatter: () => 'Attendance App' }}>
-        <StatusBar style="auto" />
-        <RootNavigator />
-        <GlobalNotificationToast />
-      </NavigationContainer>
-    </GestureHandlerRootView>
+    <ErrorBoundary>
+      <GestureHandlerRootView style={styles.root}>
+        <NavigationContainer documentTitle={{ formatter: () => 'Attendance App' }}>
+          <StatusBar style="auto" />
+          <RootNavigator />
+          <GlobalNotificationToast />
+        </NavigationContainer>
+      </GestureHandlerRootView>
+    </ErrorBoundary>
   );
 }
 

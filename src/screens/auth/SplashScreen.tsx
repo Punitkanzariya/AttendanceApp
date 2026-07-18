@@ -32,7 +32,7 @@ export default function SplashScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#ffffffff" />
       <Animated.View style={[styles.center, { opacity, transform: [{ scale }] }]}>
         <Animated.Image 
-          source={require('../../../assets/splash-icon.png')} 
+          source={require('../../../assets/splash-icon-js.png')} 
           style={styles.image} 
         />
       </Animated.View>

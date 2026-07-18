@@ -17,7 +17,7 @@
  */
 
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth, initializeAuth } from 'firebase/auth';
+import { getAuth, initializeAuth, getReactNativePersistence } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage }   from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -51,18 +51,24 @@ const app = getApps().length === 0
 
 let firebaseAuth;
 if (Platform.OS === 'web') {
-  // Web uses default getAuth without AsyncStorage
+  // Web uses default getAuth without AsyncStorage persistence
   firebaseAuth = getAuth(app);
 } else {
+  // Native: use AsyncStorage persistence so sessions survive app restarts.
+  // Guard against double-init (can happen on hot reload in dev builds) —
+  // initializeAuth throws 'auth/already-initialized' if called twice.
   try {
-    // Dynamically require to avoid Web bundler crashes
-    const { getReactNativePersistence } = require('firebase/auth');
     firebaseAuth = initializeAuth(app, {
-      persistence: getReactNativePersistence(AsyncStorage)
+      persistence: getReactNativePersistence(AsyncStorage),
     });
-  } catch (e) {
-    // Fallback if missing
-    firebaseAuth = getAuth(app);
+  } catch (e: any) {
+    if (e?.code === 'auth/already-initialized') {
+      // Auth was already set up — just get the existing instance
+      firebaseAuth = getAuth(app);
+    } else {
+      // Unexpected error — re-throw so it surfaces clearly in crash logs
+      throw e;
+    }
   }
 }
 

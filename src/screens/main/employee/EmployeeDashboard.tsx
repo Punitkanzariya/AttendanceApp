@@ -452,8 +452,9 @@ export default function EmployeeDashboard() {
           }
         }
       } else if (!todayRecord.checkOut) {
+        const { start: shiftStartCO, end: shiftEndCO } = getActiveShiftDetails();
         await checkOutEmployee(
-          user!.uid, attendanceLoc, '', selfieUri
+          user!.uid, attendanceLoc, '', selfieUri, shiftStartCO, shiftEndCO
         );
 
         await logAuditAction({
