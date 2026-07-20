@@ -87,6 +87,19 @@ export default function NotificationScreen({ navigation }: any) {
     }
   };
 
+  const handleDeleteAll = async () => {
+    if (!user?.uid || notifications.length === 0) return;
+    try {
+      const allIds = notifications.map(n => n.notifId);
+      const newSet = new Set([...deletedIds, ...allIds]);
+      setDeletedIds(newSet);
+      await AsyncStorage.setItem(`@notifs_del_${user.uid}`, JSON.stringify([...newSet]));
+      DeviceEventEmitter.emit('notifications_read_updated');
+    } catch (e) {
+      console.error(e);
+    }
+  };
+
   const handleNavigate = (moduleName?: string, link?: string) => {
     if (!user) return;
     
@@ -220,15 +233,21 @@ export default function NotificationScreen({ navigation }: any) {
       >
         <SafeAreaView style={styles.safeArea} edges={['top']}>
           {/* Header */}
-          <View style={styles.header}>
-            <TouchableOpacity style={styles.backButton} onPress={closeDrawer}>
-              <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Notifications</Text>
-            <TouchableOpacity style={styles.moreButton} onPress={handleMarkAllAsRead}>
-              <Ionicons name="checkmark-done-outline" size={24} color={Colors.text.primary} />
-            </TouchableOpacity>
-          </View>
+            <View style={styles.header}>
+              <TouchableOpacity style={styles.backButton} onPress={closeDrawer}>
+                <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
+              </TouchableOpacity>
+              <Text style={styles.headerTitle}>Notifications</Text>
+              
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <TouchableOpacity style={styles.moreButton} onPress={handleDeleteAll}>
+                  <Ionicons name="trash-outline" size={22} color={Colors.error} />
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.moreButton} onPress={handleMarkAllAsRead}>
+                  <Ionicons name="checkmark-done-outline" size={24} color={Colors.text.primary} />
+                </TouchableOpacity>
+              </View>
+            </View>
 
           <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
 
@@ -368,16 +387,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   moreButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    padding: Spacing.xs,
+    marginLeft: Spacing.sm,
   },
   headerTitle: {
+    flex: 1,
     fontSize: FontSize.lg,
     fontWeight: FontWeight.bold,
     color: Colors.text.primary,
+    marginLeft: Spacing.md,
   },
   scrollContainer: {
     padding: Spacing.md,

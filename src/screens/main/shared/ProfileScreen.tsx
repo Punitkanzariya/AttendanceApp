@@ -115,7 +115,7 @@ export default function ProfileScreen() {
           {value}
         </Text>
       ) : (
-        <View style={{alignItems: 'flex-end'}}>{value}</View>
+        <View style={{ alignItems: 'flex-end', flex: 2 }}>{value}</View>
       )}
     </View>
   );
@@ -244,9 +244,9 @@ export default function ProfileScreen() {
               {renderRow("Designation", user?.designation || formatRole(user?.role))}
               {user?.role === 'employee' && renderRow("Assigned Project", isFetchingProject ? <ActivityIndicator size="small" color={Colors.primary} /> : (assignedProject || "Not Assigned"))}
               {user?.role === 'employee' && renderRow("Shift", isFetchingProject ? <ActivityIndicator size="small" color={Colors.primary} /> : (assignedShift ? (
-                <View style={{alignItems: 'flex-end'}}>
-                  <Text style={styles.value}>{assignedShift}</Text>
-                  {assignedShiftName ? <Text style={{fontSize: 11, color: Colors.text.secondary, marginTop: 2}}>({assignedShiftName})</Text> : null}
+                <View style={{ alignItems: 'flex-end' }}>
+                  <Text style={{ fontSize: 13, fontWeight: "600", color: "#0F172A", textAlign: "right" }}>{assignedShift}</Text>
+                  {assignedShiftName ? <Text style={{ fontSize: 11, color: Colors.text.secondary, marginTop: 2 }}>({assignedShiftName})</Text> : null}
                 </View>
               ) : "Not Assigned"))}
               {user?.role === 'employee' && renderRow("Project Manager", isFetchingProject ? <ActivityIndicator size="small" color={Colors.primary} /> : (projectManager || "Not Assigned"))}

@@ -22,6 +22,7 @@ import { subscribeToUserLeaves, subscribeToLeaveTypes, subscribeToUserLeaveBalan
 import type { LeaveRequest, LeaveType } from "@/types";
 import { LeaveModal } from "./components/modals/LeaveModal";
 import LeaveBalanceBoxes from "@/components/shared/LeaveBalanceBoxes";
+import { SuccessPopup } from "@/components/shared/SuccessPopup";
 
 export default function EmployeeLeaveScreen() {
   const { user } = useAuthStore();
@@ -29,6 +30,7 @@ export default function EmployeeLeaveScreen() {
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [userLeaveBalance, setUserLeaveBalance] = useState<any>(null);
+  const [successPopup, setSuccessPopup] = useState<{ visible: boolean; title: string; message: string }>({ visible: false, title: "", message: "" });
   const [isLoading, setIsLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
 
@@ -200,6 +202,23 @@ export default function EmployeeLeaveScreen() {
         onClose={() => setIsModalVisible(false)} 
         userLeaveBalance={userLeaveBalance}
         existingLeaves={leaves}
+        onSuccess={(message) => {
+          setTimeout(() => {
+            setSuccessPopup({
+              visible: true,
+              title: "Leave Applied",
+              message
+            });
+          }, 400);
+        }}
+      />
+      
+      {/* Success Popup */}
+      <SuccessPopup
+        visible={successPopup.visible}
+        title={successPopup.title}
+        message={successPopup.message}
+        onClose={() => setSuccessPopup(prev => ({ ...prev, visible: false }))}
       />
     </SafeAreaView>
   );

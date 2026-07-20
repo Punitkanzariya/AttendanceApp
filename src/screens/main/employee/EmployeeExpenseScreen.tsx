@@ -20,6 +20,7 @@ import { useAuthStore } from "@/store/authStore";
 import { subscribeToUserExpenses } from "@/firebase/expenseService";
 import type { Expense } from "@/types";
 import { ExpenseModal } from "./components/modals/ExpenseModal";
+import { SuccessPopup } from "@/components/shared/SuccessPopup";
 
 export default function EmployeeExpenseScreen() {
   const { user } = useAuthStore();
@@ -32,6 +33,7 @@ export default function EmployeeExpenseScreen() {
   );
   const [expenseToView, setExpenseToView] = useState<Expense | null>(null);
   const [isAttachmentVisible, setIsAttachmentVisible] = useState(false);
+  const [successPopup, setSuccessPopup] = useState<{ visible: boolean; title: string; message: string }>({ visible: false, title: "", message: "" });
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -254,6 +256,23 @@ export default function EmployeeExpenseScreen() {
         isVisible={isModalVisible}
         onClose={handleCloseModal}
         expenseToEdit={expenseToEdit}
+        onSuccess={(message, isEdit) => {
+          setTimeout(() => {
+            setSuccessPopup({
+              visible: true,
+              title: isEdit ? "Expense Updated" : "Expense Submitted",
+              message
+            });
+          }, 400);
+        }}
+      />
+      
+      {/* Success Popup */}
+      <SuccessPopup
+        visible={successPopup.visible}
+        title={successPopup.title}
+        message={successPopup.message}
+        onClose={() => setSuccessPopup(prev => ({ ...prev, visible: false }))}
       />
 
       {/* Details Modal */}

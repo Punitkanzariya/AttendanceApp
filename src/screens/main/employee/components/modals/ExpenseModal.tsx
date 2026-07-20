@@ -26,17 +26,20 @@ import {
 import { logAuditAction } from "@/firebase/auditService";
 import type { Expense } from "@/types";
 import { DateInput } from "../DateInput";
+import { SuccessPopup } from "@/components/shared/SuccessPopup";
 
 interface ExpenseModalProps {
   isVisible: boolean;
   onClose: () => void;
   expenseToEdit?: Expense | null;
+  onSuccess?: (message: string, isEdit: boolean) => void;
 }
 
 export const ExpenseModal = ({
   isVisible,
   onClose,
   expenseToEdit,
+  onSuccess,
 }: ExpenseModalProps) => {
   const { user } = useAuthStore();
   const [amount, setAmount] = useState("");
@@ -167,10 +170,19 @@ export const ExpenseModal = ({
         });
       }
 
-      handleClose();
       setAmount("");
       setDescription("");
       setAttachment(null);
+      
+      handleClose();
+      if (onSuccess) {
+        onSuccess(
+          expenseToEdit 
+            ? "Your expense has been updated successfully." 
+            : "Your new expense has been submitted successfully.",
+          !!expenseToEdit
+        );
+      }
     } catch (error) {
       console.error(error);
       Alert.alert("Error", "Failed to submit expense");
@@ -231,8 +243,9 @@ export const ExpenseModal = ({
   return (
     <Modal visible={isVisible} animationType="slide" transparent={true}>
       <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
         style={styles.modalOverlay}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         <View style={styles.modalContent}>
           <ScrollView

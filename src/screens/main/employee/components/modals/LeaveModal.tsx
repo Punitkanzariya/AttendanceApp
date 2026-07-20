@@ -20,15 +20,17 @@ import { logAuditAction } from "@/firebase/auditService";
 import { DateInput } from "../DateInput";
 import { calculateDays } from "../../utils/dateUtils";
 import type { LeaveDurationType, HalfDayPeriod, LeaveType } from "@/types";
+import { SuccessPopup } from "@/components/shared/SuccessPopup";
 
 interface LeaveModalProps {
   isVisible: boolean;
   onClose: () => void;
   userLeaveBalance?: any;
   existingLeaves?: any[];
+  onSuccess?: (message: string) => void;
 }
 
-export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeaves = [] }: LeaveModalProps) => {
+export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeaves = [], onSuccess }: LeaveModalProps) => {
   const { user } = useAuthStore();
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
@@ -179,13 +181,15 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
         severity: 'low',
       });
       
-      onClose();
       setStartDate("");
       setEndDate("");
       setReason("");
       if (leaveTypes.length > 0) setLeaveType(leaveTypes[0].leaveTypeId);
       setDurationType("single_day");
       setHalfDayPeriod("first_half");
+      
+      onClose();
+      if (onSuccess) onSuccess("Your leave request has been submitted successfully.");
     } catch (error) {
       console.error("Failed to submit leave:", error);
       Alert.alert("Error", "Failed to submit leave request");
@@ -196,10 +200,11 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
 
   return (
     <Modal visible={isVisible} animationType="fade" transparent={true}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        style={styles.modalOverlay}
-      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "padding"}
+          style={styles.modalOverlay}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+        >
         <View style={styles.modalContent}>
           <ScrollView
             showsVerticalScrollIndicator={false}
@@ -377,7 +382,6 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
           </View>
         </View>
       </Modal>
-
     </Modal>
   );
 };
