@@ -18,6 +18,9 @@
     },
     "preview": {
       "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
       "env": {
         "EXPO_PUBLIC_FIREBASE_API_KEY": "AIzaSyCzxdR1EUQNHk834s9bkeqrwZFVmJ8r48k",
         "EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN": "darshan-hrms.firebaseapp.com",
