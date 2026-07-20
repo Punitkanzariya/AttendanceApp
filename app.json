@@ -7,7 +7,6 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "scheme": "techsture",
-
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.techsture.hrms"
@@ -24,13 +23,16 @@
       "googleServicesFile": "./google-services.json",
       "permissions": [
         "android.permission.USE_BIOMETRIC",
-        "android.permission.USE_FINGERPRINT"
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.CAMERA",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION"
       ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-
     "plugins": [
       [
         "expo-local-authentication",
@@ -57,8 +59,9 @@
     ],
     "extra": {
       "eas": {
-        "projectId": "83b00e7a-dc8d-4efc-a67a-5ac58b0cc904"
+        "projectId": "b5d521f9-f915-4d38-8b0f-996d1d1068f3"
       }
-    }
+    },
+    "owner": "techsture_hrms"
   }
 }

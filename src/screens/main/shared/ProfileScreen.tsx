@@ -9,8 +9,12 @@ import {
   ActivityIndicator,
   Alert,
   Modal,
+  Platform,
 } from "react-native";
+import { WebView } from "react-native-webview";
 import * as ImagePicker from "expo-image-picker";
+import * as FileSystem from "expo-file-system";
+import * as Sharing from "expo-sharing";
 import { updateProfile } from "firebase/auth";
 import { auth } from "@/firebase/config";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -30,12 +34,42 @@ export default function ProfileScreen() {
   const [managerName, setManagerName] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isDocModalVisible, setIsDocModalVisible] = useState(false);
-  const [assignedProject, setAssignedProject] = useState<string | null>(null);
-  const [assignedShift, setAssignedShift] = useState<string | null>(null);
-  const [assignedShiftName, setAssignedShiftName] = useState<string | null>(null);
-  const [projectManager, setProjectManager] = useState<string | null>(null);
-  const [projectCoordinator, setProjectCoordinator] = useState<string | null>(null);
-  const [isFetchingProject, setIsFetchingProject] = useState(!!user?.projectId);
+  const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
+
+  const handleDownload = async (url: string, filename: string) => {
+    if (Platform.OS === 'web') {
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename || 'document';
+      link.target = '_blank';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+    
+    try {
+      const fileExt = url.toLowerCase().includes('.pdf') ? '.pdf' : '.jpg';
+      const fileUri = FileSystem.documentDirectory + (filename || `document_${Date.now()}`) + fileExt;
+      const downloadResult = await FileSystem.downloadAsync(url, fileUri);
+      
+      if (downloadResult.status === 200) {
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(downloadResult.uri, {
+            mimeType: url.toLowerCase().includes('.pdf') ? 'application/pdf' : 'image/jpeg',
+            dialogTitle: 'Save or share document',
+          });
+        } else {
+          Alert.alert("Success", "File downloaded to your device.");
+        }
+      } else {
+        Alert.alert("Error", "Failed to download file.");
+      }
+    } catch (err) {
+      console.error(err);
+      Alert.alert("Error", "Could not download file.");
+    }
+  };
 
   useEffect(() => {
     let unsubscribeManager: (() => void) | undefined;
@@ -56,90 +90,22 @@ export default function ProfileScreen() {
       setManagerName(null);
     }
 
-    if (user?.role === 'employee') {
-      if (user?.projectId) {
-        unsubscribeProject = onSnapshot(doc(db, 'projects', user.projectId), async (docSnap) => {
-          if (docSnap.exists()) {
-            const projData = docSnap.data() as Project;
-            setAssignedProject(projData.name || null);
-            
-            // Set shift from working hours or availableShifts
-            let shiftStr = null;
-            let sName = null;
-            if (user?.currentShiftId && projData.availableShifts) {
-              const matched = projData.availableShifts.find(s => s.id === user.currentShiftId);
-              if (matched) {
-                shiftStr = `${matched.startTime} - ${matched.endTime}`;
-                sName = matched.name;
-              }
-            }
-            if (!shiftStr && projData.workingHours) {
-              shiftStr = `${projData.workingHours.start} - ${projData.workingHours.end}`;
-              const startH = Number(projData.workingHours.start.split(':')[0]);
-              const endH = Number(projData.workingHours.end.split(':')[0]);
-              sName = startH > endH ? "Night Shift" : "Day Shift";
-            }
-            setAssignedShift(shiftStr);
-            setAssignedShiftName(sName);
-
-            // Fetch Project Manager Name
-            if (projData.managerId) {
-              try {
-                const mgrSnap = await getDoc(doc(db, 'users', projData.managerId));
-                if (mgrSnap.exists()) {
-                  const mgrData = mgrSnap.data();
-                  setProjectManager(mgrData.firstName ? `${mgrData.firstName} ${mgrData.lastName || ''}`.trim() : mgrData.displayName || "Unknown");
-                } else {
-                  setProjectManager(null);
-                }
-              } catch (e) {
-                setProjectManager(null);
-              }
-            } else {
-              setProjectManager(null);
-            }
-
-            // Fetch Project Coordinator Name
-            if (projData.coordinatorId) {
-              try {
-                const coordSnap = await getDoc(doc(db, 'users', projData.coordinatorId));
-                if (coordSnap.exists()) {
-                  const coordData = coordSnap.data();
-                  setProjectCoordinator(coordData.firstName ? `${coordData.firstName} ${coordData.lastName || ''}`.trim() : coordData.displayName || "Unknown");
-                } else {
-                  setProjectCoordinator(null);
-                }
-              } catch (e) {
-                setProjectCoordinator(null);
-              }
-            } else {
-              setProjectCoordinator(null);
-            }
-            setIsFetchingProject(false);
-          } else {
-            setAssignedProject(null);
-            setAssignedShift(null);
-            setProjectManager(null);
-            setProjectCoordinator(null);
-            setIsFetchingProject(false);
-          }
-        }, (err) => {
-          console.warn("Failed to listen to project:", err);
-          setIsFetchingProject(false);
-        });
-      } else {
-        setAssignedProject(null);
-        setAssignedShift(null);
-        setProjectManager(null);
-        setProjectCoordinator(null);
-      }
-    }
-
     return () => {
       if (unsubscribeManager) unsubscribeManager();
-      if (unsubscribeProject) unsubscribeProject();
     };
-  }, [user?.managerId, user?.uid, user?.role]);
+  }, [user?.managerId]);
+
+  const projectData = useAuthStore((s) => s.projectData);
+  const {
+    assignedProject = null,
+    assignedShift = null,
+    assignedShiftName = null,
+    projectManager = null,
+    projectCoordinator = null
+  } = projectData || {};
+  
+  // No local fetching needed anymore, it's handled globally
+  const isFetchingProject = !projectData && user?.projectId;
 
   const renderRow = (label: string, value: any, noBorder = false) => (
     <View style={[styles.row, noBorder && { borderBottomWidth: 0 }]}>
@@ -280,7 +246,7 @@ export default function ProfileScreen() {
               {user?.role === 'employee' && renderRow("Shift", isFetchingProject ? <ActivityIndicator size="small" color={Colors.primary} /> : (assignedShift ? (
                 <View style={{alignItems: 'flex-end'}}>
                   <Text style={styles.value}>{assignedShift}</Text>
-                  {assignedShiftName && <Text style={{fontSize: 11, color: Colors.text.secondary, marginTop: 2}}>({assignedShiftName})</Text>}
+                  {assignedShiftName ? <Text style={{fontSize: 11, color: Colors.text.secondary, marginTop: 2}}>({assignedShiftName})</Text> : null}
                 </View>
               ) : "Not Assigned"))}
               {user?.role === 'employee' && renderRow("Project Manager", isFetchingProject ? <ActivityIndicator size="small" color={Colors.primary} /> : (projectManager || "Not Assigned"))}
@@ -314,7 +280,7 @@ export default function ProfileScreen() {
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>My Documents</Text>
-              <TouchableOpacity onPress={() => setIsDocModalVisible(false)} style={styles.closeBtn}>
+              <TouchableOpacity onPress={() => { setIsDocModalVisible(false); setPreviewDocUrl(null); }} style={styles.closeBtn}>
                 <Ionicons name="close" size={24} color={Colors.text.primary} />
               </TouchableOpacity>
             </View>
@@ -331,9 +297,45 @@ export default function ProfileScreen() {
                         </View>
                       )}
                     </View>
-                    <Text style={styles.docValue}>{docItem.name}</Text>
                     {docItem.url && (
-                      <Image source={{ uri: docItem.url }} style={styles.docImage} resizeMode="contain" />
+                      <View>
+                        {(docItem.name?.toLowerCase().endsWith('.pdf') || docItem.url.toLowerCase().includes('.pdf')) ? (
+                          <View style={{ width: '100%', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#E2E8F0', marginTop: 8, backgroundColor: '#F8FAFC' }}>
+                            {previewDocUrl === docItem.url ? (
+                              <View style={{ height: 300, width: '100%' }}>
+                                {Platform.OS === 'web' ? (
+                                  <iframe src={docItem.url} style={{ width: '100%', height: '100%', border: 'none' }} />
+                                ) : (
+                                  <WebView 
+                                    source={{ uri: Platform.OS === 'android' ? `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(docItem.url)}` : docItem.url }} 
+                                    style={{ flex: 1 }} 
+                                    startInLoadingState={true}
+                                    renderLoading={() => <ActivityIndicator size="small" color="#3B82F6" style={{ position: 'absolute', top: '50%', left: '50%', marginLeft: -10, marginTop: -10 }} />}
+                                  />
+                                )}
+                              </View>
+                            ) : (
+                              <TouchableOpacity 
+                                style={{ padding: 20, alignItems: 'center', justifyContent: 'center' }}
+                                onPress={() => setPreviewDocUrl(docItem.url)}
+                              >
+                                <Ionicons name="eye-outline" size={32} color="#94A3B8" />
+                                <Text style={{ color: '#64748B', marginTop: 8, fontWeight: '500' }}>Tap to load PDF preview</Text>
+                                <Text style={{ color: '#94A3B8', fontSize: 11, marginTop: 4, textAlign: 'center' }}>Loading all PDFs at once slows down the app</Text>
+                              </TouchableOpacity>
+                            )}
+                          </View>
+                        ) : (
+                          <Image source={{ uri: docItem.url }} style={[styles.docImage, { marginTop: 8 }]} resizeMode="contain" />
+                        )}
+                        <TouchableOpacity 
+                          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 8, paddingVertical: 10, backgroundColor: '#EFF6FF', borderRadius: 6, borderWidth: 1, borderColor: '#BFDBFE' }}
+                          onPress={() => handleDownload(docItem.url, docItem.name || 'document')}
+                        >
+                          <Ionicons name="cloud-download-outline" size={18} color="#3B82F6" />
+                          <Text style={{ marginLeft: 6, color: '#3B82F6', fontSize: 13, fontWeight: '600' }}>Download to Device</Text>
+                        </TouchableOpacity>
+                      </View>
                     )}
                   </View>
                 ))

@@ -35,6 +35,16 @@ interface AuthState {
   logout: () => Promise<void>;
   restoreSession: () => Promise<void>;
   persistSession: (user: User, otpVerified?: boolean) => Promise<void>;
+  
+  // App-wide pre-fetched data
+  projectData?: {
+    assignedProject?: string | null;
+    assignedShift?: string | null;
+    assignedShiftName?: string | null;
+    projectManager?: string | null;
+    projectCoordinator?: string | null;
+  };
+  setProjectData: (data: any) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
@@ -50,6 +60,8 @@ export const useAuthStore = create<AuthState>((set) => ({
     set((state) => ({ user, isAuthenticated: state.isAuthenticated, isOtpVerified: state.isOtpVerified })),
 
   setLoading: (isLoading) => set({ isLoading }),
+
+  setProjectData: (data) => set({ projectData: data }),
 
   verifyLoginOtp: () => set({ isOtpVerified: true }),
 
