@@ -50,24 +50,25 @@ export default function ProfileScreen() {
     
     try {
       const fileExt = url.toLowerCase().includes('.pdf') ? '.pdf' : '.jpg';
-      const fileUri = FileSystem.documentDirectory + (filename || `document_${Date.now()}`) + fileExt;
+      const safeFilename = (filename || `document_${Date.now()}`).replace(/[^a-zA-Z0-9.-]/g, '_');
+      const fileUri = FileSystem.documentDirectory + safeFilename + fileExt;
       const downloadResult = await FileSystem.downloadAsync(url, fileUri);
       
       if (downloadResult.status === 200) {
         if (await Sharing.isAvailableAsync()) {
           await Sharing.shareAsync(downloadResult.uri, {
-            mimeType: url.toLowerCase().includes('.pdf') ? 'application/pdf' : 'image/jpeg',
+            mimeType: fileExt === '.pdf' ? 'application/pdf' : 'image/jpeg',
             dialogTitle: 'Save or share document',
           });
         } else {
           Alert.alert("Success", "File downloaded to your device.");
         }
       } else {
-        Alert.alert("Error", "Failed to download file.");
+        Alert.alert("Error", "Failed to download file. Status: " + downloadResult.status);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
-      Alert.alert("Error", "Could not download file.");
+      Alert.alert("Download Error", err?.message || "Could not download file.");
     }
   };
 
