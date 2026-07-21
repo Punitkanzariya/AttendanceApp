@@ -21,6 +21,7 @@ import { subscribeToUserExpenses } from "@/firebase/expenseService";
 import type { Expense } from "@/types";
 import { ExpenseModal } from "./components/modals/ExpenseModal";
 import { SuccessPopup } from "@/components/shared/SuccessPopup";
+import { WebView } from "react-native-webview";
 
 export default function EmployeeExpenseScreen() {
   const { user } = useAuthStore();
@@ -63,19 +64,7 @@ export default function EmployeeExpenseScreen() {
   };
 
   const openAttachment = (url: string) => {
-    if (url.startsWith('data:image')) {
-      setIsAttachmentVisible(true);
-    } else if (Platform.OS === 'web') {
-      // For PDFs on web
-      const win = window.open();
-      if (win) {
-        win.document.write('<iframe src="' + url  + '" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>');
-      }
-    } else {
-      Linking.openURL(url).catch((err) => {
-        console.error('Failed to open URL:', err);
-      });
-    }
+    setIsAttachmentVisible(true);
   };
 
   const getStatusColor = (status: string) => {
@@ -336,18 +325,42 @@ export default function EmployeeExpenseScreen() {
         </View>
       </Modal>
 
-      {/* Attachment Image Viewer Modal */}
+      {/* Attachment Image/PDF Viewer Modal */}
       <Modal visible={isAttachmentVisible} transparent={true} animationType="fade">
         <View style={styles.imageViewerOverlay}>
-          <TouchableOpacity style={styles.closeImageBtn} onPress={() => setIsAttachmentVisible(false)}>
-            <Ionicons name="close-circle" size={36} color={Colors.white} />
-          </TouchableOpacity>
           {expenseToView?.billUrls?.[0] && (
-            <Image 
-              source={{ uri: expenseToView.billUrls[0] }} 
-              style={styles.fullImage} 
-              resizeMode="contain" 
-            />
+            expenseToView.billUrls[0].toLowerCase().includes('.pdf') ? (
+               <View style={{ flex: 1, width: '100%', height: '100%', backgroundColor: '#fff', marginTop: Platform.OS === 'ios' ? 40 : 0 }}>
+                  <TouchableOpacity 
+                    style={{ position: 'absolute', top: 10, left: 20, zIndex: 10, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20 }} 
+                    onPress={() => setIsAttachmentVisible(false)}
+                  >
+                    <Ionicons name="close-circle" size={36} color="#ffffff" />
+                  </TouchableOpacity>
+                  {Platform.OS === 'web' ? (
+                    <iframe src={expenseToView.billUrls[0]} style={{ width: '100%', height: '100%', border: 'none' }} />
+                  ) : (
+                    <WebView 
+                      source={{ uri: `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(expenseToView.billUrls[0])}` }}
+                      style={{ flex: 1 }}
+                    />
+                  )}
+               </View>
+            ) : (
+              <View style={{ flex: 1, width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
+                <TouchableOpacity 
+                  style={{ position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, right: 20, zIndex: 10 }} 
+                  onPress={() => setIsAttachmentVisible(false)}
+                >
+                  <Ionicons name="close-circle" size={36} color="#ffffff" />
+                </TouchableOpacity>
+                <Image 
+                  source={{ uri: expenseToView.billUrls[0] }} 
+                  style={styles.fullImage} 
+                  resizeMode="contain" 
+                />
+              </View>
+            )
           )}
         </View>
       </Modal>
@@ -532,7 +545,11 @@ const styles = StyleSheet.create({
   detailValue: { fontSize: FontSize.md, fontWeight: 'bold', color: Colors.text.primary, marginBottom: Spacing.md },
   viewBillBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#EFF6FF', padding: Spacing.md, borderRadius: BorderRadius.md, marginBottom: Spacing.lg, borderWidth: 1, borderColor: '#BFDBFE', justifyContent: 'center' },
   viewBillText: { color: Colors.primary, fontWeight: '600', fontSize: FontSize.sm },
-  imageViewerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
-  closeImageBtn: { position: 'absolute', top: 40, right: 20, zIndex: 10 },
+  imageViewerOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+  },
   fullImage: { width: '100%', height: '80%' },
 });

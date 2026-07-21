@@ -1,5 +1,6 @@
 import { collection, collectionGroup, doc, setDoc, updateDoc, query, where, onSnapshot, getDoc, getDocs, serverTimestamp } from 'firebase/firestore';
-import { db } from '@/firebase/config';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from '@/firebase/config';
 import type { AttendanceRecord, AttendanceLocation } from '@/types';
 import { Platform } from 'react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
@@ -80,16 +81,22 @@ export function subscribeToTodayAttendance(
 
 async function uploadImageToStorage(uri: string, path: string): Promise<string> {
   try {
-    const manipResult = await ImageManipulator.manipulateAsync(
-      uri,
-      [{ resize: { width: 400 } }],
-      { compress: 0.4, format: ImageManipulator.SaveFormat.JPEG, base64: true }
-    );
+    let uriToUpload = uri;
+    if (Platform.OS !== 'web') {
+      const manipResult = await ImageManipulator.manipulateAsync(
+        uri,
+        [{ resize: { width: 400 } }],
+        { compress: 0.4, format: ImageManipulator.SaveFormat.JPEG }
+      );
+      uriToUpload = manipResult.uri;
+    }
 
-    // Instead of Firebase Storage, return the compressed Base64 Data URL.
-    // At 600px, the image is ~30KB, well under Firestore's 1MB limit.
-    // This bypasses all Storage/Network/Blob errors entirely.
-    return `data:image/jpeg;base64,${manipResult.base64}`;
+    const response = await fetch(uriToUpload);
+    const blob = await response.blob();
+
+    const storageRef = ref(storage, path);
+    await uploadBytes(storageRef, blob);
+    return await getDownloadURL(storageRef);
   } catch (e) {
     console.error("Error uploading image to storage", e);
     throw new Error("Failed to process selfie image");
@@ -119,7 +126,7 @@ export async function checkInEmployee(
 
   let selfieUrl = null;
   if (selfieUri) {
-    selfieUrl = await uploadImageToStorage(selfieUri, `attendance/${employeeId}/${logicalDateStr}_checkin.jpg`);
+    selfieUrl = await uploadImageToStorage(selfieUri, `employees/${employeeId}/attendance/${logicalDateStr}/checkin_${Date.now()}.jpg`);
   }
 
   const attendanceData: Omit<AttendanceRecord, 'id'> = {
@@ -182,7 +189,7 @@ export async function checkOutEmployee(
 
   let selfieUrl = null;
   if (selfieUri) {
-    selfieUrl = await uploadImageToStorage(selfieUri, `attendance/${employeeId}/${logicalDateStr}_checkout.jpg`);
+    selfieUrl = await uploadImageToStorage(selfieUri, `employees/${employeeId}/attendance/${logicalDateStr}/checkout_${Date.now()}.jpg`);
   }
 
   await updateDoc(docRef, {

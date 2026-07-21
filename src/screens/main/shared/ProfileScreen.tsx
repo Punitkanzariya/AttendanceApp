@@ -10,6 +10,7 @@ import {
   Alert,
   Modal,
   Platform,
+  Linking,
 } from "react-native";
 import { WebView } from "react-native-webview";
 import * as ImagePicker from "expo-image-picker";
@@ -25,7 +26,8 @@ import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from '@/t
 import { formatDateDDMMYYYY } from '@/utils/dateUtils';
 import GradientHeader from "@/components/shared/GradientHeader";
 import { doc, getDoc, updateDoc, collection, getDocs, onSnapshot, query, where } from "firebase/firestore";
-import { db } from "@/firebase/config";
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "@/firebase/config";
 import type { Project } from "@/types";
 
 export default function ProfileScreen() {
@@ -35,41 +37,15 @@ export default function ProfileScreen() {
   const [isUploading, setIsUploading] = useState(false);
   const [isDocModalVisible, setIsDocModalVisible] = useState(false);
   const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
+  const [isFullViewerVisible, setIsFullViewerVisible] = useState(false);
+  const [fullViewerUrl, setFullViewerUrl] = useState<string | null>(null);
 
-  const handleDownload = async (url: string, filename: string) => {
-    if (Platform.OS === 'web') {
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = filename || 'document';
-      link.target = '_blank';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      return;
-    }
-    
-    try {
-      const fileExt = url.toLowerCase().includes('.pdf') ? '.pdf' : '.jpg';
-      const safeFilename = (filename || `document_${Date.now()}`).replace(/[^a-zA-Z0-9.-]/g, '_');
-      const fileUri = FileSystem.documentDirectory + safeFilename + fileExt;
-      const downloadResult = await FileSystem.downloadAsync(url, fileUri);
-      
-      if (downloadResult.status === 200) {
-        if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(downloadResult.uri, {
-            mimeType: fileExt === '.pdf' ? 'application/pdf' : 'image/jpeg',
-            dialogTitle: 'Save or share document',
-          });
-        } else {
-          Alert.alert("Success", "File downloaded to your device.");
-        }
-      } else {
-        Alert.alert("Error", "Failed to download file. Status: " + downloadResult.status);
-      }
-    } catch (err: any) {
-      console.error(err);
-      Alert.alert("Download Error", err?.message || "Could not download file.");
-    }
+  const viewDocument = async (url: string) => {
+    setFullViewerUrl(url);
+    setIsDocModalVisible(false); // Hide the doc modal first
+    setTimeout(() => {
+      setIsFullViewerVisible(true);
+    }, 100);
   };
 
   useEffect(() => {
@@ -151,21 +127,32 @@ export default function ProfileScreen() {
         allowsEditing: true,
         aspect: [1, 1],
         quality: 0.5,
-        base64: true,
       });
 
-      if (!result.canceled && result.assets && result.assets[0].base64) {
+      if (!result.canceled && result.assets && result.assets[0].uri) {
         setIsUploading(true);
-        const base64Uri = `data:image/jpeg;base64,${result.assets[0].base64}`;
+        const uriToUpload = result.assets[0].uri;
 
         if (auth.currentUser && user?.uid) {
+          const response = await fetch(uriToUpload);
+          const blob = await response.blob();
+          
+          let ext = uriToUpload.split('.').pop()?.toLowerCase() || 'jpg';
+          if (ext.length > 4 || ext.includes('/')) ext = 'jpg';
+          
+          const fileName = `avatar_${Date.now()}.${ext}`;
+          const storageRef = ref(storage, `employees/${user.uid}/profile/${fileName}`);
+          
+          await uploadBytes(storageRef, blob);
+          const downloadUrl = await getDownloadURL(storageRef);
+
           // Update Firestore using the new flat users collection
           await updateDoc(doc(db, "users", user.uid), {
-            profilePicture: base64Uri,
+            profilePicture: downloadUrl,
           });
 
           // Update local state
-          const updatedUser = { ...user!, profilePicture: base64Uri };
+          const updatedUser = { ...user!, profilePicture: downloadUrl };
           useAuthStore.setState({ user: updatedUser });
         }
       }
@@ -330,11 +317,11 @@ export default function ProfileScreen() {
                           <Image source={{ uri: docItem.url }} style={[styles.docImage, { marginTop: 8 }]} resizeMode="contain" />
                         )}
                         <TouchableOpacity 
-                          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 8, paddingVertical: 10, backgroundColor: '#EFF6FF', borderRadius: 6, borderWidth: 1, borderColor: '#BFDBFE' }}
-                          onPress={() => handleDownload(docItem.url, docItem.name || 'document')}
+                          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 8, paddingVertical: 10, backgroundColor: '#F0FDF4', borderRadius: 6, borderWidth: 1, borderColor: '#BBF7D0' }}
+                          onPress={() => viewDocument(docItem.url)}
                         >
-                          <Ionicons name="cloud-download-outline" size={18} color="#3B82F6" />
-                          <Text style={{ marginLeft: 6, color: '#3B82F6', fontSize: 13, fontWeight: '600' }}>Download to Device</Text>
+                          <Ionicons name="open-outline" size={18} color="#16A34A" />
+                          <Text style={{ marginLeft: 6, color: '#16A34A', fontSize: 13, fontWeight: '600' }}>View Document</Text>
                         </TouchableOpacity>
                       </View>
                     )}
@@ -377,6 +364,42 @@ export default function ProfileScreen() {
               )}
             </ScrollView>
           </View>
+        </View>
+      </Modal>
+
+      {/* Full Screen Viewer Modal */}
+      <Modal visible={isFullViewerVisible} transparent={true} animationType="fade">
+        <View style={styles.imageViewerOverlay}>
+          <TouchableOpacity 
+            style={styles.closeImageBtn} 
+            onPress={() => { 
+              setIsFullViewerVisible(false); 
+              setFullViewerUrl(null); 
+              setIsDocModalVisible(true); 
+            }}
+          >
+            <Ionicons name="close-circle" size={36} color="#ffffff" />
+          </TouchableOpacity>
+          {fullViewerUrl && (
+            (fullViewerUrl.toLowerCase().includes('.pdf')) ? (
+              <View style={{ flex: 1, width: '100%', backgroundColor: '#fff', marginTop: Platform.OS === 'ios' ? 40 : 0 }}>
+                {Platform.OS === 'web' ? (
+                  <iframe src={fullViewerUrl} style={{ width: '100%', height: '100%', border: 'none' }} />
+                ) : (
+                  <WebView 
+                    source={{ uri: `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(fullViewerUrl)}` }}
+                    style={{ flex: 1 }}
+                  />
+                )}
+              </View>
+            ) : (
+              <Image 
+                source={{ uri: fullViewerUrl }} 
+                style={{ width: '100%', height: '80%' }} 
+                resizeMode="contain" 
+              />
+            )
+          )}
         </View>
       </Modal>
 
@@ -517,6 +540,22 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#EF4444",
     marginLeft: 8,
+  },
+  imageViewerOverlay: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    backgroundColor: "rgba(0,0,0,0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 9999,
+  },
+  closeImageBtn: {
+    position: "absolute",
+    top: Platform.OS === 'ios' ? 50 : 20,
+    left: 20,
+    zIndex: 10000,
   },
   modalOverlay: {
     flex: 1,

@@ -190,6 +190,7 @@ export interface Expense {
     | "rejected";
   isDuplicateFlag: boolean;
   rejectionReason?: string;
+  approvers?: string[];
   actionLogs: Array<{
     actionBy: string;
     action: string;

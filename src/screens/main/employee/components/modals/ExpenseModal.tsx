@@ -82,9 +82,9 @@ export const ExpenseModal = ({
     }
   }, [expenseToEdit, isVisible]);
 
-  // Save Draft (only if not editing)
+  // Save Draft (only if not editing and not submitting)
   useEffect(() => {
-    if (!expenseToEdit && (amount || description)) {
+    if (!expenseToEdit && !isSubmitting && (amount || description)) {
       saveExpenseDraft({
         amount: parseFloat(amount) || 0,
         category,
@@ -92,7 +92,7 @@ export const ExpenseModal = ({
         date,
       });
     }
-  }, [amount, category, description, date, expenseToEdit]);
+  }, [amount, category, description, date, expenseToEdit, isSubmitting]);
 
   const handleClose = () => {
     if (expenseToEdit) {
@@ -123,7 +123,7 @@ export const ExpenseModal = ({
     }
   };
 
-  const executeSubmit = async () => {
+  const executeSubmit = async (isDuplicateFlag: boolean = false) => {
     try {
       if (expenseToEdit) {
         await updateExpenseRequest(
@@ -135,6 +135,7 @@ export const ExpenseModal = ({
           description,
           attachment?.uri || null,
           existingAttachmentUrl,
+          attachment?.name || null
         );
         
         await logAuditAction({
@@ -156,6 +157,8 @@ export const ExpenseModal = ({
           date,
           description,
           attachment?.uri || null,
+          attachment?.name || null,
+          isDuplicateFlag
         );
         
         await logAuditAction({
@@ -183,9 +186,9 @@ export const ExpenseModal = ({
           !!expenseToEdit
         );
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      Alert.alert("Error", "Failed to submit expense");
+      setErrorMessage(error.message || "Failed to submit expense");
     } finally {
       setIsSubmitting(false);
     }
@@ -207,37 +210,32 @@ export const ExpenseModal = ({
       return;
     }
 
-    if (isNaN(parseFloat(amount))) {
-      setErrorMessage("Amount must be a valid number.");
+    if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0) {
+      setErrorMessage("Amount must be a valid number greater than 0.");
       return;
     }
 
     setIsSubmitting(true);
 
     if (!expenseToEdit) {
-      // Check for duplicates
-      const isDuplicate = await checkDuplicateExpense(
-        user!.uid,
-        parseFloat(amount),
-        date,
-        category,
-      );
-
-      if (isDuplicate) {
-        setIsSubmitting(false);
-        Alert.alert(
-          "Duplicate Detected",
-          "An expense with the same amount, date, and category already exists. Are you sure you want to submit?",
-          [
-            { text: "Cancel", style: "cancel" },
-            { text: "Submit Anyway", onPress: () => { setIsSubmitting(true); executeSubmit(); } },
-          ],
+      let isDuplicate = false;
+      try {
+        // Check for duplicates
+        isDuplicate = await checkDuplicateExpense(
+          user!.uid,
+          parseFloat(amount),
+          date,
+          category,
         );
-        return;
+      } catch (error) {
+        console.error("Duplicate check error:", error);
       }
+      
+      // Pass the duplicate flag to the submission instead of blocking the user
+      await executeSubmit(isDuplicate);
+    } else {
+      await executeSubmit(false);
     }
-
-    await executeSubmit();
   };
 
   return (

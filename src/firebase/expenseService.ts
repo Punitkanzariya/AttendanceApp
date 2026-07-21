@@ -1,5 +1,6 @@
 import { collection, doc, setDoc, onSnapshot, query, where, getDocs, updateDoc, getDoc } from 'firebase/firestore';
-import { db } from './config';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { db, storage } from './config';
 import type { Expense, Project } from '@/types';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -18,35 +19,38 @@ export const submitExpenseRequest = async (
   amount: number,
   date: string,
   description: string,
-  attachmentUri?: string | null
+  attachmentUri?: string | null,
+  attachmentName?: string | null,
+  isDuplicateFlag: boolean = false
 ): Promise<string> => {
   let attachmentUrl = null;
 
   if (attachmentUri) {
     try {
-      if (Platform.OS === 'web') {
-        const response = await fetch(attachmentUri);
-        const blob = await response.blob();
-        const base64Str = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-        attachmentUrl = base64Str;
-      } else {
+      let uriToUpload = attachmentUri;
+      let ext = (attachmentName || uriToUpload).split('.').pop()?.toLowerCase() || 'jpg';
+      if (ext.length > 4 || ext.includes('/')) ext = 'jpg'; // fallback for weird URIs
+      const isPdf = ext === 'pdf' || uriToUpload.toLowerCase().endsWith('.pdf');
+
+      if (Platform.OS !== 'web' && !isPdf) {
         const manipResult = await ImageManipulator.manipulateAsync(
           attachmentUri,
           [{ resize: { width: 800 } }],
           { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
         );
-
-        const base64 = await FileSystem.readAsStringAsync(manipResult.uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        attachmentUrl = `data:image/jpeg;base64,${base64}`;
+        uriToUpload = manipResult.uri;
+        ext = 'jpg';
       }
+
+      const response = await fetch(uriToUpload);
+      const blob = await response.blob();
+      
+      const safeCategory = category.replace(/\s+/g, '');
+      const fileName = `${date}_${safeCategory}_${Date.now()}.${ext}`;
+      const storageRef = ref(storage, `employees/${employeeId}/expenses/${fileName}`);
+      
+      await uploadBytes(storageRef, blob);
+      attachmentUrl = await getDownloadURL(storageRef);
     } catch (e) {
       console.error("Error uploading attachment to storage", e);
       throw new Error("Failed to process attachment");
@@ -93,7 +97,8 @@ export const submitExpenseRequest = async (
     description,
     status: 'pending',
     billUrls: attachmentUrl ? [attachmentUrl] : [],
-    isDuplicateFlag: false,
+    isDuplicateFlag: isDuplicateFlag,
+    approvers: approvers,
     actionLogs: [
       {
         actionBy: employeeId,
@@ -146,35 +151,37 @@ export const updateExpenseRequest = async (
   date: string,
   description: string,
   attachmentUri?: string | null,
-  existingAttachmentUrl?: string | null
+  existingAttachmentUrl?: string | null,
+  attachmentName?: string | null
 ): Promise<void> => {
   let attachmentUrl = existingAttachmentUrl;
 
-  if (attachmentUri && !attachmentUri.startsWith('http') && !attachmentUri.startsWith('data:image')) {
+  if (attachmentUri && !attachmentUri.startsWith('http')) {
     try {
-      if (Platform.OS === 'web') {
-        const response = await fetch(attachmentUri);
-        const blob = await response.blob();
-        const base64Str = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result as string);
-          reader.onerror = reject;
-          reader.readAsDataURL(blob);
-        });
-        attachmentUrl = base64Str;
-      } else {
+      let uriToUpload = attachmentUri;
+      let ext = (attachmentName || uriToUpload).split('.').pop()?.toLowerCase() || 'jpg';
+      if (ext.length > 4 || ext.includes('/')) ext = 'jpg';
+      const isPdf = ext === 'pdf' || uriToUpload.toLowerCase().endsWith('.pdf');
+
+      if (Platform.OS !== 'web' && !attachmentUri.startsWith('data:') && !isPdf) {
         const manipResult = await ImageManipulator.manipulateAsync(
           attachmentUri,
           [{ resize: { width: 800 } }],
           { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
         );
-
-        const base64 = await FileSystem.readAsStringAsync(manipResult.uri, {
-          encoding: FileSystem.EncodingType.Base64,
-        });
-
-        attachmentUrl = `data:image/jpeg;base64,${base64}`;
+        uriToUpload = manipResult.uri;
+        ext = 'jpg';
       }
+
+      const response = await fetch(uriToUpload);
+      const blob = await response.blob();
+      
+      const safeCategory = category.replace(/\s+/g, '');
+      const fileName = `${date}_${safeCategory}_${Date.now()}.${ext}`;
+      const storageRef = ref(storage, `employees/${employeeId}/expenses/${fileName}`);
+      
+      await uploadBytes(storageRef, blob);
+      attachmentUrl = await getDownloadURL(storageRef);
     } catch (e) {
       console.error("Error uploading attachment to storage", e);
       throw new Error("Failed to process attachment");
