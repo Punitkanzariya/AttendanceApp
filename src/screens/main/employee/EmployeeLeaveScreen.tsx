@@ -6,19 +6,21 @@ import {
   FlatList,
   TouchableOpacity,
   ActivityIndicator,
+  Modal,
+  ScrollView,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuthStore } from "@/store/authStore";
-import {
-  Colors,
-  Spacing,
-  BorderRadius,
-} from "@/theme";
+import { Colors, Spacing, BorderRadius } from "@/theme";
 import { formatDisplayStatus } from "@/utils/statusUtils";
-import { formatLeaveDurationText, formatDateDDMMYYYY } from '@/utils/dateUtils';
-import { subscribeToUserLeaves, subscribeToLeaveTypes, subscribeToUserLeaveBalance } from "@/firebase/leaveService";
+import { formatLeaveDurationText, formatDateDDMMYYYY } from "@/utils/dateUtils";
+import {
+  subscribeToUserLeaves,
+  subscribeToUserLeaveBalance,
+} from "@/firebase/leaveService";
+import { LEAVE_TYPE_LABELS } from "@/utils/constants";
 import type { LeaveRequest, LeaveType } from "@/types";
 import { LeaveModal } from "./components/modals/LeaveModal";
 import LeaveBalanceBoxes from "@/components/shared/LeaveBalanceBoxes";
@@ -28,107 +30,143 @@ export default function EmployeeLeaveScreen() {
   const { user } = useAuthStore();
   const navigation = useNavigation();
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
-  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
   const [userLeaveBalance, setUserLeaveBalance] = useState<any>(null);
-  const [successPopup, setSuccessPopup] = useState<{ visible: boolean; title: string; message: string }>({ visible: false, title: "", message: "" });
+  const [successPopup, setSuccessPopup] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+  }>({ visible: false, title: "", message: "" });
   const [isLoading, setIsLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
+  const [selectedLeave, setSelectedLeave] = useState<LeaveRequest | null>(null);
+  const [detailModalVisible, setDetailModalVisible] = useState(false);
 
   useEffect(() => {
     if (!user?.uid) return;
 
-    const unsubscribeLeaves = subscribeToUserLeaves(user.uid, user.role, (data) => {
-      setLeaves(data);
-      setIsLoading(false);
-    });
-
-    const unsubscribeTypes = subscribeToLeaveTypes((data) => {
-      setLeaveTypes(data);
-    });
+    const unsubscribeLeaves = subscribeToUserLeaves(
+      user.uid,
+      user.role,
+      (data) => {
+        setLeaves(data);
+        setIsLoading(false);
+      },
+    );
 
     const currentYear = new Date().getFullYear();
-    const unsubscribeBalance = subscribeToUserLeaveBalance(user.uid, currentYear, (data: any) => {
-      setUserLeaveBalance(data);
-    });
+    const unsubscribeBalance = subscribeToUserLeaveBalance(
+      user.uid,
+      currentYear,
+      (data: any) => {
+        setUserLeaveBalance(data);
+      },
+    );
 
     const timeout = setTimeout(() => setIsLoading(false), 3000);
 
     return () => {
       clearTimeout(timeout);
       unsubscribeLeaves();
-      unsubscribeTypes();
       unsubscribeBalance();
     };
   }, [user?.uid]);
 
-
-
-  const getStatusColor = (status: string) => {
-    if (status.includes('pending')) return Colors.warning;
-    if (status === 'approved' || status === 'reimbursed' || status === 'verified') return Colors.success;
-    if (status === 'rejected') return Colors.error;
-    return Colors.text.tertiary;
+  const getLeaveIconInfo = (type: string) => {
+    switch (type) {
+      case "sick":
+        return { icon: "medkit-outline", color: "#EF4444", bg: "#FEE2E2" };
+      case "casual":
+        return { icon: "umbrella-outline", color: "#3B82F6", bg: "#DBEAFE" };
+      case "earned":
+        return { icon: "briefcase-outline", color: "#8B5CF6", bg: "#EDE9FE" };
+      default:
+        return { icon: "calendar-outline", color: "#6B7280", bg: "#F3F4F6" };
+    }
   };
 
-  const renderItem = ({ item }: { item: LeaveRequest }) => (
-    <View style={styles.card}>
-      <View style={styles.cardHeader}>
-        <View style={{ flex: 1 }}>
-          <Text style={styles.leaveTypeText}>
-            {leaveTypes.find(t => t.leaveTypeId === item.type)?.name || item.type}
-          </Text>
-          <View style={styles.dateRow}>
-            <Ionicons
-              name="calendar-outline"
-              size={14}
-              color={Colors.text.secondary}
-            />
-            <Text style={styles.dateText}>
-              {formatLeaveDurationText(item.startDate, item.endDate, item.totalDays, item.durationType, item.halfDayPeriod)}
-            </Text>
-          </View>
+  const renderItem = ({ item }: { item: LeaveRequest }) => {
+    console.log("item", item);
+    const iconInfo = getLeaveIconInfo(item.type);
+    const isApproved = item.status === "approved";
+
+    return (
+      <TouchableOpacity
+        style={styles.historyCard}
+        activeOpacity={0.7}
+        onPress={() => {
+          setSelectedLeave(item);
+          setDetailModalVisible(true);
+        }}
+      >
+        <View
+          style={[styles.historyIconWrap, { backgroundColor: iconInfo.bg }]}
+        >
+          <Ionicons
+            name={iconInfo.icon as any}
+            size={24}
+            color={iconInfo.color}
+          />
         </View>
-        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) + "20" }]}>
-          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status.includes('pending') ? 'Pending' : formatDisplayStatus(item.status)}
+        <View style={styles.historyDetails}>
+          <Text style={styles.historyTitle}>
+            {item.type
+              ? LEAVE_TYPE_LABELS[item.type] || item.type
+              : "Leave Request"}
+          </Text>
+          <Text style={styles.historySubtitle}>
+            {formatLeaveDurationText(
+              item.startDate,
+              item.endDate,
+              item.totalDays,
+              item.durationType,
+              item.halfDayPeriod,
+            )}
           </Text>
         </View>
-      </View>
-
-      <Text style={styles.reasonLabel}>Reason</Text>
-      <Text style={styles.reasonText}>{item.reason}</Text>
-
-
-
-      <View style={styles.cardFooter}>
-        <Text style={styles.appliedDate}>
-          Applied on {item.actionLogs?.[0]?.timestamp ? formatDateDDMMYYYY(item.actionLogs[0].timestamp) : "N/A"}
-        </Text>
-      </View>
-    </View>
-  );
+        <View
+          style={[
+            styles.historyBadge,
+            isApproved
+              ? { backgroundColor: "#F3F4F6" }
+              : { backgroundColor: "#FEE2E2" },
+          ]}
+        >
+          <Text
+            style={[
+              styles.historyBadgeTxt,
+              isApproved ? { color: "#374151" } : { color: "#DC2626" },
+            ]}
+          >
+            {item.status.includes("pending")
+              ? "Pending"
+              : formatDisplayStatus(item.status)}
+          </Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   const renderHeader = () => {
     const currentYear = new Date().getFullYear();
 
     const calculateTaken = (typeId: string) => {
       return leaves
-        .filter((l) => l.type === typeId && l.status === 'approved')
+        .filter((l) => l.type === typeId && l.status === "approved")
         .filter((l) => {
           if (!l.startDate) return false;
           let dateYear = currentYear;
           try {
-            if (l.startDate.includes('-')) {
-               const parts = l.startDate.split('-');
-               if (parts[0].length === 4) {
-                 dateYear = parseInt(parts[0], 10);
-               } else if (parts[2]?.length === 4) {
-                 dateYear = parseInt(parts[2], 10);
-               } else {
-                 dateYear = new Date(l.startDate).getFullYear();
-               }
+            if (l.startDate.includes("-")) {
+              const parts = l.startDate.split("-");
+              if (parts[0].length === 4) {
+                dateYear = parseInt(parts[0], 10);
+              } else if (parts[2]?.length === 4) {
+                dateYear = parseInt(parts[2], 10);
+              } else {
+                dateYear = new Date(l.startDate).getFullYear();
+              }
             } else {
-               dateYear = new Date(l.startDate).getFullYear();
+              dateYear = new Date(l.startDate).getFullYear();
             }
           } catch (e) {}
           return dateYear === currentYear;
@@ -140,18 +178,40 @@ export default function EmployeeLeaveScreen() {
     let totalMaxAll = 0;
 
     return (
-    <View style={styles.headerContent}>
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Leave Balance</Text>
-      </View>
+      <View style={styles.headerContent}>
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Leave Balance</Text>
+        </View>
 
-      <LeaveBalanceBoxes userLeaveBalance={userLeaveBalance} isLoading={isLoading} leaves={leaves} leaveTypes={leaveTypes} user={user} />
+        <LeaveBalanceBoxes
+          userLeaveBalance={userLeaveBalance}
+          isLoading={isLoading}
+          leaves={leaves}
+          user={user}
+        />
 
-      <View style={styles.sectionHeader}>
-        <Text style={styles.sectionTitle}>Leave History</Text>
+        <TouchableOpacity
+          style={styles.applyBtn}
+          activeOpacity={0.8}
+          onPress={() => setIsModalVisible(true)}
+        >
+          <Ionicons
+            name="add"
+            size={20}
+            color="#FFFFFF"
+            style={{ marginRight: 6 }}
+          />
+          <Text style={styles.applyBtnTxt}>Apply for Leave</Text>
+        </TouchableOpacity>
+
+        <View style={[styles.sectionHeader, { marginTop: 20 }]}>
+          <Text style={styles.sectionTitle}>History</Text>
+          <TouchableOpacity>
+            <Text style={styles.viewAllTxt}>View All</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
-  );
+    );
   };
 
   return (
@@ -164,12 +224,7 @@ export default function EmployeeLeaveScreen() {
           <Ionicons name="chevron-back" size={20} color={Colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Leaves</Text>
-        <TouchableOpacity
-          style={styles.headerBtnPrimary}
-          onPress={() => setIsModalVisible(true)}
-        >
-          <Ionicons name="add" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
+        <View style={{ width: 32 }} />
       </View>
 
       {isLoading ? (
@@ -197,9 +252,9 @@ export default function EmployeeLeaveScreen() {
       )}
 
       {/* Apply Leave Modal */}
-      <LeaveModal 
-        isVisible={isModalVisible} 
-        onClose={() => setIsModalVisible(false)} 
+      <LeaveModal
+        isVisible={isModalVisible}
+        onClose={() => setIsModalVisible(false)}
         userLeaveBalance={userLeaveBalance}
         existingLeaves={leaves}
         onSuccess={(message) => {
@@ -207,18 +262,98 @@ export default function EmployeeLeaveScreen() {
             setSuccessPopup({
               visible: true,
               title: "Leave Applied",
-              message
+              message,
             });
           }, 400);
         }}
       />
-      
+
+      {/* Leave Detail Modal */}
+      <Modal visible={detailModalVisible} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.detailModalContent}>
+            <View style={styles.detailHeader}>
+              <Text style={styles.detailTitle}>Leave Details</Text>
+              <TouchableOpacity onPress={() => setDetailModalVisible(false)}>
+                <Ionicons
+                  name="close"
+                  size={24}
+                  color={Colors.text.secondary}
+                />
+              </TouchableOpacity>
+            </View>
+
+            {selectedLeave && (
+              <View style={{ paddingBottom: 10 }}>
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Type</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedLeave.type
+                      ? LEAVE_TYPE_LABELS[selectedLeave.type] ||
+                        selectedLeave.type
+                      : "Leave Request"}
+                  </Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Date</Text>
+                  <Text style={styles.detailValue}>
+                    {formatLeaveDurationText(
+                      selectedLeave.startDate,
+                      selectedLeave.endDate,
+                      selectedLeave.totalDays,
+                      selectedLeave.durationType,
+                      selectedLeave.halfDayPeriod,
+                    )}
+                  </Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Status</Text>
+                  <Text
+                    style={[
+                      styles.detailValue,
+                      {
+                        color:
+                          selectedLeave.status === "approved"
+                            ? Colors.success
+                            : Colors.warning,
+                      },
+                    ]}
+                  >
+                    {selectedLeave.status.includes("pending")
+                      ? "Pending"
+                      : formatDisplayStatus(selectedLeave.status)}
+                  </Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Reason</Text>
+                  <Text style={styles.detailValue}>{selectedLeave.reason}</Text>
+                </View>
+
+                <View style={styles.detailSection}>
+                  <Text style={styles.detailLabel}>Applied On</Text>
+                  <Text style={styles.detailValue}>
+                    {selectedLeave.actionLogs?.[0]?.timestamp
+                      ? formatDateDDMMYYYY(
+                          selectedLeave.actionLogs[0].timestamp,
+                        )
+                      : "N/A"}
+                  </Text>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
+
       {/* Success Popup */}
       <SuccessPopup
         visible={successPopup.visible}
         title={successPopup.title}
         message={successPopup.message}
-        onClose={() => setSuccessPopup(prev => ({ ...prev, visible: false }))}
+        onClose={() => setSuccessPopup((prev) => ({ ...prev, visible: false }))}
       />
     </SafeAreaView>
   );
@@ -263,14 +398,6 @@ const styles = StyleSheet.create({
   },
   center: { flex: 1, justifyContent: "center", alignItems: "center" },
   listContainer: { padding: 12, paddingBottom: 100 },
-  card: {
-    backgroundColor: Colors.white,
-    padding: 12,
-    borderRadius: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
   headerContent: { marginBottom: 12 },
   sectionHeader: {
     flexDirection: "row",
@@ -278,116 +405,114 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  sectionTitle: { fontSize: 16, fontWeight: "700", color: Colors.text.primary },
-  monthSelector: {
+  sectionTitle: { fontSize: 18, fontWeight: "700", color: Colors.text.primary },
+  applyBtn: {
+    backgroundColor: "#159404a4",
+    borderRadius: 24,
+    paddingVertical: 14,
     flexDirection: "row",
-    alignItems: "center",
-    backgroundColor: "#EFF6FF",
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
-    gap: 6,
-  },
-  monthBtnTxt: { color: "#2563EB", fontSize: 11, fontWeight: "600" },
-  leaveGrid: {
-    flexDirection: "column",
-    gap: 8,
-    marginBottom: 16,
-  },
-  leaveRow: { flexDirection: "row", gap: Spacing.sm },
-  leaveBalanceCard: {
-    flex: 1,
-    backgroundColor: Colors.white,
-    borderRadius: 12,
-    padding: 10,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    borderWidth: 1,
-    borderColor: Colors.border,
-  },
-  leaveIconRing: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    borderWidth: 1.5,
-    alignItems: "center",
     justifyContent: "center",
+    alignItems: "center",
+    marginTop: 16,
+    elevation: 5,
   },
-  leaveNum: {
+  applyBtnTxt: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  viewAllTxt: {
+    color: "#6366F1",
     fontSize: 13,
     fontWeight: "700",
-    color: Colors.text.primary,
-    marginBottom: 2,
   },
-  leaveTotalTxt: {
-    fontSize: 10,
-    color: Colors.text.secondary,
-    fontWeight: "500",
-  },
-  leaveLabel: { fontSize: 10, color: Colors.text.secondary },
-  leaveTakenTxt: {
-    fontSize: 9,
-    color: "#64748B",
-    marginTop: 2,
-    fontWeight: "500",
-  },
-  cardHeader: {
+  historyCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 16,
+    padding: 16,
     flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: Spacing.md,
+    alignItems: "center",
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: "#F3F4F6",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
-  leaveTypeText: {
-    fontSize: 16,
+  historyIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  historyDetails: {
+    flex: 1,
+  },
+  historyTitle: {
+    fontSize: 15,
     fontWeight: "700",
-    color: Colors.text.primary,
+    color: "#1F2937",
     marginBottom: 4,
   },
-  dateRow: { flexDirection: "row", alignItems: "center", gap: 6 },
-  dateText: { fontSize: 13, fontWeight: "500", color: Colors.text.secondary },
-  statusBadge: {
+  historySubtitle: {
+    fontSize: 13,
+    color: "#6B7280",
+    fontWeight: "500",
+  },
+  historyBadge: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: BorderRadius.full,
-    borderWidth: 1,
+    borderRadius: 16,
   },
-  statusText: { fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
-  reasonLabel: {
-    fontSize: 12,
-    fontWeight: "600",
-    color: Colors.text.secondary,
-    marginTop: Spacing.sm,
-  },
-  reasonText: {
-    fontSize: 15,
-    color: Colors.text.primary,
-    marginTop: 4,
-    lineHeight: 22,
-  },
-  notesContainer: {
-    marginTop: Spacing.md,
-    flexDirection: "row",
-    gap: 8,
-  },
-  notesLabel: {
+  historyBadgeTxt: {
     fontSize: 12,
     fontWeight: "700",
-    color: Colors.text.secondary,
-    marginBottom: 2,
   },
-  notesText: { fontSize: 13, color: Colors.text.primary, lineHeight: 18 },
-  cardFooter: {
-    marginTop: Spacing.lg,
-    paddingTop: Spacing.md,
-    borderTopWidth: 1,
-    borderTopColor: Colors.divider,
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
   },
-  appliedDate: {
-    fontSize: 11,
+  detailModalContent: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 24,
+  },
+  detailHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: "#F3F4F6",
+    paddingBottom: 16,
+  },
+  detailTitle: {
+    fontSize: 18,
+    fontWeight: "700",
+    color: "#1F2937",
+  },
+  detailSection: {
+    marginBottom: 16,
+  },
+  detailLabel: {
+    fontSize: 13,
+    color: "#6B7280",
+    fontWeight: "600",
+    marginBottom: 4,
+  },
+  detailValue: {
+    fontSize: 15,
+    color: "#1F2937",
     fontWeight: "500",
-    color: Colors.text.tertiary,
-    textAlign: "right",
+    lineHeight: 22,
   },
   emptyContainer: { alignItems: "center", marginTop: Spacing.xxl * 2 },
   emptyText: { marginTop: Spacing.md, color: Colors.text.tertiary },

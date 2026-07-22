@@ -23,11 +23,22 @@ import LeaveBalanceBoxes from "@/components/shared/LeaveBalanceBoxes";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { EmployeeTabParamList, AttendanceRecord } from "@/types";
-import { db, subscribeToTodayAttendance, checkInEmployee, checkOutEmployee, subscribeToUserAttendanceHistory, logFailedGeofenceAttempt, markMissedCheckouts } from "@/firebase";
+import {
+  db,
+  subscribeToTodayAttendance,
+  checkInEmployee,
+  checkOutEmployee,
+  subscribeToUserAttendanceHistory,
+  logFailedGeofenceAttempt,
+  markMissedCheckouts,
+} from "@/firebase";
 import { logAuditAction } from "@/firebase/auditService";
-import { doc, collection, setDoc } from 'firebase/firestore';
+import { doc, collection, setDoc } from "firebase/firestore";
 import { getEmployeeActiveProject } from "@/firebase/projectService";
-import { subscribeToUserLeaves, subscribeToLeaveTypes, subscribeToUserLeaveBalance } from "@/firebase/leaveService";
+import {
+  subscribeToUserLeaves,
+  subscribeToUserLeaveBalance,
+} from "@/firebase/leaveService";
 import type { LeaveRequest, LeaveType } from "@/types";
 import MonthPickerModal from "@/components/shared/MonthPickerModal";
 import { useLiveWorkingHours } from "@/hooks/useLiveWorkingHours";
@@ -49,27 +60,39 @@ Notifications.setNotificationHandler({
   }),
 });
 
-async function getShortAddress(latitude: number, longitude: number): Promise<string> {
-  let address = '';
+async function getShortAddress(
+  latitude: number,
+  longitude: number,
+): Promise<string> {
+  let address = "";
   // Helper for timeout
   function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
     return Promise.race([
       promise,
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), ms))
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
     ]);
   }
 
   // 1. Try Native Geocoder with 2.5s timeout
   try {
-    const geocode = await withTimeout(Location.reverseGeocodeAsync({ latitude, longitude }), 2500);
+    const geocode = await withTimeout(
+      Location.reverseGeocodeAsync({ latitude, longitude }),
+      2500,
+    );
     if (geocode && geocode.length > 0) {
       const item = geocode[0];
-      address = [item.name, item.street, item.district, item.city, item.postalCode]
+      address = [
+        item.name,
+        item.street,
+        item.district,
+        item.city,
+        item.postalCode,
+      ]
         .filter(Boolean)
-        .join(', ');
+        .join(", ");
     }
   } catch (err) {
-    console.warn('Native geocoding failed', err);
+    console.warn("Native geocoding failed", err);
   }
 
   // 2. Try OpenStreetMap Nominatim Fallback with 2.5s timeout
@@ -77,24 +100,32 @@ async function getShortAddress(latitude: number, longitude: number): Promise<str
     try {
       const fetchPromise = fetch(
         `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`,
-        { headers: { 'User-Agent': 'AttendanceApp/1.0' } }
+        { headers: { "User-Agent": "AttendanceApp/1.0" } },
       );
       const response = await withTimeout(fetchPromise, 2500);
-      
+
       if (response && response.ok) {
         const data = await response.json();
         if (data && data.address) {
-          const road = data.address.road || data.address.street || data.address.pedestrian;
-          const suburb = data.address.suburb || data.address.neighbourhood || data.address.city_district;
-          const city = data.address.city || data.address.town || data.address.village || data.address.county;
-          address = [road, suburb, city].filter(Boolean).join(', ');
+          const road =
+            data.address.road || data.address.street || data.address.pedestrian;
+          const suburb =
+            data.address.suburb ||
+            data.address.neighbourhood ||
+            data.address.city_district;
+          const city =
+            data.address.city ||
+            data.address.town ||
+            data.address.village ||
+            data.address.county;
+          address = [road, suburb, city].filter(Boolean).join(", ");
         }
         if (!address && data && data.display_name) {
           address = data.display_name;
         }
       }
     } catch (fallbackErr) {
-      console.warn('Fallback geocoding failed:', fallbackErr);
+      console.warn("Fallback geocoding failed:", fallbackErr);
     }
   }
 
@@ -118,10 +149,10 @@ export default function EmployeeDashboard() {
 
   useEffect(() => {
     (async () => {
-      if (Platform.OS !== 'web') {
+      if (Platform.OS !== "web") {
         const { status } = await Notifications.requestPermissionsAsync();
-        if (status !== 'granted') {
-          console.log('Notification permissions not granted');
+        if (status !== "granted") {
+          console.log("Notification permissions not granted");
         }
       }
     })();
@@ -142,16 +173,15 @@ export default function EmployeeDashboard() {
   const [successMessage, setSuccessMessage] = useState("");
   const [geofenceViolationData, setGeofenceViolationData] = useState<any>(null);
 
-  const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
-  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  const [leaves, setLeaves] = useState<any[]>([]);
   const [userLeaveBalance, setUserLeaveBalance] = useState<any>(null);
   const [isLeavesLoading, setIsLeavesLoading] = useState(true);
-  
+
   const [activeProject, setActiveProject] = useState<any>(null);
 
   useEffect(() => {
     if (user?.uid && user?.projectId) {
-      getEmployeeActiveProject(user.uid, user.projectId).then(proj => {
+      getEmployeeActiveProject(user.uid, user.projectId).then((proj) => {
         if (proj) {
           setActiveProject(proj);
         }
@@ -165,21 +195,34 @@ export default function EmployeeDashboard() {
     const shiftStart = activeProject?.workingHours?.start;
     const shiftEnd = activeProject?.workingHours?.end;
 
-    const unsubToday = subscribeToTodayAttendance(user.uid, user.role, (record) => {
-      setTodayRecord(record);
-      setIsAttendanceLoading(false);
-    }, shiftStart, shiftEnd);
-    
-    const unsubHistory = subscribeToUserAttendanceHistory(user.uid, (records) => {
-      setHistory(records);
-      markMissedCheckouts(user.uid, records, shiftStart, shiftEnd);
-    });
+    const unsubToday = subscribeToTodayAttendance(
+      user.uid,
+      user.role,
+      (record) => {
+        setTodayRecord(record);
+        setIsAttendanceLoading(false);
+      },
+      shiftStart,
+      shiftEnd,
+    );
+
+    const unsubHistory = subscribeToUserAttendanceHistory(
+      user.uid,
+      (records) => {
+        setHistory(records);
+        markMissedCheckouts(user.uid, records, shiftStart, shiftEnd);
+      },
+    );
 
     return () => {
       unsubToday();
       unsubHistory();
     };
-  }, [user?.uid, activeProject?.workingHours?.start, activeProject?.workingHours?.end]);
+  }, [
+    user?.uid,
+    activeProject?.workingHours?.start,
+    activeProject?.workingHours?.end,
+  ]);
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -187,18 +230,18 @@ export default function EmployeeDashboard() {
       setLeaves(data);
       setIsLeavesLoading(false);
     });
-    const unsubTypes = subscribeToLeaveTypes((data) => {
-      setLeaveTypes(data);
-    });
-    
+
     const currentYear = new Date().getFullYear();
-    const unsubBalance = subscribeToUserLeaveBalance(user.uid, currentYear, (data: any) => {
-      setUserLeaveBalance(data);
-    });
+    const unsubBalance = subscribeToUserLeaveBalance(
+      user.uid,
+      currentYear,
+      (data: any) => {
+        setUserLeaveBalance(data);
+      },
+    );
 
     return () => {
       unsubLeaves();
-      unsubTypes();
       unsubBalance();
     };
   }, [user?.uid]);
@@ -207,8 +250,8 @@ export default function EmployeeDashboard() {
   const fetchLocation = useCallback(async () => {
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setCurrentAddress('Location Permission Denied');
+      if (status !== "granted") {
+        setCurrentAddress("Location Permission Denied");
         return;
       }
       const loc = await Location.getCurrentPositionAsync({
@@ -218,12 +261,15 @@ export default function EmployeeDashboard() {
         latitude: loc.coords.latitude,
         longitude: loc.coords.longitude,
       });
-      
-      const address = await getShortAddress(loc.coords.latitude, loc.coords.longitude);
+
+      const address = await getShortAddress(
+        loc.coords.latitude,
+        loc.coords.longitude,
+      );
       setCurrentAddress(address);
     } catch (err) {
       console.warn(err);
-      setCurrentAddress('Failed to get location');
+      setCurrentAddress("Failed to get location");
     }
   }, []);
 
@@ -246,7 +292,9 @@ export default function EmployeeDashboard() {
     function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
       return Promise.race([
         promise,
-        new Promise<T>((_, reject) => setTimeout(() => reject(new Error('TIMEOUT')), ms)),
+        new Promise<T>((_, reject) =>
+          setTimeout(() => reject(new Error("TIMEOUT")), ms),
+        ),
       ]);
     }
 
@@ -257,13 +305,19 @@ export default function EmployeeDashboard() {
         ImagePicker.requestCameraPermissionsAsync(),
       ]);
 
-      if (locPerm.status !== 'granted') {
-        Alert.alert('Permission Required', 'Location permission is required to check in/out.');
+      if (locPerm.status !== "granted") {
+        Alert.alert(
+          "Permission Required",
+          "Location permission is required to check in/out.",
+        );
         setIsClocking(false);
         return;
       }
-      if (camPerm.status !== 'granted') {
-        Alert.alert('Permission Required', 'Camera permission is required to capture a verification selfie.');
+      if (camPerm.status !== "granted") {
+        Alert.alert(
+          "Permission Required",
+          "Camera permission is required to capture a verification selfie.",
+        );
         setIsClocking(false);
         return;
       }
@@ -283,44 +337,64 @@ export default function EmployeeDashboard() {
 
       // 3. Geofence validation helper (pure math, instant)
       const validateGeofence = (lat: number, lng: number) => {
-        if (!currentActiveProject?.isGeofenceEnabled || !currentActiveProject.location?.latitude || !currentActiveProject.location?.longitude) return true;
-        const distance = calculateDistanceMeters(lat, lng, currentActiveProject.location.latitude, currentActiveProject.location.longitude);
+        if (
+          !currentActiveProject?.isGeofenceEnabled ||
+          !currentActiveProject.location?.latitude ||
+          !currentActiveProject.location?.longitude
+        )
+          return true;
+        const distance = calculateDistanceMeters(
+          lat,
+          lng,
+          currentActiveProject.location.latitude,
+          currentActiveProject.location.longitude,
+        );
         const radius = currentActiveProject.geofenceRadius || 200;
         if (distance > radius) return { distance, radius, failed: true };
         return true;
       };
 
-      const showViolation = async (userLat: number, userLng: number, distance: number, radius: number) => {
+      const showViolation = async (
+        userLat: number,
+        userLng: number,
+        distance: number,
+        radius: number,
+      ) => {
         setGeofenceViolationData({
-          type: 'GEO_FENCE_VIOLATION',
+          type: "GEO_FENCE_VIOLATION",
           distance: Math.round(distance),
           radius,
-          userLat, userLng,
+          userLat,
+          userLng,
           siteLat: currentActiveProject!.location!.latitude,
           siteLng: currentActiveProject!.location!.longitude,
         });
         setIsClocking(false);
 
-        const attemptAction = !todayRecord ? 'Check In' : (!todayRecord.checkOut ? 'Check Out' : 'Unknown');
-        
+        const attemptAction = !todayRecord
+          ? "Check In"
+          : !todayRecord.checkOut
+            ? "Check Out"
+            : "Unknown";
+
         await logAuditAction({
           userId: user.uid,
-          userEmail: user.email || '',
-          userName: user.displayName || 'Unknown',
-          userRole: user.role || 'employee',
-          module: 'attendance',
-          action: 'GEOFENCE_FAILED',
+          userEmail: user.email || "",
+          userName: user.displayName || "Unknown",
+          userRole: user.role || "employee",
+          module: "attendance",
+          action: "GEOFENCE_FAILED",
           description: `Geofence violation during ${attemptAction}. Distance: ${Math.round(distance)}m`,
-          severity: 'medium',
+          severity: "medium",
         });
 
         if (user.projectId) {
           await logFailedGeofenceAttempt(
-            user.uid, 
-            user.displayName || user.email || 'Unknown', 
-            user.projectId, 
+            user.uid,
+            user.displayName || user.email || "Unknown",
+            user.projectId,
             attemptAction,
-            distance
+            distance,
           );
         }
       };
@@ -329,27 +403,51 @@ export default function EmployeeDashboard() {
       let useLoc: { latitude: number; longitude: number } | null = null;
 
       if (lastKnownLoc) {
-        const geoResult = validateGeofence(lastKnownLoc.coords.latitude, lastKnownLoc.coords.longitude);
+        const geoResult = validateGeofence(
+          lastKnownLoc.coords.latitude,
+          lastKnownLoc.coords.longitude,
+        );
         if (geoResult === true) {
           // Cached location is inside geofence — use it instantly!
-          useLoc = { latitude: lastKnownLoc.coords.latitude, longitude: lastKnownLoc.coords.longitude };
-        } else if (typeof geoResult === 'object' && geoResult.failed) {
+          useLoc = {
+            latitude: lastKnownLoc.coords.latitude,
+            longitude: lastKnownLoc.coords.longitude,
+          };
+        } else if (typeof geoResult === "object" && geoResult.failed) {
           // Cached location is OUTSIDE geofence — try fresh GPS with strict 4s timeout
           try {
             const freshLoc = await withTimeout(
-              Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
-              4000
+              Location.getCurrentPositionAsync({
+                accuracy: Location.Accuracy.Low,
+              }),
+              4000,
             );
-            const freshResult = validateGeofence(freshLoc.coords.latitude, freshLoc.coords.longitude);
+            const freshResult = validateGeofence(
+              freshLoc.coords.latitude,
+              freshLoc.coords.longitude,
+            );
             if (freshResult === true) {
-              useLoc = { latitude: freshLoc.coords.latitude, longitude: freshLoc.coords.longitude };
-            } else if (typeof freshResult === 'object' && freshResult.failed) {
-              showViolation(freshLoc.coords.latitude, freshLoc.coords.longitude, freshResult.distance, freshResult.radius);
+              useLoc = {
+                latitude: freshLoc.coords.latitude,
+                longitude: freshLoc.coords.longitude,
+              };
+            } else if (typeof freshResult === "object" && freshResult.failed) {
+              showViolation(
+                freshLoc.coords.latitude,
+                freshLoc.coords.longitude,
+                freshResult.distance,
+                freshResult.radius,
+              );
               return;
             }
           } catch {
             // GPS timed out — show violation with the cached coords we already have
-            showViolation(lastKnownLoc.coords.latitude, lastKnownLoc.coords.longitude, geoResult.distance, geoResult.radius);
+            showViolation(
+              lastKnownLoc.coords.latitude,
+              lastKnownLoc.coords.longitude,
+              geoResult.distance,
+              geoResult.radius,
+            );
             return;
           }
         }
@@ -359,26 +457,57 @@ export default function EmployeeDashboard() {
       if (!useLoc) {
         try {
           const freshLoc = await withTimeout(
-            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Low }),
-            4000
+            Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Low,
+            }),
+            4000,
           );
-          const geoResult = validateGeofence(freshLoc.coords.latitude, freshLoc.coords.longitude);
-          if (typeof geoResult === 'object' && geoResult.failed) {
-            showViolation(freshLoc.coords.latitude, freshLoc.coords.longitude, geoResult.distance, geoResult.radius);
+          const geoResult = validateGeofence(
+            freshLoc.coords.latitude,
+            freshLoc.coords.longitude,
+          );
+          if (typeof geoResult === "object" && geoResult.failed) {
+            showViolation(
+              freshLoc.coords.latitude,
+              freshLoc.coords.longitude,
+              geoResult.distance,
+              geoResult.radius,
+            );
             return;
           }
-          useLoc = { latitude: freshLoc.coords.latitude, longitude: freshLoc.coords.longitude };
+          useLoc = {
+            latitude: freshLoc.coords.latitude,
+            longitude: freshLoc.coords.longitude,
+          };
         } catch {
           // Fresh GPS also failed — try dashboard cached coords
-          if (currentLocationCoords && currentAddress && currentAddress !== "Fetching location...") {
-            const geoResult = validateGeofence(currentLocationCoords.latitude, currentLocationCoords.longitude);
-            if (typeof geoResult === 'object' && geoResult.failed) {
-              showViolation(currentLocationCoords.latitude, currentLocationCoords.longitude, geoResult.distance, geoResult.radius);
+          if (
+            currentLocationCoords &&
+            currentAddress &&
+            currentAddress !== "Fetching location..."
+          ) {
+            const geoResult = validateGeofence(
+              currentLocationCoords.latitude,
+              currentLocationCoords.longitude,
+            );
+            if (typeof geoResult === "object" && geoResult.failed) {
+              showViolation(
+                currentLocationCoords.latitude,
+                currentLocationCoords.longitude,
+                geoResult.distance,
+                geoResult.radius,
+              );
               return;
             }
-            useLoc = { latitude: currentLocationCoords.latitude, longitude: currentLocationCoords.longitude };
+            useLoc = {
+              latitude: currentLocationCoords.latitude,
+              longitude: currentLocationCoords.longitude,
+            };
           } else {
-            Alert.alert('Location Error', 'Unable to determine your location. Please try again.');
+            Alert.alert(
+              "Location Error",
+              "Unable to determine your location. Please try again.",
+            );
             setIsClocking(false);
             return;
           }
@@ -386,15 +515,24 @@ export default function EmployeeDashboard() {
       }
 
       // 6. Use cached address or GPS coords (don't block on reverse geocoding)
-      let address = currentAddress && currentAddress !== "Fetching location..." ? currentAddress : '';
+      let address =
+        currentAddress && currentAddress !== "Fetching location..."
+          ? currentAddress
+          : "";
       if (!address) {
         address = `Lat: ${useLoc.latitude.toFixed(4)}, Lon: ${useLoc.longitude.toFixed(4)}`;
-        getShortAddress(useLoc.latitude, useLoc.longitude).then(addr => {
-          if (addr) setCurrentAddress(addr);
-        }).catch(() => {});
+        getShortAddress(useLoc.latitude, useLoc.longitude)
+          .then((addr) => {
+            if (addr) setCurrentAddress(addr);
+          })
+          .catch(() => {});
       }
 
-      const attendanceLoc = { latitude: useLoc.latitude, longitude: useLoc.longitude, address };
+      const attendanceLoc = {
+        latitude: useLoc.latitude,
+        longitude: useLoc.longitude,
+        address,
+      };
 
       // 7. Capture selfie
       const cameraResult = await ImagePicker.launchCameraAsync({
@@ -403,8 +541,15 @@ export default function EmployeeDashboard() {
         quality: 0.3,
       });
 
-      if (cameraResult.canceled || !cameraResult.assets || cameraResult.assets.length === 0) {
-        Alert.alert('Action Canceled', 'Selfie verification is required to check in/out.');
+      if (
+        cameraResult.canceled ||
+        !cameraResult.assets ||
+        cameraResult.assets.length === 0
+      ) {
+        Alert.alert(
+          "Action Canceled",
+          "Selfie verification is required to check in/out.",
+        );
         setIsClocking(false);
         return;
       }
@@ -413,82 +558,99 @@ export default function EmployeeDashboard() {
 
       // 8. Execute Check In/Out
       if (!todayRecord) {
-        const { start: shiftStart, end: shiftEnd, name: shiftName } = getActiveShiftDetails();
-        
+        const {
+          start: shiftStart,
+          end: shiftEnd,
+          name: shiftName,
+        } = getActiveShiftDetails();
+
         await checkInEmployee(
-          user.uid, attendanceLoc, '', selfieUri, user.email, shiftStart, shiftEnd, shiftName
+          user.uid,
+          attendanceLoc,
+          "",
+          selfieUri,
+          user.email,
+          shiftStart,
+          shiftEnd,
+          shiftName,
         );
 
         await logAuditAction({
           userId: user.uid,
-          userEmail: user.email || '',
-          userName: user.displayName || 'Unknown',
-          userRole: user.role || 'employee',
-          module: 'attendance',
-          action: 'CHECK_IN',
+          userEmail: user.email || "",
+          userName: user.displayName || "Unknown",
+          userRole: user.role || "employee",
+          module: "attendance",
+          action: "CHECK_IN",
           description: `Clocked In at ${attendanceLoc?.latitude}, ${attendanceLoc?.longitude}`,
-          severity: 'low',
+          severity: "low",
         });
 
-        setSuccessMessage('Successfully Checked In');
+        setSuccessMessage("Successfully Checked In");
         setSuccessModalVisible(true);
-        
+
         // Schedule checkout reminder
-        if (shiftEnd && Platform.OS !== 'web') {
-          const [endH, endM] = shiftEnd.split(':').map(Number);
+        if (shiftEnd && Platform.OS !== "web") {
+          const [endH, endM] = shiftEnd.split(":").map(Number);
           const triggerDate = new Date();
           triggerDate.setHours(endH + 1, endM, 0, 0); // 1 hour after shift ends
-          
+
           if (triggerDate > new Date()) {
             const notifId = await Notifications.scheduleNotificationAsync({
               content: {
-                title: 'Check Out Reminder ⏰',
-                body: 'Your shift ended an hour ago. Do not forget to Check Out for today!',
+                title: "Check Out Reminder ⏰",
+                body: "Your shift ended an hour ago. Do not forget to Check Out for today!",
                 sound: true,
               },
-              trigger: { type: 'date', date: triggerDate } as any,
+              trigger: { type: "date", date: triggerDate } as any,
             });
-            await AsyncStorage.setItem('@checkout_reminder_id', notifId);
+            await AsyncStorage.setItem("@checkout_reminder_id", notifId);
           }
         }
       } else if (!todayRecord.checkOut) {
-        const { start: shiftStartCO, end: shiftEndCO } = getActiveShiftDetails();
+        const { start: shiftStartCO, end: shiftEndCO } =
+          getActiveShiftDetails();
         await checkOutEmployee(
-          user!.uid, attendanceLoc, '', selfieUri, shiftStartCO, shiftEndCO
+          user!.uid,
+          attendanceLoc,
+          "",
+          selfieUri,
+          shiftStartCO,
+          shiftEndCO,
         );
 
         await logAuditAction({
           userId: user!.uid,
-          userEmail: user!.email || '',
-          userName: user!.displayName || 'Unknown',
-          userRole: user!.role || 'employee',
-          module: 'attendance',
-          action: 'CHECK_OUT',
+          userEmail: user!.email || "",
+          userName: user!.displayName || "Unknown",
+          userRole: user!.role || "employee",
+          module: "attendance",
+          action: "CHECK_OUT",
           description: `Clocked Out at ${attendanceLoc?.latitude}, ${attendanceLoc?.longitude}`,
           metadata: {
-            changedFields: ['checkOut']
+            changedFields: ["checkOut"],
           },
-          severity: 'low',
+          severity: "low",
         });
 
-        setSuccessMessage('Successfully Checked Out');
+        setSuccessMessage("Successfully Checked Out");
         setSuccessModalVisible(true);
-        
+
         // Cancel scheduled reminder if it exists
         try {
-          const notifId = await AsyncStorage.getItem('@checkout_reminder_id');
+          const notifId = await AsyncStorage.getItem("@checkout_reminder_id");
           if (notifId) {
             await Notifications.cancelScheduledNotificationAsync(notifId);
-            await AsyncStorage.removeItem('@checkout_reminder_id');
+            await AsyncStorage.removeItem("@checkout_reminder_id");
           }
         } catch (e) {
-          console.log('Failed to cancel reminder', e);
+          console.log("Failed to cancel reminder", e);
         }
       }
     } catch (err: any) {
       setIsClocking(false);
       console.error(err);
-      Alert.alert('Error', err.message || 'An error occurred');
+      Alert.alert("Error", err.message || "An error occurred");
     } finally {
       setIsClocking(false);
     }
@@ -500,7 +662,9 @@ export default function EmployeeDashboard() {
     let name = "General Shift";
 
     if (user?.currentShiftId && activeProject?.availableShifts) {
-      const matched = activeProject.availableShifts.find((s: any) => s.id === user.currentShiftId);
+      const matched = activeProject.availableShifts.find(
+        (s: any) => s.id === user.currentShiftId,
+      );
       if (matched) {
         start = matched.startTime;
         end = matched.endTime;
@@ -509,8 +673,8 @@ export default function EmployeeDashboard() {
     }
 
     if (start && end && name === "General Shift") {
-      const [startH] = start.split(':').map(Number);
-      const [endH] = end.split(':').map(Number);
+      const [startH] = start.split(":").map(Number);
+      const [endH] = end.split(":").map(Number);
       name = startH > endH ? "Night Shift" : "Day Shift";
     }
 
@@ -519,18 +683,20 @@ export default function EmployeeDashboard() {
 
   const formatTime = (isoString?: string) => {
     if (!isoString) return "--";
-    return new Date(isoString).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    }).toUpperCase();
+    return new Date(isoString)
+      .toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
+      .toUpperCase();
   };
 
   const formatHHMMtoAMPM = (timeStr: string) => {
-    const [h, m] = timeStr.split(':').map(Number);
-    const ampm = h >= 12 ? 'PM' : 'AM';
+    const [h, m] = timeStr.split(":").map(Number);
+    const ampm = h >= 12 ? "PM" : "AM";
     const displayH = h % 12 || 12;
-    return `${String(displayH).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+    return `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
   };
 
   const getExpectedCheckOut = () => {
@@ -538,32 +704,32 @@ export default function EmployeeDashboard() {
     if (!startStr || !endStr) return null;
     if (!todayRecord?.checkIn?.timestamp) return formatHHMMtoAMPM(endStr);
 
-    const [startH, startM] = startStr.split(':').map(Number);
-    const [endH, endM] = endStr.split(':').map(Number);
+    const [startH, startM] = startStr.split(":").map(Number);
+    const [endH, endM] = endStr.split(":").map(Number);
     const isNightShift = startH > endH;
 
     let shiftStartMins = startH * 60 + startM;
     let shiftEndMins = endH * 60 + endM;
     if (isNightShift) shiftEndMins += 24 * 60;
-    
+
     const durationMins = shiftEndMins - shiftStartMins;
 
     const checkInDate = new Date(todayRecord.checkIn.timestamp);
     let checkInMins = checkInDate.getHours() * 60 + checkInDate.getMinutes();
 
-    if (isNightShift && checkInMins <= (endH * 60 + endM)) {
+    if (isNightShift && checkInMins <= endH * 60 + endM) {
       checkInMins += 24 * 60;
     }
 
     if (checkInMins > shiftStartMins) {
       let outMins = checkInMins + durationMins;
-      
+
       if (isNightShift) {
         if (outMins >= 2160) outMins = 2159; // Cap at 11:59 AM next day
       } else {
         if (outMins >= 1440) outMins = 1439; // Cap at 11:59 PM today
       }
-      
+
       const outH = Math.floor(outMins / 60) % 24;
       const outM = outMins % 60;
       return formatHHMMtoAMPM(`${outH}:${outM}`);
@@ -575,10 +741,10 @@ export default function EmployeeDashboard() {
 
   return (
     <SafeAreaView style={styles.safe} edges={["top"]}>
-      <AnimatedSuccessModal 
-        visible={successModalVisible} 
-        message={successMessage} 
-        onClose={() => setSuccessModalVisible(false)} 
+      <AnimatedSuccessModal
+        visible={successModalVisible}
+        message={successMessage}
+        onClose={() => setSuccessModalVisible(false)}
       />
       <BirthdayModal user={user} />
       <View style={styles.root}>
@@ -607,7 +773,11 @@ export default function EmployeeDashboard() {
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.locationLabelTxt}>LOCATION</Text>
-                <Text style={styles.dateText} numberOfLines={2} ellipsizeMode="tail">
+                <Text
+                  style={styles.dateText}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
+                >
                   {currentAddress}
                 </Text>
               </View>
@@ -623,11 +793,20 @@ export default function EmployeeDashboard() {
                   size={18}
                   color={Colors.text.primary}
                 />
-                {hasUnreadNotifications && <View style={styles.notificationDot} />}
+                {hasUnreadNotifications && (
+                  <View style={styles.notificationDot} />
+                )}
               </TouchableOpacity>
-              <View style={styles.avatarWrap}>
+              <TouchableOpacity
+                style={styles.avatarWrap}
+                activeOpacity={0.8}
+                onPress={() => (navigation as any).navigate("Profile")}
+              >
                 {user?.profilePicture ? (
-                  <Image source={{ uri: user.profilePicture }} style={{ width: 36, height: 36, borderRadius: 18 }} />
+                  <Image
+                    source={{ uri: user.profilePicture }}
+                    style={{ width: 36, height: 36, borderRadius: 18 }}
+                  />
                 ) : (
                   <Text style={styles.avatarInitials}>
                     {user?.displayName
@@ -640,7 +819,7 @@ export default function EmployeeDashboard() {
                       : "EM"}
                   </Text>
                 )}
-              </View>
+              </TouchableOpacity>
             </View>
           </View>
 
@@ -652,25 +831,34 @@ export default function EmployeeDashboard() {
           {/* Summary Card */}
           {(() => {
             const now = new Date();
-            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
-            const todayLeave = leaves.find(l => l.status === 'approved' && l.startDate <= todayStr && l.endDate >= todayStr);
+            const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+            const todayLeave = leaves.find(
+              (l) =>
+                l.status === "approved" &&
+                l.startDate <= todayStr &&
+                l.endDate >= todayStr,
+            );
 
-            const { start: shiftStart, end: shiftEnd, name } = getActiveShiftDetails();
+            const {
+              start: shiftStart,
+              end: shiftEnd,
+              name,
+            } = getActiveShiftDetails();
             let shiftName = name;
             let cutOffTime = "12:00 AM (Midnight)";
-            
+
             if (shiftStart && shiftEnd) {
-              const startH = Number(shiftStart.split(':')[0]);
-              const endH = Number(shiftEnd.split(':')[0]);
+              const startH = Number(shiftStart.split(":")[0]);
+              const endH = Number(shiftEnd.split(":")[0]);
               if (startH > endH) cutOffTime = "12:00 PM (Noon)";
             }
 
             if (todayRecord?.shift?.name) shiftName = todayRecord.shift.name;
             if (todayRecord?.shift?.startTime) {
-               const sH = Number(todayRecord.shift.startTime.split(':')[0]);
-               const eH = Number(todayRecord.shift.endTime.split(':')[0]);
-               if (sH > eH) cutOffTime = "12:00 PM (Noon)";
-               else cutOffTime = "12:00 AM (Midnight)";
+              const sH = Number(todayRecord.shift.startTime.split(":")[0]);
+              const eH = Number(todayRecord.shift.endTime.split(":")[0]);
+              if (sH > eH) cutOffTime = "12:00 PM (Noon)";
+              else cutOffTime = "12:00 AM (Midnight)";
             }
 
             const isNight = shiftName.includes("Night");
@@ -678,20 +866,52 @@ export default function EmployeeDashboard() {
 
             return (
               <View style={styles.summaryCard}>
-                <View style={{flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: Colors.border, marginBottom: 12}}>
-                  <View style={{flexDirection: 'row', alignItems: 'center'}}>
-                    <Ionicons name={isNight ? "moon" : "sunny"} size={16} color={shiftColor} style={{marginRight: 6}} />
-                    <Text style={{fontSize: 14, color: shiftColor, fontWeight: 'bold'}}>{shiftName}</Text>
+                <View
+                  style={{
+                    flexDirection: "row",
+                    justifyContent: "center",
+                    alignItems: "center",
+                    paddingBottom: 12,
+                    borderBottomWidth: 1,
+                    borderBottomColor: Colors.border,
+                    marginBottom: 12,
+                  }}
+                >
+                  <View style={{ flexDirection: "row", alignItems: "center" }}>
+                    <Ionicons
+                      name={isNight ? "moon" : "sunny"}
+                      size={16}
+                      color={shiftColor}
+                      style={{ marginRight: 6 }}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        color: shiftColor,
+                        fontWeight: "bold",
+                      }}
+                    >
+                      {shiftName}
+                    </Text>
                   </View>
                 </View>
                 <View style={styles.summaryTopRow}>
                   <View style={styles.summaryCol}>
                     <Text style={styles.summaryLabel}>Check In</Text>
                     <Text style={styles.summaryValue}>
-                      {todayRecord?.checkIn?.timestamp ? formatTime(todayRecord.checkIn.timestamp) : '--'}
+                      {todayRecord?.checkIn?.timestamp
+                        ? formatTime(todayRecord.checkIn.timestamp)
+                        : "--"}
                     </Text>
-                    {todayRecord?.status === 'late' && (
-                      <Text style={{ fontSize: 12, color: Colors.error, marginTop: 2, fontWeight: 'bold' }}>
+                    {todayRecord?.status === "late" && (
+                      <Text
+                        style={{
+                          fontSize: 12,
+                          color: Colors.error,
+                          marginTop: 2,
+                          fontWeight: "bold",
+                        }}
+                      >
                         (Late)
                       </Text>
                     )}
@@ -699,13 +919,23 @@ export default function EmployeeDashboard() {
                   <View style={styles.summaryCol}>
                     <Text style={styles.summaryLabel}>Check Out</Text>
                     <Text style={styles.summaryValue}>
-                      {todayRecord?.checkOut?.timestamp ? formatTime(todayRecord.checkOut.timestamp) : '--'}
+                      {todayRecord?.checkOut?.timestamp
+                        ? formatTime(todayRecord.checkOut.timestamp)
+                        : "--"}
                     </Text>
-                    {getExpectedCheckOut() && todayRecord?.checkIn?.timestamp && !todayRecord?.checkOut?.timestamp && (
-                      <Text style={{ fontSize: 12, color: Colors.text.secondary, marginTop: 2 }}>
-                        (Exp: {getExpectedCheckOut()})
-                      </Text>
-                    )}
+                    {getExpectedCheckOut() &&
+                      todayRecord?.checkIn?.timestamp &&
+                      !todayRecord?.checkOut?.timestamp && (
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: Colors.text.secondary,
+                            marginTop: 2,
+                          }}
+                        >
+                          (Exp: {getExpectedCheckOut()})
+                        </Text>
+                      )}
                   </View>
                   <View style={styles.summaryCol}>
                     <Text style={styles.summaryLabel}>Working Hours</Text>
@@ -720,46 +950,71 @@ export default function EmployeeDashboard() {
                   }}
                 />
                 <View style={{ alignItems: "center", paddingVertical: 10 }}>
-                  {todayLeave && todayLeave.durationType !== 'half_day' && !todayRecord ? (
-                    <Text style={{ fontSize: 16, fontWeight: '600', color: '#6D28D9' }}>You are on leave today</Text>
+                  {todayLeave &&
+                  todayLeave.durationType !== "half_day" &&
+                  !todayRecord ? (
+                    <Text
+                      style={{
+                        fontSize: 16,
+                        fontWeight: "600",
+                        color: "#6D28D9",
+                      }}
+                    >
+                      You are on leave today
+                    </Text>
                   ) : (
-                    <View style={{ width: '100%', alignItems: 'center' }}>
-                      {todayLeave && todayLeave.durationType === 'half_day' && (
-                        <Text style={{ fontSize: 14, fontWeight: '600', color: '#6D28D9', marginBottom: 12 }}>
-                          On Half Day Leave ({todayLeave.halfDayPeriod === 'first_half' ? '1st Half' : '2nd Half'})
+                    <View style={{ width: "100%", alignItems: "center" }}>
+                      {todayLeave && todayLeave.durationType === "half_day" && (
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontWeight: "600",
+                            color: "#6D28D9",
+                            marginBottom: 12,
+                          }}
+                        >
+                          On Half Day Leave (
+                          {todayLeave.halfDayPeriod === "first_half"
+                            ? "1st Half"
+                            : "2nd Half"}
+                          )
                         </Text>
                       )}
                       <TouchableOpacity
-                      style={[
-                        styles.clockBtn,
-                        { paddingHorizontal: 40 },
-                        todayRecord &&
-                          !todayRecord.checkOut && {
-                            backgroundColor: Colors.error,
+                        style={[
+                          styles.clockBtn,
+                          { paddingHorizontal: 40 },
+                          todayRecord &&
+                            !todayRecord.checkOut && {
+                              backgroundColor: Colors.error,
+                            },
+                          todayRecord?.checkIn &&
+                            todayRecord?.checkOut && {
+                              backgroundColor: Colors.text.tertiary,
+                            },
+                          (isClocking || isAttendanceLoading) && {
+                            opacity: 0.6,
                           },
-                        todayRecord?.checkIn &&
-                          todayRecord?.checkOut && {
-                            backgroundColor: Colors.text.tertiary,
-                          },
-                        (isClocking || isAttendanceLoading) && {
-                          opacity: 0.6,
+                        ]}
+                        activeOpacity={0.8}
+                        onPress={handleClockAction}
+                        disabled={
+                          isAttendanceLoading ||
+                          isClocking ||
+                          !!(todayRecord?.checkIn && todayRecord?.checkOut)
                         }
-                      ]}
-                      activeOpacity={0.8}
-                      onPress={handleClockAction}
-                      disabled={isAttendanceLoading || isClocking || !!(todayRecord?.checkIn && todayRecord?.checkOut)}
-                    >
-                      {isAttendanceLoading || isClocking ? (
-                        <ActivityIndicator color={Colors.white} />
-                      ) : (
-                        <Text style={styles.clockBtnTxt}>
-                          {!todayRecord
-                            ? "Check In"
-                            : !todayRecord.checkOut
-                              ? "Check Out"
-                              : "Completed"}
-                        </Text>
-                      )}
+                      >
+                        {isAttendanceLoading || isClocking ? (
+                          <ActivityIndicator color={Colors.white} />
+                        ) : (
+                          <Text style={styles.clockBtnTxt}>
+                            {!todayRecord
+                              ? "Check In"
+                              : !todayRecord.checkOut
+                                ? "Check Out"
+                                : "Completed"}
+                          </Text>
+                        )}
                       </TouchableOpacity>
                     </View>
                   )}
@@ -770,18 +1025,18 @@ export default function EmployeeDashboard() {
 
           {/* Quick Actions */}
           <View style={styles.quickActionsContainer}>
-            <TouchableOpacity 
-              style={styles.quickBtn} 
+            <TouchableOpacity
+              style={styles.quickBtn}
               activeOpacity={0.8}
-              onPress={() => (navigation as any).navigate('Leave')}
+              onPress={() => (navigation as any).navigate("Leave")}
             >
               <Ionicons name="calendar-outline" size={20} color="#2563EB" />
               <Text style={styles.quickBtnTxt}>Apply leave</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.quickBtn} 
+            <TouchableOpacity
+              style={styles.quickBtn}
               activeOpacity={0.8}
-              onPress={() => (navigation as any).navigate('Expenses')}
+              onPress={() => (navigation as any).navigate("Expenses")}
             >
               <Ionicons
                 name="document-text-outline"
@@ -790,10 +1045,10 @@ export default function EmployeeDashboard() {
               />
               <Text style={styles.quickBtnTxt}>Submit expense</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={styles.quickBtn} 
+            <TouchableOpacity
+              style={styles.quickBtn}
               activeOpacity={0.8}
-              onPress={() => (navigation as any).navigate('Attendance')}
+              onPress={() => (navigation as any).navigate("Attendance")}
             >
               <Ionicons name="time-outline" size={20} color="#2563EB" />
               <Text style={styles.quickBtnTxt}>History</Text>
@@ -803,8 +1058,19 @@ export default function EmployeeDashboard() {
           {/* Attendance for this Month */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Attendance for this Month</Text>
-            <TouchableOpacity style={styles.monthBtn} activeOpacity={0.7} onPress={() => setMonthPickerVisible(true)}>
-              <Text style={styles.monthBtnTxt}>{selectedMonth.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase()}</Text>
+            <TouchableOpacity
+              style={styles.monthBtn}
+              activeOpacity={0.7}
+              onPress={() => setMonthPickerVisible(true)}
+            >
+              <Text style={styles.monthBtnTxt}>
+                {selectedMonth
+                  .toLocaleDateString("en-US", {
+                    month: "short",
+                    year: "numeric",
+                  })
+                  .toUpperCase()}
+              </Text>
               <Ionicons name="calendar-outline" size={12} color="#2563EB" />
             </TouchableOpacity>
           </View>
@@ -812,49 +1078,71 @@ export default function EmployeeDashboard() {
             {(() => {
               const now = selectedMonth;
               const actualToday = new Date();
-              const isCurrentMonth = now.getMonth() === actualToday.getMonth() && now.getFullYear() === actualToday.getFullYear();
-              const isFutureMonth = now.getFullYear() > actualToday.getFullYear() || (now.getFullYear() === actualToday.getFullYear() && now.getMonth() > actualToday.getMonth());
+              const isCurrentMonth =
+                now.getMonth() === actualToday.getMonth() &&
+                now.getFullYear() === actualToday.getFullYear();
+              const isFutureMonth =
+                now.getFullYear() > actualToday.getFullYear() ||
+                (now.getFullYear() === actualToday.getFullYear() &&
+                  now.getMonth() > actualToday.getMonth());
 
-              const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
-              
-              const currentMonthRecords = history.filter(r => r.dateStr.startsWith(currentMonthStr));
-              if (todayRecord && todayRecord.dateStr.startsWith(currentMonthStr)) {
+              const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+              const currentMonthRecords = history.filter((r) =>
+                r.dateStr.startsWith(currentMonthStr),
+              );
+              if (
+                todayRecord &&
+                todayRecord.dateStr.startsWith(currentMonthStr)
+              ) {
                 // Ensure today's record is included if not in history yet
-                if (!currentMonthRecords.find(r => r.id === todayRecord.id)) {
+                if (!currentMonthRecords.find((r) => r.id === todayRecord.id)) {
                   currentMonthRecords.push(todayRecord);
                 }
               }
 
               const presentCount = currentMonthRecords.length;
-              
+
               let lateCount = 0;
-              currentMonthRecords.forEach(r => {
-                if (r.status === 'late') {
+              currentMonthRecords.forEach((r) => {
+                if (r.status === "late") {
                   lateCount++;
                 }
               });
 
               let absentCount = 0;
               let todayDay = 0;
-              
+
               if (isFutureMonth) {
                 todayDay = 0;
               } else if (isCurrentMonth) {
                 todayDay = actualToday.getDate();
               } else {
                 // Past month, get all days in the month
-                todayDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                todayDay = new Date(
+                  now.getFullYear(),
+                  now.getMonth() + 1,
+                  0,
+                ).getDate();
               }
 
               let missingDays = 0;
               for (let i = 1; i <= todayDay; i++) {
                 const d = new Date(now.getFullYear(), now.getMonth(), i);
-                if (d.getDay() !== 0) { // Not Sunday
-                  const dStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-                  const hasRecord = currentMonthRecords.some(r => r.dateStr === dStr);
-                  
+                if (d.getDay() !== 0) {
+                  // Not Sunday
+                  const dStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(i).padStart(2, "0")}`;
+                  const hasRecord = currentMonthRecords.some(
+                    (r) => r.dateStr === dStr,
+                  );
+
                   // Check if on approved leave
-                  const isOnLeave = leaves.some(l => l.status === 'approved' && l.startDate <= dStr && l.endDate >= dStr);
+                  const isOnLeave = leaves.some(
+                    (l) =>
+                      l.status === "approved" &&
+                      l.startDate <= dStr &&
+                      l.endDate >= dStr,
+                  );
 
                   if (!hasRecord && !isOnLeave) {
                     missingDays++;
@@ -865,17 +1153,38 @@ export default function EmployeeDashboard() {
 
               return (
                 <>
-                  <View style={[styles.attCard, { backgroundColor: "#E8F5E9", borderTopColor: "#2E7D32" }]}>
+                  <View
+                    style={[
+                      styles.attCard,
+                      { backgroundColor: "#E8F5E9", borderTopColor: "#2E7D32" },
+                    ]}
+                  >
                     <Text style={styles.attLabel}>Present</Text>
-                    <Text style={[styles.attNum, { color: "#2E7D32" }]}>{String(presentCount).padStart(2, '0')}</Text>
+                    <Text style={[styles.attNum, { color: "#2E7D32" }]}>
+                      {String(presentCount).padStart(2, "0")}
+                    </Text>
                   </View>
-                  <View style={[styles.attCard, { backgroundColor: "#FFEBEE", borderTopColor: "#C62828" }]}>
+                  <View
+                    style={[
+                      styles.attCard,
+                      { backgroundColor: "#FFEBEE", borderTopColor: "#C62828" },
+                    ]}
+                  >
                     <Text style={styles.attLabel}>Absents</Text>
-                    <Text style={[styles.attNum, { color: "#C62828" }]}>{String(absentCount).padStart(2, '0')}</Text>
+                    <Text style={[styles.attNum, { color: "#C62828" }]}>
+                      {String(absentCount).padStart(2, "0")}
+                    </Text>
                   </View>
-                  <View style={[styles.attCard, { backgroundColor: "#FFF8E1", borderTopColor: "#F9A825" }]}>
+                  <View
+                    style={[
+                      styles.attCard,
+                      { backgroundColor: "#FFF8E1", borderTopColor: "#F9A825" },
+                    ]}
+                  >
                     <Text style={styles.attLabel}>Late in</Text>
-                    <Text style={[styles.attNum, { color: "#F9A825" }]}>{String(lateCount).padStart(2, '0')}</Text>
+                    <Text style={[styles.attNum, { color: "#F9A825" }]}>
+                      {String(lateCount).padStart(2, "0")}
+                    </Text>
                   </View>
                 </>
               );
@@ -886,12 +1195,21 @@ export default function EmployeeDashboard() {
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Leave Balance</Text>
           </View>
-          <LeaveBalanceBoxes userLeaveBalance={userLeaveBalance} isLoading={isLeavesLoading} leaves={leaves} leaveTypes={leaveTypes} user={user} />
+          <LeaveBalanceBoxes
+            userLeaveBalance={userLeaveBalance}
+            isLoading={isLeavesLoading}
+            leaves={leaves}
+            user={user}
+          />
         </ScrollView>
       </View>
 
       {/* Geofence Violation Modal */}
-      <Modal visible={!!geofenceViolationData} transparent animationType="slide">
+      <Modal
+        visible={!!geofenceViolationData}
+        transparent
+        animationType="slide"
+      >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -900,32 +1218,45 @@ export default function EmployeeDashboard() {
               </View>
               <Text style={styles.modalTitle}>Out of Range</Text>
             </View>
-            
+
             <Text style={styles.modalDesc}>
-              You are <Text style={{ fontWeight: 'bold', color: '#EF4444' }}>
-                {geofenceViolationData?.distance > 1000 
-                  ? `${(geofenceViolationData.distance / 1000).toFixed(1)} km` 
+              You are{" "}
+              <Text style={{ fontWeight: "bold", color: "#EF4444" }}>
+                {geofenceViolationData?.distance > 1000
+                  ? `${(geofenceViolationData.distance / 1000).toFixed(1)} km`
                   : `${geofenceViolationData?.distance} meters`}
-              </Text> away from the site. You must be within <Text style={{ fontWeight: 'bold' }}>
-                {geofenceViolationData?.radius > 1000 
-                  ? `${(geofenceViolationData.radius / 1000).toFixed(1)} km` 
+              </Text>{" "}
+              away from the site. You must be within{" "}
+              <Text style={{ fontWeight: "bold" }}>
+                {geofenceViolationData?.radius > 1000
+                  ? `${(geofenceViolationData.radius / 1000).toFixed(1)} km`
                   : `${geofenceViolationData?.radius} meters`}
-              </Text> to {(!todayRecord || todayRecord.checkOut) ? 'Check In' : 'Check Out'}.
+              </Text>{" "}
+              to{" "}
+              {!todayRecord || todayRecord.checkOut ? "Check In" : "Check Out"}.
             </Text>
 
             {geofenceViolationData && (
-              <View style={{ height: 250, width: '100%', marginVertical: 15, borderRadius: 12, overflow: 'hidden' }}>
-                <GeoFenceMap 
-                  latitude={geofenceViolationData.siteLat.toString()} 
-                  longitude={geofenceViolationData.siteLng.toString()} 
-                  radius={geofenceViolationData.radius.toString()} 
+              <View
+                style={{
+                  height: 250,
+                  width: "100%",
+                  marginVertical: 15,
+                  borderRadius: 12,
+                  overflow: "hidden",
+                }}
+              >
+                <GeoFenceMap
+                  latitude={geofenceViolationData.siteLat.toString()}
+                  longitude={geofenceViolationData.siteLng.toString()}
+                  radius={geofenceViolationData.radius.toString()}
                   userLatitude={geofenceViolationData.userLat.toString()}
                   userLongitude={geofenceViolationData.userLng.toString()}
                 />
               </View>
             )}
 
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.modalBtn}
               onPress={() => setGeofenceViolationData(null)}
               activeOpacity={0.8}
@@ -1148,13 +1479,13 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(15, 23, 42, 0.6)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: Spacing.xl,
   },
   modalContent: {
-    width: '100%',
+    width: "100%",
     backgroundColor: Colors.white,
     borderRadius: 20,
     padding: Spacing.xl,
@@ -1165,40 +1496,40 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   modalHeader: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: Spacing.md,
   },
   modalIconContainer: {
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#FEE2E2',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "#FEE2E2",
+    justifyContent: "center",
+    alignItems: "center",
     marginBottom: Spacing.md,
   },
   modalTitle: {
     fontSize: FontSize.xl,
-    fontWeight: 'bold',
+    fontWeight: "bold",
     color: Colors.text.primary,
   },
   modalDesc: {
     fontSize: FontSize.md,
     color: Colors.text.secondary,
-    textAlign: 'center',
+    textAlign: "center",
     lineHeight: 24,
   },
   modalBtn: {
-    backgroundColor: '#0F172A',
+    backgroundColor: "#0F172A",
     paddingVertical: Spacing.md,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
     marginTop: Spacing.sm,
   },
   modalBtnTxt: {
     color: Colors.white,
     fontSize: FontSize.md,
-    fontWeight: 'bold',
+    fontWeight: "bold",
   },
   leaveTotalTxt: {
     fontSize: 10,

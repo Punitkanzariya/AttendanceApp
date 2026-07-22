@@ -24,6 +24,7 @@ export const Colors = {
     tertiary: '#94A3B8',
     inverse: '#FFFFFF',
     link: '#2563EB',
+    danger: '#DC2626',
   },
 
   // Role-based colors

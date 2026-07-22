@@ -35,3 +35,5 @@ user@gmail.com
 finance@gmail.com
 
 npx expo start --tunnel
+
+$env:EAS_NO_VCS="1"; eas build -p android --profile preview --clear-cache

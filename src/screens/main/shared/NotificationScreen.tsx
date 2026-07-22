@@ -1,13 +1,35 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, Animated, Dimensions, TouchableWithoutFeedback, Platform, DeviceEventEmitter } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { Ionicons } from '@expo/vector-icons';
-import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from '@/theme';
-import { useAuthStore } from '@/store/authStore';
-import { subscribeToUserNotifications, markNotificationAsRead, markAllNotificationsAsRead, AppNotification } from '@/firebase/notificationService';
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useCallback,
+  useMemo,
+} from "react";
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  TouchableOpacity,
+  Animated,
+  Dimensions,
+  TouchableWithoutFeedback,
+  Platform,
+  DeviceEventEmitter,
+} from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { Ionicons } from "@expo/vector-icons";
+import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from "@/theme";
+import { useAuthStore } from "@/store/authStore";
+import {
+  subscribeToUserNotifications,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  AppNotification,
+} from "@/firebase/notificationService";
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const DRAWER_WIDTH = SCREEN_WIDTH;
 
 export default function NotificationScreen({ navigation }: any) {
@@ -16,6 +38,7 @@ export default function NotificationScreen({ navigation }: any) {
   const { user } = useAuthStore();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!user?.uid) return;
@@ -24,7 +47,7 @@ export default function NotificationScreen({ navigation }: any) {
         const delStr = await AsyncStorage.getItem(`@notifs_del_${user.uid}`);
         if (delStr) setDeletedIds(new Set(JSON.parse(delStr)));
       } catch (e) {
-        console.error('Error loading notification state:', e);
+        console.error("Error loading notification state:", e);
       }
     };
     loadState();
@@ -36,8 +59,11 @@ export default function NotificationScreen({ navigation }: any) {
     newSet.add(id);
     setDeletedIds(newSet);
     try {
-      await AsyncStorage.setItem(`@notifs_del_${user.uid}`, JSON.stringify([...newSet]));
-      DeviceEventEmitter.emit('notifications_read_updated');
+      await AsyncStorage.setItem(
+        `@notifs_del_${user.uid}`,
+        JSON.stringify([...newSet]),
+      );
+      DeviceEventEmitter.emit("notifications_read_updated");
     } catch (e) {
       console.error(e);
     }
@@ -45,15 +71,31 @@ export default function NotificationScreen({ navigation }: any) {
 
   useEffect(() => {
     Animated.parallel([
-      Animated.timing(translateX, { toValue: 0, duration: 320, useNativeDriver: true }),
-      Animated.timing(backdropOpacity, { toValue: 0.55, duration: 320, useNativeDriver: true })
+      Animated.timing(translateX, {
+        toValue: 0,
+        duration: 320,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropOpacity, {
+        toValue: 0.55,
+        duration: 320,
+        useNativeDriver: true,
+      }),
     ]).start();
   }, [translateX, backdropOpacity]);
 
   const closeDrawer = useCallback(() => {
     Animated.parallel([
-      Animated.timing(translateX, { toValue: DRAWER_WIDTH, duration: 260, useNativeDriver: true }),
-      Animated.timing(backdropOpacity, { toValue: 0, duration: 260, useNativeDriver: true })
+      Animated.timing(translateX, {
+        toValue: DRAWER_WIDTH,
+        duration: 260,
+        useNativeDriver: true,
+      }),
+      Animated.timing(backdropOpacity, {
+        toValue: 0,
+        duration: 260,
+        useNativeDriver: true,
+      }),
     ]).start(() => navigation?.goBack?.());
   }, [translateX, backdropOpacity, navigation]);
 
@@ -87,106 +129,145 @@ export default function NotificationScreen({ navigation }: any) {
     }
   };
 
-  const handleDeleteAll = async () => {
-    if (!user?.uid || notifications.length === 0) return;
+  const handleDeleteSelected = async () => {
+    if (!user?.uid || selectedIds.size === 0) return;
     try {
-      const allIds = notifications.map(n => n.notifId);
-      const newSet = new Set([...deletedIds, ...allIds]);
+      const newSet = new Set([...deletedIds, ...selectedIds]);
       setDeletedIds(newSet);
-      await AsyncStorage.setItem(`@notifs_del_${user.uid}`, JSON.stringify([...newSet]));
-      DeviceEventEmitter.emit('notifications_read_updated');
+      setSelectedIds(new Set()); // Exit selection mode
+      await AsyncStorage.setItem(
+        `@notifs_del_${user.uid}`,
+        JSON.stringify([...newSet]),
+      );
+      DeviceEventEmitter.emit("notifications_read_updated");
     } catch (e) {
       console.error(e);
     }
   };
 
+  const handleSelectAll = () => {
+    const visibleNotifs = notifications.filter(
+      (n) => !deletedIds.has(n.notifId),
+    );
+    if (selectedIds.size === visibleNotifs.length) {
+      setSelectedIds(new Set());
+    } else {
+      const allIds = new Set(visibleNotifs.map((n) => n.notifId));
+      setSelectedIds(allIds);
+    }
+  };
+
   const handleNavigate = (moduleName?: string, link?: string) => {
     if (!user) return;
-    
+
     // If a custom deep link is provided, we could use Linking.openURL, but for now we rely on internal navigation
-    
-    let rootApp = '';
+
+    let rootApp = "";
     switch (user.role) {
-      case 'employee': rootApp = 'EmployeeApp'; break;
-      case 'project_manager':
-      case 'project_coordinator': rootApp = 'ProjectManagementApp'; break;
-      case 'hr_manager': rootApp = 'ManagerApp'; break;
-      case 'administrator': rootApp = 'AdminApp'; break;
-      case 'finance': rootApp = 'FinanceApp'; break;
+      case "employee":
+        rootApp = "EmployeeApp";
+        break;
+      case "project_manager":
+      case "project_coordinator":
+        rootApp = "ProjectManagementApp";
+        break;
+      case "hr_manager":
+        rootApp = "ManagerApp";
+        break;
+      case "administrator":
+        rootApp = "AdminApp";
+        break;
+      case "finance":
+        rootApp = "FinanceApp";
+        break;
     }
-    
+
     // Module-based navigation mapping
-    if (moduleName === 'leave') {
-      navigation.navigate(rootApp, { screen: 'Leave' });
-    } else if (moduleName === 'expense' || moduleName === 'expenses') {
-      navigation.navigate(rootApp, { screen: 'Expenses' });
-    } else if (moduleName === 'attendance') {
-      navigation.navigate(rootApp, { screen: 'Attendance' });
-    } else if (moduleName === 'projects') {
-      navigation.navigate(rootApp, { screen: 'Projects' });
-    } else if (moduleName === 'users' || moduleName === 'roles') {
-      navigation.navigate(rootApp, { screen: 'Users' }); // Assuming there is a Users or Employees screen
-    } else if (moduleName === 'settings') {
-      navigation.navigate(rootApp, { screen: 'Settings' });
+    if (moduleName === "leave") {
+      navigation.navigate(rootApp, { screen: "Leave" });
+    } else if (moduleName === "expense" || moduleName === "expenses") {
+      navigation.navigate(rootApp, { screen: "Expenses" });
+    } else if (moduleName === "attendance") {
+      navigation.navigate(rootApp, { screen: "Attendance" });
+    } else if (moduleName === "projects") {
+      navigation.navigate(rootApp, { screen: "Projects" });
+    } else if (moduleName === "users" || moduleName === "roles") {
+      navigation.navigate(rootApp, { screen: "Users" }); // Assuming there is a Users or Employees screen
+    } else if (moduleName === "settings") {
+      navigation.navigate(rootApp, { screen: "Settings" });
     } else if (link) {
       // Fallback to try and navigate using a generic link string if possible
-      console.log('Would navigate to custom link:', link);
+      console.log("Would navigate to custom link:", link);
     }
   };
 
   const getIconConfig = (type: string, module?: string) => {
-    let icon = 'notifications-outline';
-    
+    let icon = "notifications-outline";
+
     // Assign specific icons based on the module
-    switch(module) {
-      case 'leave': icon = 'calendar-outline'; break;
-      case 'expense':
-      case 'expenses': icon = 'cash-outline'; break;
-      case 'attendance': icon = 'time-outline'; break;
-      case 'projects': icon = 'briefcase-outline'; break;
-      case 'users': 
-      case 'roles': icon = 'people-outline'; break;
-      case 'settings': icon = 'settings-outline'; break;
-      case 'system': icon = 'server-outline'; break;
+    switch (module) {
+      case "leave":
+        icon = "calendar-outline";
+        break;
+      case "expense":
+      case "expenses":
+        icon = "cash-outline";
+        break;
+      case "attendance":
+        icon = "time-outline";
+        break;
+      case "projects":
+        icon = "briefcase-outline";
+        break;
+      case "users":
+      case "roles":
+        icon = "people-outline";
+        break;
+      case "settings":
+        icon = "settings-outline";
+        break;
+      case "system":
+        icon = "server-outline";
+        break;
     }
 
-    let iconColor = '#3B82F6'; // Default info blue
-    let iconBg = '#EFF6FF';
+    let iconColor = "#3B82F6"; // Default info blue
+    let iconBg = "#EFF6FF";
 
     // Override colors based on notification type
-    if (type === 'success') {
-      icon = 'checkmark-circle-outline';
-      iconColor = '#16A34A';
-      iconBg = '#F0FDF4';
-    } else if (type === 'error') {
-      icon = 'alert-circle-outline';
-      iconColor = '#EF4444';
-      iconBg = '#FEF2F2';
-    } else if (type === 'warning') {
-      icon = 'warning-outline';
-      iconColor = '#D97706';
-      iconBg = '#FFFBEB';
-    } else if (type === 'info') {
-      icon = 'information-circle-outline';
-      iconColor = '#3B82F6';
-      iconBg = '#EFF6FF';
+    if (type === "success") {
+      icon = "checkmark-circle-outline";
+      iconColor = "#16A34A";
+      iconBg = "#F0FDF4";
+    } else if (type === "error") {
+      icon = "alert-circle-outline";
+      iconColor = "#EF4444";
+      iconBg = "#FEF2F2";
+    } else if (type === "warning") {
+      icon = "warning-outline";
+      iconColor = "#D97706";
+      iconBg = "#FFFBEB";
+    } else if (type === "info") {
+      icon = "information-circle-outline";
+      iconColor = "#3B82F6";
+      iconBg = "#EFF6FF";
     }
 
-    let cardBg = '#FFFFFF';
-    let cardBorder = '#F1F5F9';
+    let cardBg = "#FFFFFF";
+    let cardBorder = "#F1F5F9";
 
-    if (module?.toLowerCase() === 'birthday') {
-      icon = 'gift-outline';
-      iconColor = '#F59E0B'; // Amber
-      iconBg = '#FEF3C7';
-      cardBg = '#FFFBEB';
-      cardBorder = '#FDE68A';
-    } else if (module?.toLowerCase() === 'anniversary') {
-      icon = 'ribbon-outline';
-      iconColor = '#8B5CF6';
-      iconBg = '#EDE9FE';
-      cardBg = '#F5F3FF';
-      cardBorder = '#DDD6FE';
+    if (module?.toLowerCase() === "birthday") {
+      icon = "gift-outline";
+      iconColor = "#F59E0B"; // Amber
+      iconBg = "#FEF3C7";
+      cardBg = "#FFFBEB";
+      cardBorder = "#FDE68A";
+    } else if (module?.toLowerCase() === "anniversary") {
+      icon = "ribbon-outline";
+      iconColor = "#8B5CF6";
+      iconBg = "#EDE9FE";
+      cardBg = "#F5F3FF";
+      cardBorder = "#DDD6FE";
     }
 
     return { icon, iconColor, iconBg, cardBg, cardBorder };
@@ -195,17 +276,42 @@ export default function NotificationScreen({ navigation }: any) {
   // Group notifications by date
   const groupedNotifications = useMemo(() => {
     const groups: { [key: string]: AppNotification[] } = {};
-    const todayStr = new Date().toISOString().split('T')[0];
-    const yesterdayDate = new Date();
-    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
-    const yesterdayStr = yesterdayDate.toISOString().split('T')[0];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const currentYear = today.getFullYear();
 
-    notifications.forEach(notif => {
+    notifications.forEach((notif) => {
       if (deletedIds.has(notif.notifId)) return;
-      const dateStr = notif.createdAt?.split('T')[0] ?? '';
-      let groupLabel = dateStr;
-      if (dateStr === todayStr) groupLabel = 'TODAY';
-      else if (dateStr === yesterdayStr) groupLabel = 'YESTERDAY';
+
+      let groupLabel = "EARLIER";
+      if (notif.createdAt) {
+        const notifDate = new Date(notif.createdAt);
+        notifDate.setHours(0, 0, 0, 0);
+
+        const diffTime = today.getTime() - notifDate.getTime();
+        const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
+
+        if (diffDays === 0) {
+          groupLabel = "TODAY";
+        } else if (diffDays === 1) {
+          groupLabel = "YESTERDAY";
+        } else if (diffDays === 2) {
+          groupLabel = "2 DAYS AGO";
+        } else if (diffDays === 3) {
+          groupLabel = "3 DAYS AGO";
+        } else {
+          const options: Intl.DateTimeFormatOptions = {
+            day: "2-digit",
+            month: "short",
+          };
+          if (notifDate.getFullYear() !== currentYear) {
+            options.year = "numeric";
+          }
+          groupLabel = notifDate
+            .toLocaleDateString("en-GB", options)
+            .toUpperCase();
+        }
+      }
 
       if (!groups[groupLabel]) groups[groupLabel] = [];
       groups[groupLabel].push(notif);
@@ -216,7 +322,9 @@ export default function NotificationScreen({ navigation }: any) {
   return (
     <View style={styles.rootContainer}>
       <TouchableWithoutFeedback onPress={closeDrawer}>
-        <Animated.View style={[styles.backdrop, { opacity: backdropOpacity }]} />
+        <Animated.View
+          style={[styles.backdrop, { opacity: backdropOpacity }]}
+        />
       </TouchableWithoutFeedback>
 
       <Animated.View
@@ -225,60 +333,146 @@ export default function NotificationScreen({ navigation }: any) {
           {
             transform: [{ translateX }],
             ...Platform.select({
-              ios: { shadowColor: '#000', shadowOffset: { width: -4, height: 0 }, shadowOpacity: 0.18, shadowRadius: 8 },
+              ios: {
+                shadowColor: "#000",
+                shadowOffset: { width: -4, height: 0 },
+                shadowOpacity: 0.18,
+                shadowRadius: 8,
+              },
               android: { elevation: 12 },
             }),
           },
         ]}
       >
-        <SafeAreaView style={styles.safeArea} edges={['top']}>
+        <SafeAreaView style={styles.safeArea} edges={["top"]}>
           {/* Header */}
-            <View style={styles.header}>
-              <TouchableOpacity style={styles.backButton} onPress={closeDrawer}>
-                <Ionicons name="chevron-back" size={24} color={Colors.text.primary} />
+          <View style={styles.header}>
+            <TouchableOpacity style={styles.backButton} onPress={closeDrawer}>
+              <Ionicons
+                name="chevron-back"
+                size={22}
+                color={Colors.text.primary}
+              />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>Notifications</Text>
+
+            <View style={{ flexDirection: "row", alignItems: "center" }}>
+              <TouchableOpacity
+                style={styles.moreButton}
+                onPress={handleMarkAllAsRead}
+              >
+                <Text style={styles.markReadText}>Mark all as read</Text>
               </TouchableOpacity>
-              <Text style={styles.headerTitle}>Notifications</Text>
-              
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                <TouchableOpacity style={styles.moreButton} onPress={handleDeleteAll}>
-                  <Ionicons name="trash-outline" size={22} color={Colors.error} />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.moreButton} onPress={handleMarkAllAsRead}>
-                  <Ionicons name="checkmark-done-outline" size={24} color={Colors.text.primary} />
+            </View>
+          </View>
+
+          {/* Selection Bar */}
+          {selectedIds.size > 0 && (
+            <View style={styles.selectionBar}>
+              <TouchableOpacity
+                style={styles.selectionClose}
+                onPress={handleSelectAll}
+              >
+                <Ionicons
+                  name={
+                    selectedIds.size ===
+                    notifications.filter((n) => !deletedIds.has(n.notifId))
+                      .length
+                      ? "checkbox"
+                      : "square-outline"
+                  }
+                  size={18}
+                  color={Colors.error}
+                />
+              </TouchableOpacity>
+              <Text style={styles.selectionTitle}>
+                ({selectedIds.size}) Selected for delete
+              </Text>
+
+              <View style={{ flexDirection: "row", alignItems: "center" }}>
+                <TouchableOpacity
+                  style={styles.moreButton}
+                  onPress={handleDeleteSelected}
+                >
+                  <Ionicons
+                    name="trash-outline"
+                    size={18}
+                    color={Colors.error}
+                  />
                 </TouchableOpacity>
               </View>
             </View>
+          )}
 
-          <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
-
+          <ScrollView
+            contentContainerStyle={styles.scrollContainer}
+            showsVerticalScrollIndicator={false}
+          >
             {Object.keys(groupedNotifications).length === 0 && (
               <View style={styles.emptyState}>
-                <Ionicons name="notifications-off-outline" size={48} color={Colors.text.tertiary} />
+                <Ionicons
+                  name="notifications-off-outline"
+                  size={48}
+                  color={Colors.text.tertiary}
+                />
                 <Text style={styles.emptyTitle}>No Notifications</Text>
-                <Text style={styles.emptySubtitle}>You're all caught up! Nothing here yet.</Text>
+                <Text style={styles.emptySubtitle}>
+                  You're all caught up! Nothing here yet.
+                </Text>
               </View>
             )}
 
             {Object.entries(groupedNotifications).map(([groupLabel, items]) => (
               <View key={groupLabel} style={styles.groupContainer}>
                 <Text style={styles.sectionTitle}>{groupLabel}</Text>
-                {items.map(item => {
-                  const timeStr = new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-                  const { icon, iconColor, iconBg, cardBg, cardBorder } = getIconConfig(item.type, item.module);
-                  
+                {items.map((item) => {
+                  const timeStr = new Date(item.createdAt).toLocaleTimeString(
+                    [],
+                    { hour: "2-digit", minute: "2-digit" },
+                  );
+                  const { icon, iconColor, iconBg, cardBg, cardBorder } =
+                    getIconConfig(item.type, item.module);
+
                   return (
-                    <View 
-                      key={item.notifId} 
+                    <View
+                      key={item.notifId}
                       style={[
-                        styles.notificationCard, 
+                        styles.notificationCard,
                         !item.isRead && styles.unreadCard,
-                        { backgroundColor: cardBg, borderColor: cardBorder }
+                        selectedIds.has(item.notifId) && {
+                          backgroundColor: "#FEF2F2",
+                          borderColor: "#FECACA",
+                        },
+                        selectedIds.size === 0 && {
+                          backgroundColor: cardBg,
+                          borderColor: cardBorder,
+                        },
                       ]}
                     >
-                      <TouchableOpacity 
+                      <TouchableOpacity
                         style={styles.cardContent}
                         activeOpacity={0.7}
+                        onLongPress={() => {
+                          const newSelected = new Set(selectedIds);
+                          if (newSelected.has(item.notifId)) {
+                            newSelected.delete(item.notifId);
+                          } else {
+                            newSelected.add(item.notifId);
+                          }
+                          setSelectedIds(newSelected);
+                        }}
                         onPress={() => {
+                          if (selectedIds.size > 0) {
+                            const newSelected = new Set(selectedIds);
+                            if (newSelected.has(item.notifId)) {
+                              newSelected.delete(item.notifId);
+                            } else {
+                              newSelected.add(item.notifId);
+                            }
+                            setSelectedIds(newSelected);
+                            return;
+                          }
+
                           if (!item.isRead) {
                             handleMarkAsRead(item.notifId);
                           }
@@ -288,59 +482,97 @@ export default function NotificationScreen({ navigation }: any) {
                           }, 300);
                         }}
                       >
-                        <View style={[styles.iconAvatar, { backgroundColor: iconBg }]}>
-                          <Ionicons name={icon as any} size={20} color={iconColor} />
-                          {!item.isRead && <View style={styles.unreadIndicator} />}
+                        <View
+                          style={[
+                            styles.iconAvatar,
+                            {
+                              backgroundColor: selectedIds.has(item.notifId)
+                                ? "#FEE2E2"
+                                : iconBg,
+                            },
+                          ]}
+                        >
+                          {selectedIds.has(item.notifId) ? (
+                            <Ionicons name="trash" size={20} color="#EF4444" />
+                          ) : (
+                            <Ionicons
+                              name={icon as any}
+                              size={20}
+                              color={iconColor}
+                            />
+                          )}
+                          {!item.isRead && !selectedIds.has(item.notifId) && (
+                            <View style={styles.unreadIndicator} />
+                          )}
                         </View>
-                        
+
                         <View style={styles.textContent}>
                           <View style={styles.titleRow}>
-                            <Text style={styles.notificationTitle} numberOfLines={1}>{item.title}</Text>
+                            <Text
+                              style={styles.notificationTitle}
+                              numberOfLines={1}
+                            >
+                              {item.title}
+                            </Text>
                             <Text style={styles.timeText}>{timeStr}</Text>
                           </View>
-                          <Text style={styles.notificationText}>{item.message}</Text>
-                          
-                          <View style={{flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 4}}>
-                            <View style={[styles.statusPill, { backgroundColor: iconColor + '18' }]}>
-                              <View style={[styles.statusDot, { backgroundColor: iconColor }]} />
-                              <Text style={[styles.statusLabel, { color: iconColor }]}>
-                                {item.module ? item.module.charAt(0).toUpperCase() + item.module.slice(1) : 'Notification'}
+                          <Text style={styles.notificationText}>
+                            {item.message}
+                          </Text>
+
+                          <View
+                            style={{
+                              flexDirection: "row",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              marginTop: 4,
+                            }}
+                          >
+                            <View
+                              style={[
+                                styles.statusPill,
+                                { backgroundColor: iconColor + "18" },
+                              ]}
+                            >
+                              <View
+                                style={[
+                                  styles.statusDot,
+                                  { backgroundColor: iconColor },
+                                ]}
+                              />
+                              <Text
+                                style={[
+                                  styles.statusLabel,
+                                  { color: iconColor },
+                                ]}
+                              >
+                                {item.module
+                                  ? item.module.charAt(0).toUpperCase() +
+                                    item.module.slice(1)
+                                  : "Notification"}
                               </Text>
                             </View>
-
-
                           </View>
-                          
                         </View>
                       </TouchableOpacity>
 
-                      <View style={styles.actionsRow}>
-                        {!item.isRead && (
-                          <>
-                            <TouchableOpacity 
-                              style={styles.actionButton} 
-                              onPress={() => handleMarkAsRead(item.notifId)}
-                            >
-                              <Ionicons name="checkmark" size={16} color={Colors.text.secondary} />
-                              <Text style={styles.actionText}>Mark as read</Text>
-                            </TouchableOpacity>
-                            <View style={styles.verticalDivider} />
-                          </>
-                        )}
-                        <TouchableOpacity 
-                          style={styles.actionButton} 
-                          onPress={() => handleDelete(item.notifId)}
-                        >
-                          <Ionicons name="trash-outline" size={16} color={Colors.error} />
-                          <Text style={[styles.actionText, { color: Colors.error }]}>Remove</Text>
-                        </TouchableOpacity>
-                      </View>
+                      {!item.isRead && selectedIds.size === 0 && (
+                        <View style={styles.actionsRow}>
+                          <TouchableOpacity 
+                            style={styles.actionButton} 
+                            onPress={() => handleMarkAsRead(item.notifId)}
+                          >
+                            <Ionicons name="checkmark" size={16} color={Colors.text.secondary} />
+                            <Text style={styles.actionText}>Mark as read</Text>
+                          </TouchableOpacity>
+                        </View>
+                      )}
                     </View>
                   );
                 })}
               </View>
             ))}
-            
+
             <View style={{ height: Spacing.xl }} />
           </ScrollView>
         </SafeAreaView>
@@ -355,47 +587,69 @@ const styles = StyleSheet.create({
   },
   backdrop: {
     ...StyleSheet.absoluteFill,
-    backgroundColor: '#000',
+    backgroundColor: "#000",
   },
   drawer: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     bottom: 0,
     right: 0,
     width: DRAWER_WIDTH,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: "#F8FAFC",
   },
   safeArea: {
     flex: 1,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: Spacing.md,
-    paddingVertical: Spacing.md,
-    backgroundColor: '#FFFFFF',
+    paddingVertical: Spacing.xs,
+    backgroundColor: "#FFFFFF",
     borderBottomWidth: 1,
-    borderBottomColor: '#F1F5F9',
+    borderBottomColor: "#F1F5F9",
   },
   backButton: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#F8FAFC',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
   },
   moreButton: {
     padding: Spacing.xs,
     marginLeft: Spacing.sm,
   },
+  markReadText: {
+    fontSize: FontSize.sm,
+    color: Colors.text.secondary,
+    fontWeight: FontWeight.medium,
+  },
   headerTitle: {
     flex: 1,
-    fontSize: FontSize.lg,
+    fontSize: FontSize.md,
     fontWeight: FontWeight.bold,
     color: Colors.text.primary,
     marginLeft: Spacing.md,
+  },
+  selectionBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: Spacing.md,
+    paddingVertical: Spacing.sm,
+    backgroundColor: "#F8FAFC",
+  },
+  selectionClose: {
+    padding: Spacing.xs,
+    marginRight: Spacing.xs,
+  },
+  selectionTitle: {
+    flex: 1,
+    fontSize: FontSize.sm,
+    fontWeight: FontWeight.medium,
+    color: Colors.text.danger,
   },
   scrollContainer: {
     padding: Spacing.md,
@@ -403,8 +657,8 @@ const styles = StyleSheet.create({
   },
   emptyState: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginTop: Spacing.xxl * 2,
   },
   emptyTitle: {
@@ -417,55 +671,55 @@ const styles = StyleSheet.create({
   emptySubtitle: {
     fontSize: FontSize.sm,
     color: Colors.text.tertiary,
-    textAlign: 'center',
+    textAlign: "center",
     paddingHorizontal: Spacing.xl,
   },
   groupContainer: {
-    marginBottom: Spacing.xl,
+    marginBottom: Spacing.sm,
   },
   sectionTitle: {
     fontSize: FontSize.xs,
     fontWeight: FontWeight.bold,
     color: Colors.text.tertiary,
     letterSpacing: 0.5,
-    marginBottom: Spacing.md,
+    marginBottom: Spacing.xs,
     marginLeft: Spacing.xs,
   },
   notificationCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: "#FFFFFF",
     borderRadius: BorderRadius.lg,
-    marginBottom: Spacing.sm,
+    marginBottom: Spacing.xs,
     borderWidth: 1,
     borderColor: Colors.border,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   unreadCard: {
-    backgroundColor: '#F0F9FF', 
-    borderColor: '#BAE6FD',
+    backgroundColor: "#F0F9FF",
+    borderColor: "#BAE6FD",
   },
   cardContent: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: Spacing.md,
-    alignItems: 'flex-start',
+    alignItems: "flex-start",
     gap: Spacing.md,
   },
   actionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     borderTopWidth: 1,
     borderTopColor: Colors.border,
   },
   actionButton: {
     flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
     gap: 6,
     paddingVertical: 12,
   },
   verticalDivider: {
     width: 1,
-    height: '100%',
+    height: "100%",
     backgroundColor: Colors.border,
   },
   actionText: {
@@ -474,7 +728,7 @@ const styles = StyleSheet.create({
     color: Colors.text.secondary,
   },
   unreadIndicator: {
-    position: 'absolute',
+    position: "absolute",
     top: -2,
     right: -2,
     width: 10,
@@ -482,24 +736,24 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     backgroundColor: Colors.primary,
     borderWidth: 2,
-    borderColor: '#FFFFFF',
+    borderColor: "#FFFFFF",
   },
   iconAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: Spacing.md,
   },
   textContent: {
     flex: 1,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   titleRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: Spacing.xs,
   },
   notificationTitle: {
@@ -520,11 +774,11 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.xs,
   },
   senderPill: {
-    alignSelf: 'flex-start',
+    alignSelf: "flex-start",
     paddingHorizontal: Spacing.sm,
     paddingVertical: 2,
     borderRadius: BorderRadius.sm,
-    backgroundColor: '#F1F5F9',
+    backgroundColor: "#F1F5F9",
     marginTop: Spacing.xs,
   },
   senderText: {
@@ -533,8 +787,8 @@ const styles = StyleSheet.create({
     fontWeight: FontWeight.medium,
   },
   statusPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,

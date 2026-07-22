@@ -15,7 +15,10 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius } from "@/theme";
 import { useAuthStore } from "@/store/authStore";
-import { submitLeaveRequest, subscribeToLeaveTypes } from "@/firebase/leaveService";
+import {
+  submitLeaveRequest,
+} from "@/firebase/leaveService";
+import { LEAVE_TYPES, LEAVE_TYPE_LABELS } from "@/utils/constants";
 import { logAuditAction } from "@/firebase/auditService";
 import { DateInput } from "../DateInput";
 import { calculateDays } from "../../utils/dateUtils";
@@ -30,48 +33,51 @@ interface LeaveModalProps {
   onSuccess?: (message: string) => void;
 }
 
-export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeaves = [], onSuccess }: LeaveModalProps) => {
+export const LeaveModal = ({
+  isVisible,
+  onClose,
+  userLeaveBalance,
+  existingLeaves = [],
+  onSuccess,
+}: LeaveModalProps) => {
   const { user } = useAuthStore();
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
-  const [leaveTypes, setLeaveTypes] = useState<LeaveType[]>([]);
+  
+  const staticLeaveTypes = [
+    { leaveTypeId: LEAVE_TYPES.CASUAL, name: LEAVE_TYPE_LABELS.casual },
+    { leaveTypeId: LEAVE_TYPES.SICK, name: LEAVE_TYPE_LABELS.sick },
+    { leaveTypeId: LEAVE_TYPES.EARNED, name: LEAVE_TYPE_LABELS.earned },
+  ];
   const [leaveType, setLeaveType] = useState<string>("");
-  const [durationType, setDurationType] = useState<LeaveDurationType>("single_day");
-  const [halfDayPeriod, setHalfDayPeriod] = useState<HalfDayPeriod>("first_half");
+  const [durationType, setDurationType] =
+    useState<LeaveDurationType>("single_day");
+  const [halfDayPeriod, setHalfDayPeriod] =
+    useState<HalfDayPeriod>("first_half");
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [errorPopup, setErrorPopup] = useState<{ visible: boolean; title: string; message: string }>({ visible: false, title: "", message: "" });
+  const [errorPopup, setErrorPopup] = useState<{
+    visible: boolean;
+    title: string;
+    message: string;
+  }>({ visible: false, title: "", message: "" });
 
   useEffect(() => {
     if (isVisible) {
-      const unsubscribe = subscribeToLeaveTypes((types) => {
-        let finalTypes = types;
-        
-        if (types.length === 0 && userLeaveBalance) {
-          finalTypes = Object.keys(userLeaveBalance)
-            .filter(key => !key.includes('Taken') && !['employeeId', 'balanceId', 'year', 'adjustmentLogs'].includes(key))
-            .map(key => ({
-              leaveTypeId: key,
-              name: key.charAt(0).toUpperCase() + key.slice(1) + ' Leave',
-              annualQuota: userLeaveBalance[key] as number,
-              carryForwardMax: 0,
-              status: 'active' as const
-            }));
-        }
-
-        setLeaveTypes(finalTypes);
-        if (finalTypes.length > 0 && !leaveType) {
-          setLeaveType(finalTypes[0].leaveTypeId);
-        }
-      });
-      return () => unsubscribe();
+      setStartDate("");
+      setEndDate("");
+      setLeaveType(LEAVE_TYPES.CASUAL);
+      setReason("");
+      setDurationType("single_day");
+      setHalfDayPeriod("first_half");
     }
-  }, [isVisible, userLeaveBalance]);
+  }, [isVisible]);
 
   const todayDate = new Date().toISOString().split("T")[0];
 
   const handleSubmit = async () => {
-    const isSingleDate = durationType === "single_day" || durationType === "half_day";
+    const isSingleDate =
+      durationType === "single_day" || durationType === "half_day";
     const actualEndDate = isSingleDate ? startDate : endDate;
 
     if (!startDate || (!isSingleDate && !actualEndDate) || !reason) {
@@ -93,7 +99,10 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
     };
 
     if (days <= 0) {
-      showAlert("Invalid Dates", "The end date must be on or after the start date.");
+      showAlert(
+        "Invalid Dates",
+        "The end date must be on or after the start date.",
+      );
       return;
     }
 
@@ -105,9 +114,9 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
       start.setHours(0, 0, 0, 0);
       end.setHours(0, 0, 0, 0);
 
-      const hasOverlap = existingLeaves.some(l => {
-        if (l.status === 'rejected' || l.status === 'cancelled') return false;
-        
+      const hasOverlap = existingLeaves.some((l) => {
+        if (l.status === "rejected" || l.status === "cancelled") return false;
+
         const lStart = new Date(l.startDate);
         const lEnd = new Date(l.endDate);
         lStart.setHours(0, 0, 0, 0);
@@ -117,28 +126,36 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
       });
 
       if (hasOverlap) {
-        showAlert("Dates Overlapping", "You have already applied for a leave that overlaps with these dates.");
+        showAlert(
+          "Dates Overlapping",
+          "You have already applied for a leave that overlaps with these dates.",
+        );
         return;
       }
     }
 
     // 2. Insufficient Leave Balance Validation
     let remainingBalance = 0;
-    const leaveTypeObj = leaveTypes.find(t => t.leaveTypeId === leaveType);
+    const leaveTypeObj = staticLeaveTypes.find((t) => t.leaveTypeId === leaveType);
     const typeName = leaveTypeObj?.name || leaveType;
 
     let categoryKey = leaveType;
-    if (leaveTypeObj?.name.toLowerCase().includes('sick')) categoryKey = 'sick';
-    if (leaveTypeObj?.name.toLowerCase().includes('casual')) categoryKey = 'casual';
-    if (leaveTypeObj?.name.toLowerCase().includes('earned')) categoryKey = 'earned';
+    if (leaveTypeObj?.name.toLowerCase().includes("sick")) categoryKey = "sick";
+    if (leaveTypeObj?.name.toLowerCase().includes("casual"))
+      categoryKey = "casual";
+    if (leaveTypeObj?.name.toLowerCase().includes("earned"))
+      categoryKey = "earned";
 
     if (userLeaveBalance && userLeaveBalance[categoryKey] !== undefined) {
       const max = userLeaveBalance[categoryKey];
       const taken = userLeaveBalance[`${categoryKey}Taken`] || 0;
       remainingBalance = Math.max(0, max - taken);
-      
+
       if (days > remainingBalance) {
-        showAlert("Insufficient Balance", `Insufficient balance. You only have ${remainingBalance} ${typeName} remaining, but you applied for ${days} days.`);
+        showAlert(
+          "Insufficient Balance",
+          `Insufficient balance. You only have ${remainingBalance} ${typeName} remaining, but you applied for ${days} days.`,
+        );
         return;
       }
     } else if (user?.leaveBalances?.[categoryKey] !== undefined) {
@@ -146,7 +163,10 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
       const taken = 0; // fallback if exact taken not tracked in legacy structure
       remainingBalance = Math.max(0, max - taken);
       if (days > remainingBalance) {
-        showAlert("Insufficient Balance", `Insufficient balance. You only have ${remainingBalance} ${typeName} remaining, but you applied for ${days} days.`);
+        showAlert(
+          "Insufficient Balance",
+          `Insufficient balance. You only have ${remainingBalance} ${typeName} remaining, but you applied for ${days} days.`,
+        );
         return;
       }
     } else if (leaveTypeObj?.annualQuota !== undefined) {
@@ -167,29 +187,30 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
         days,
         reason,
         durationType,
-        durationType === "half_day" ? halfDayPeriod : undefined
+        durationType === "half_day" ? halfDayPeriod : undefined,
       );
-      
+
       await logAuditAction({
         userId: user!.uid,
-        userEmail: user!.email || '',
-        userName: user!.displayName || 'Unknown',
-        userRole: user!.role || 'employee',
-        module: 'leave',
-        action: 'SUBMIT',
+        userEmail: user!.email || "",
+        userName: user!.displayName || "Unknown",
+        userRole: user!.role || "employee",
+        module: "leave",
+        action: "SUBMIT",
         description: `Applied for ${days} days of ${leaveType} leave`,
-        severity: 'low',
+        severity: "low",
       });
-      
+
       setStartDate("");
       setEndDate("");
       setReason("");
       if (leaveTypes.length > 0) setLeaveType(leaveTypes[0].leaveTypeId);
       setDurationType("single_day");
       setHalfDayPeriod("first_half");
-      
+
       onClose();
-      if (onSuccess) onSuccess("Your leave request has been submitted successfully.");
+      if (onSuccess)
+        onSuccess("Your leave request has been submitted successfully.");
     } catch (error) {
       console.error("Failed to submit leave:", error);
       Alert.alert("Error", "Failed to submit leave request");
@@ -200,11 +221,11 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
 
   return (
     <Modal visible={isVisible} animationType="fade" transparent={true}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === "ios" ? "padding" : "padding"}
-          style={styles.modalOverlay}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
-        >
+      <KeyboardAvoidingView
+        behavior={Platform.OS === "ios" ? "padding" : "padding"}
+        style={styles.modalOverlay}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
         <View style={styles.modalContent}>
           <ScrollView
             showsVerticalScrollIndicator={false}
@@ -223,7 +244,7 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
 
             <Text style={styles.inputLabel}>Leave Type</Text>
             <View style={styles.typeSelectorRow}>
-              {leaveTypes.map((type) => (
+              {staticLeaveTypes.map((type) => (
                 <TouchableOpacity
                   key={type.leaveTypeId}
                   style={[
@@ -235,7 +256,8 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
                   <Text
                     style={[
                       styles.typeButtonText,
-                      leaveType === type.leaveTypeId && styles.typeButtonTextActive,
+                      leaveType === type.leaveTypeId &&
+                        styles.typeButtonTextActive,
                     ]}
                   >
                     {type.name}
@@ -285,12 +307,15 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
                         styles.typeButton,
                         halfDayPeriod === period.id && styles.typeButtonActive,
                       ]}
-                      onPress={() => setHalfDayPeriod(period.id as HalfDayPeriod)}
+                      onPress={() =>
+                        setHalfDayPeriod(period.id as HalfDayPeriod)
+                      }
                     >
                       <Text
                         style={[
                           styles.typeButtonText,
-                          halfDayPeriod === period.id && styles.typeButtonTextActive,
+                          halfDayPeriod === period.id &&
+                            styles.typeButtonTextActive,
                         ]}
                       >
                         {period.label}
@@ -323,18 +348,23 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
               </>
             )}
 
-            {durationType === "multiple_days" && !!startDate && !!endDate && calculateDays(startDate, endDate) > 0 && (
-              <Text style={styles.totalDaysPreview}>
-                Total Duration: {calculateDays(startDate, endDate)} Days
-              </Text>
-            )}
+            {durationType === "multiple_days" &&
+              !!startDate &&
+              !!endDate &&
+              calculateDays(startDate, endDate) > 0 && (
+                <Text style={styles.totalDaysPreview}>
+                  Total Duration: {calculateDays(startDate, endDate)} Days
+                </Text>
+              )}
 
             {durationType === "single_day" && !!startDate && (
               <Text style={styles.totalDaysPreview}>Total Duration: 1 Day</Text>
             )}
 
             {durationType === "half_day" && !!startDate && (
-              <Text style={styles.totalDaysPreview}>Total Duration: 0.5 Days</Text>
+              <Text style={styles.totalDaysPreview}>
+                Total Duration: 0.5 Days
+              </Text>
             )}
 
             <Text style={styles.inputLabel}>Reason</Text>
@@ -364,7 +394,11 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
       </KeyboardAvoidingView>
 
       {/* Custom Error Popup */}
-      <Modal visible={errorPopup.visible} transparent={true} animationType="fade">
+      <Modal
+        visible={errorPopup.visible}
+        transparent={true}
+        animationType="fade"
+      >
         <View style={styles.errorOverlay}>
           <View style={styles.errorContent}>
             <View style={styles.errorIconContainer}>
@@ -372,10 +406,12 @@ export const LeaveModal = ({ isVisible, onClose, userLeaveBalance, existingLeave
             </View>
             <Text style={styles.errorTitle}>{errorPopup.title}</Text>
             <Text style={styles.errorMessage}>{errorPopup.message}</Text>
-            <TouchableOpacity 
-              style={styles.errorBtn} 
+            <TouchableOpacity
+              style={styles.errorBtn}
               activeOpacity={0.7}
-              onPress={() => setErrorPopup(prev => ({ ...prev, visible: false }))}
+              onPress={() =>
+                setErrorPopup((prev) => ({ ...prev, visible: false }))
+              }
             >
               <Text style={styles.errorBtnText}>Okay</Text>
             </TouchableOpacity>
