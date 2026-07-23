@@ -20,6 +20,7 @@ import GradientHeader from "@/components/shared/GradientHeader";
 import AnimatedSuccessModal from "@/components/shared/AnimatedSuccessModal";
 import { BirthdayModal } from "@/components/shared/BirthdayModal";
 import LeaveBalanceBoxes from "@/components/shared/LeaveBalanceBoxes";
+import DistanceBanner from "@/components/shared/DistanceBanner";
 import { useNavigation } from "@react-navigation/native";
 import type { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import type { EmployeeTabParamList, AttendanceRecord } from "@/types";
@@ -178,6 +179,8 @@ export default function EmployeeDashboard() {
   const [isLeavesLoading, setIsLeavesLoading] = useState(true);
 
   const [activeProject, setActiveProject] = useState<any>(null);
+  const [showDistanceBanner, setShowDistanceBanner] = useState(false);
+  const [distanceKm, setDistanceKm] = useState(0);
 
   useEffect(() => {
     if (user?.uid && user?.projectId) {
@@ -276,6 +279,22 @@ export default function EmployeeDashboard() {
   useEffect(() => {
     fetchLocation();
   }, [fetchLocation]);
+
+  useEffect(() => {
+    if (activeProject?.location && currentLocationCoords) {
+      const dist = calculateDistanceMeters(
+        currentLocationCoords.latitude,
+        currentLocationCoords.longitude,
+        activeProject.location.latitude,
+        activeProject.location.longitude,
+      );
+      const radius = activeProject.geofenceRadius || 200;
+      if (dist > radius) {
+        setDistanceKm(dist / 1000);
+        setShowDistanceBanner(true);
+      }
+    }
+  }, [activeProject, currentLocationCoords]);
 
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
@@ -748,6 +767,12 @@ export default function EmployeeDashboard() {
       />
       <BirthdayModal user={user} />
       <View style={styles.root}>
+        <DistanceBanner
+          isVisible={showDistanceBanner}
+          distanceKm={distanceKm}
+          projectName={activeProject?.name || "your"}
+          onHideComplete={() => setShowDistanceBanner(false)}
+        />
         <GradientHeader />
         <ScrollView
           contentContainerStyle={styles.container}
@@ -772,7 +797,7 @@ export default function EmployeeDashboard() {
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.locationLabelTxt}>LOCATION</Text>
+                {/* <Text style={styles.locationLabelTxt}>LOCATION</Text> */}
                 <Text
                   style={styles.dateText}
                   numberOfLines={2}

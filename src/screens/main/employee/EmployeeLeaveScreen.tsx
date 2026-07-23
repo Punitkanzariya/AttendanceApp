@@ -147,36 +147,6 @@ export default function EmployeeLeaveScreen() {
   };
 
   const renderHeader = () => {
-    const currentYear = new Date().getFullYear();
-
-    const calculateTaken = (typeId: string) => {
-      return leaves
-        .filter((l) => l.type === typeId && l.status === "approved")
-        .filter((l) => {
-          if (!l.startDate) return false;
-          let dateYear = currentYear;
-          try {
-            if (l.startDate.includes("-")) {
-              const parts = l.startDate.split("-");
-              if (parts[0].length === 4) {
-                dateYear = parseInt(parts[0], 10);
-              } else if (parts[2]?.length === 4) {
-                dateYear = parseInt(parts[2], 10);
-              } else {
-                dateYear = new Date(l.startDate).getFullYear();
-              }
-            } else {
-              dateYear = new Date(l.startDate).getFullYear();
-            }
-          } catch (e) {}
-          return dateYear === currentYear;
-        })
-        .reduce((total, l) => total + (Number(l.totalDays) || 1), 0);
-    };
-
-    let totalTakenAll = 0;
-    let totalMaxAll = 0;
-
     return (
       <View style={styles.headerContent}>
         <View style={styles.sectionHeader}>
@@ -405,7 +375,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
   },
-  sectionTitle: { fontSize: 18, fontWeight: "700", color: Colors.text.primary },
+  sectionTitle: { fontSize: 16, fontWeight: "700", color: Colors.text.primary },
   applyBtn: {
     backgroundColor: Colors.primary,
     borderRadius: 24,
@@ -413,7 +383,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 16,
     elevation: 5,
   },
   applyBtnTxt: {
@@ -429,7 +398,8 @@ const styles = StyleSheet.create({
   historyCard: {
     backgroundColor: "#FFFFFF",
     borderRadius: 16,
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
     flexDirection: "row",
     alignItems: "center",
     marginBottom: 12,

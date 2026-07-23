@@ -10,13 +10,22 @@ interface SuccessPopupProps {
   onClose: () => void;
 }
 
-export const SuccessPopup = ({ visible, title, message, onClose }: SuccessPopupProps) => {
+export const SuccessPopup = ({
+  visible,
+  title,
+  message,
+  onClose,
+}: SuccessPopupProps) => {
   return (
     <Modal visible={visible} transparent={true} animationType="fade">
       <View style={styles.overlay}>
         <View style={styles.content}>
           <View style={styles.iconContainer}>
-            <Ionicons name="checkmark-circle" size={50} color={Colors.success} />
+            <Ionicons
+              name="checkmark-circle"
+              size={50}
+              color={Colors.success}
+            />
           </View>
           <Text style={styles.title}>{title}</Text>
           <Text style={styles.message}>{message}</Text>
@@ -25,7 +34,7 @@ export const SuccessPopup = ({ visible, title, message, onClose }: SuccessPopupP
             activeOpacity={0.7}
             onPress={onClose}
           >
-            <Text style={styles.btnText}>Awesome!</Text>
+            <Text style={styles.btnText}>Done!</Text>
           </TouchableOpacity>
         </View>
       </View>

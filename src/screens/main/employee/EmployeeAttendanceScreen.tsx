@@ -8,7 +8,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from "react-native";
-import { Modal } from 'react-native';
+import { Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
@@ -19,7 +19,7 @@ import {
   subscribeToUserAttendanceHistory,
   getLocalDateString,
   markMissedCheckouts,
-  getLogicalShiftDate
+  getLogicalShiftDate,
 } from "@/firebase";
 import { getEmployeeActiveProject } from "@/firebase/projectService";
 import type { AttendanceRecord, LeaveRequest } from "@/types";
@@ -39,14 +39,16 @@ export default function EmployeeAttendanceScreen() {
   const [isMonthPickerVisible, setMonthPickerVisible] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
 
-  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(null);
+  const [selectedRecord, setSelectedRecord] = useState<AttendanceRecord | null>(
+    null,
+  );
   const [isDetailVisible, setDetailVisible] = useState(false);
   const [leaves, setLeaves] = useState<LeaveRequest[]>([]);
   const [activeProject, setActiveProject] = useState<any>(null);
 
   useEffect(() => {
     if (user?.uid && user?.projectId) {
-      getEmployeeActiveProject(user.uid, user.projectId).then(proj => {
+      getEmployeeActiveProject(user.uid, user.projectId).then((proj) => {
         if (proj) {
           setActiveProject(proj);
         }
@@ -60,23 +62,35 @@ export default function EmployeeAttendanceScreen() {
     let shiftEnd = activeProject?.workingHours?.end;
 
     if (user?.currentShiftId && activeProject?.availableShifts) {
-      const matched = activeProject.availableShifts.find((s: any) => s.id === user.currentShiftId);
+      const matched = activeProject.availableShifts.find(
+        (s: any) => s.id === user.currentShiftId,
+      );
       if (matched) {
         shiftStart = matched.startTime;
         shiftEnd = matched.endTime;
       }
     }
 
-    const unsubToday = subscribeToTodayAttendance(user.uid, user.role, (record) => {
-      setTodayRecord(record);
-      setLoadingRecord(false);
-    }, shiftStart, shiftEnd);
+    const unsubToday = subscribeToTodayAttendance(
+      user.uid,
+      user.role,
+      (record) => {
+        setTodayRecord(record);
+        setLoadingRecord(false);
+      },
+      shiftStart,
+      shiftEnd,
+    );
 
     const unsubHistory = subscribeToUserAttendanceHistory(
       user.uid,
       (records: AttendanceRecord[]) => {
         // We filter out the active logical date from history
-        const logicalDateStr = getLogicalShiftDate(new Date(), shiftStart, shiftEnd);
+        const logicalDateStr = getLogicalShiftDate(
+          new Date(),
+          shiftStart,
+          shiftEnd,
+        );
         const filtered = records.filter((r) => r.dateStr !== logicalDateStr);
         setHistory(filtered);
         markMissedCheckouts(user.uid, records, shiftStart, shiftEnd);
@@ -84,7 +98,7 @@ export default function EmployeeAttendanceScreen() {
     );
 
     const unsubLeaves = subscribeToUserLeaves(user.uid, user.role, (data) => {
-      setLeaves(data.filter(l => l.status === 'approved'));
+      setLeaves(data.filter((l) => l.status === "approved"));
     });
 
     return () => {
@@ -102,29 +116,38 @@ export default function EmployeeAttendanceScreen() {
 
   const formatTime = (isoString?: string) => {
     if (!isoString) return "--:--";
-    return new Date(isoString).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: true,
-    }).toUpperCase();
+    return new Date(isoString)
+      .toLocaleTimeString([], {
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: true,
+      })
+      .toUpperCase();
   };
 
   const formatHHMMtoAMPM = (timeStr: string) => {
-    const [h, m] = timeStr.split(':').map(Number);
-    const ampm = h >= 12 ? 'PM' : 'AM';
+    const [h, m] = timeStr.split(":").map(Number);
+    const ampm = h >= 12 ? "PM" : "AM";
     const displayH = h % 12 || 12;
-    return `${String(displayH).padStart(2, '0')}:${String(m).padStart(2, '0')} ${ampm}`;
+    return `${String(displayH).padStart(2, "0")}:${String(m).padStart(2, "0")} ${ampm}`;
   };
 
   const getExpectedCheckOut = (record: AttendanceRecord) => {
     const isPast = record.dateStr !== getLocalDateString();
     if (isPast) return null;
 
-    let startStr = record.shift?.startTime || activeProject?.workingHours?.start;
+    let startStr =
+      record.shift?.startTime || activeProject?.workingHours?.start;
     let endStr = record.shift?.endTime || activeProject?.workingHours?.end;
 
-    if (!record.shift?.startTime && user?.currentShiftId && activeProject?.availableShifts) {
-      const matched = activeProject.availableShifts.find((s: any) => s.id === user.currentShiftId);
+    if (
+      !record.shift?.startTime &&
+      user?.currentShiftId &&
+      activeProject?.availableShifts
+    ) {
+      const matched = activeProject.availableShifts.find(
+        (s: any) => s.id === user.currentShiftId,
+      );
       if (matched) {
         startStr = matched.startTime;
         endStr = matched.endTime;
@@ -134,32 +157,32 @@ export default function EmployeeAttendanceScreen() {
     if (!startStr || !endStr) return null;
     if (!record.checkIn?.timestamp) return formatHHMMtoAMPM(endStr);
 
-    const [startH, startM] = startStr.split(':').map(Number);
-    const [endH, endM] = endStr.split(':').map(Number);
+    const [startH, startM] = startStr.split(":").map(Number);
+    const [endH, endM] = endStr.split(":").map(Number);
     const isNightShift = startH > endH;
 
     let shiftStartMins = startH * 60 + startM;
     let shiftEndMins = endH * 60 + endM;
     if (isNightShift) shiftEndMins += 24 * 60;
-    
+
     const durationMins = shiftEndMins - shiftStartMins;
 
     const checkInDate = new Date(record.checkIn.timestamp);
     let checkInMins = checkInDate.getHours() * 60 + checkInDate.getMinutes();
 
-    if (isNightShift && checkInMins <= (endH * 60 + endM)) {
+    if (isNightShift && checkInMins <= endH * 60 + endM) {
       checkInMins += 24 * 60;
     }
 
     if (checkInMins > shiftStartMins) {
       let outMins = checkInMins + durationMins;
-      
+
       if (isNightShift) {
         if (outMins >= 2160) outMins = 2159; // Cap at 11:59 AM next day
       } else {
         if (outMins >= 1440) outMins = 1439; // Cap at 11:59 PM today
       }
-      
+
       const outH = Math.floor(outMins / 60) % 24;
       const outM = outMins % 60;
       return formatHHMMtoAMPM(`${outH}:${outM}`);
@@ -171,9 +194,9 @@ export default function EmployeeAttendanceScreen() {
     if (record.checkOut) {
       const hrsNum = Number(record.workingHours || 0);
       if (!isNaN(hrsNum)) {
-         const h = Math.floor(hrsNum);
-         const m = Math.floor((hrsNum - h) * 60);
-         return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:00`;
+        const h = Math.floor(hrsNum);
+        const m = Math.floor((hrsNum - h) * 60);
+        return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}:00`;
       }
       return `${record.workingHours} Hrs`;
     }
@@ -185,22 +208,25 @@ export default function EmployeeAttendanceScreen() {
   // Combine records to display
   const combinedRecords = [...(todayRecord ? [todayRecord] : []), ...history];
 
-  const filteredRecords = combinedRecords.filter(r => {
+  const filteredRecords = combinedRecords.filter((r) => {
     const d = new Date(r.dateStr);
-    return d.getMonth() === selectedDate.getMonth() && d.getFullYear() === selectedDate.getFullYear();
+    return (
+      d.getMonth() === selectedDate.getMonth() &&
+      d.getFullYear() === selectedDate.getFullYear()
+    );
   });
 
-  const WEEKDAYS = ['Su', 'Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa'];
+  const WEEKDAYS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
 
   // Build a Set of all dates covered by approved leaves
   const leaveDateSet = React.useMemo(() => {
     const set = new Set<string>();
-    leaves.forEach(leave => {
+    leaves.forEach((leave) => {
       const start = new Date(leave.startDate);
       const end = new Date(leave.endDate);
       const cur = new Date(start);
       while (cur <= end) {
-        const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, '0')}-${String(cur.getDate()).padStart(2, '0')}`;
+        const key = `${cur.getFullYear()}-${String(cur.getMonth() + 1).padStart(2, "0")}-${String(cur.getDate()).padStart(2, "0")}`;
         set.add(key);
         cur.setDate(cur.getDate() + 1);
       }
@@ -213,29 +239,29 @@ export default function EmployeeAttendanceScreen() {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const record = filteredRecords.find(r => r.dateStr === dateStr);
+    const dateStr = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+    const record = filteredRecords.find((r) => r.dateStr === dateStr);
 
-    if (record) return 'present';
-    if (leaveDateSet.has(dateStr)) return 'leave';
-    
-    if (dateObj > today) return 'future';
-    if (dateObj.getDay() === 0) return 'weekend'; // Sunday
+    if (record) return "present";
+    if (leaveDateSet.has(dateStr)) return "leave";
 
-    return 'absent';
+    if (dateObj > today) return "future";
+    if (dateObj.getDay() === 0) return "weekend"; // Sunday
+
+    return "absent";
   };
 
   const renderCalendar = () => {
     const year = selectedDate.getFullYear();
     const month = selectedDate.getMonth();
-    
+
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const firstDay = new Date(year, month, 1).getDay(); // 0 (Sun) to 6 (Sat)
-    
+
     const days: (number | null)[] = [];
     for (let i = 0; i < firstDay; i++) days.push(null);
     for (let i = 1; i <= daysInMonth; i++) days.push(i);
-    
+
     const weeks: (number | null)[][] = [];
     let currentWeek: (number | null)[] = [];
     days.forEach((day, index) => {
@@ -247,67 +273,116 @@ export default function EmployeeAttendanceScreen() {
       }
     });
 
+    const todayStr = getLocalDateString();
+
     return (
       <View style={styles.calendarContainer}>
+        {/* Calendar Internal Header */}
+        <View style={styles.calInternalHeader}>
+          <TouchableOpacity
+            style={styles.calNavBtn}
+            onPress={() => {
+              const prev = new Date(year, month - 1, 1);
+              setSelectedDate(prev);
+            }}
+          >
+            <Ionicons name="chevron-back" size={20} color="#475569" />
+          </TouchableOpacity>
+
+          <TouchableOpacity onPress={() => setMonthPickerVisible(true)}>
+            <Text style={styles.calMonthTitle}>
+              {selectedDate.toLocaleDateString("en-US", {
+                month: "long",
+                year: "numeric",
+              })}
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.calNavBtn}
+            onPress={() => {
+              const next = new Date(year, month + 1, 1);
+              setSelectedDate(next);
+            }}
+          >
+            <Ionicons name="chevron-forward" size={20} color="#475569" />
+          </TouchableOpacity>
+        </View>
+
         {/* Weekday Header */}
         <View style={styles.calendarHeader}>
           {WEEKDAYS.map((wd, i) => (
-            <Text key={i} style={styles.calendarHeaderText}>{wd}</Text>
+            <Text key={i} style={styles.calendarHeaderText}>
+              {wd}
+            </Text>
           ))}
         </View>
-        
+
         {/* Weeks */}
         {weeks.map((week, wIdx) => (
           <View key={wIdx} style={styles.calendarRow}>
             {week.map((day, dIdx) => {
               if (!day) return <View key={dIdx} style={styles.calendarCell} />;
-              
+
               const status = getDayStatus(year, month, day);
-              let bgColor = 'transparent';
-              let textColor = '#0F172A';
-              
-              if (status === 'present') {
-                bgColor = '#DCFCE7';
-                textColor = '#166534';
-              } else if (status === 'leave') {
-                bgColor = '#EDE9FE'; // light purple
-                textColor = '#6D28D9';
-              } else if (status === 'absent') {
-                bgColor = '#FEE2E2';
-                textColor = '#991B1B';
-              } else if (status === 'weekend') {
-                textColor = '#94A3B8';
-              } else if (status === 'future') {
-                textColor = '#CBD5E1';
+              const isToday =
+                `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}` ===
+                todayStr;
+
+              let bgColor = "transparent";
+              let textColor = "#475569"; // slate-600
+
+              if (status === "present") {
+                bgColor = "#D1FAE5";
+                textColor = "#059669";
+              } else if (status === "leave") {
+                bgColor = "#EDE9FE";
+                textColor = "#6D28D9";
+              } else if (status === "absent") {
+                bgColor = "#FEE2E2";
+                textColor = "#B91C1C";
+              } else if (status === "weekend") {
+                bgColor = "#F1F5F9";
+                textColor = "#64748B";
+              } else if (status === "future") {
+                textColor = "#CBD5E1";
               }
 
               return (
                 <View key={dIdx} style={styles.calendarCell}>
-                  <View style={[styles.dayCircle, { backgroundColor: bgColor }]}>
-                    <Text style={[styles.dayText, { color: textColor }]}>{day}</Text>
+                  <View
+                    style={[
+                      styles.dayCircle,
+                      { backgroundColor: bgColor },
+                      isToday && styles.todayCircleBorder,
+                    ]}
+                  >
+                    <Text style={[styles.dayText, { color: textColor }]}>
+                      {day}
+                    </Text>
                   </View>
                 </View>
               );
             })}
           </View>
         ))}
-        
+
         {/* Legend */}
         <View style={styles.legendRow}>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#166534' }]} />
+            <View style={[styles.legendDot, { backgroundColor: "#059669" }]} />
             <Text style={styles.legendText}>Present</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#6D28D9' }]} />
+            <View style={[styles.legendDot, { backgroundColor: "#4338CA" }]} />
             <Text style={styles.legendText}>Leave</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#991B1B' }]} />
+            <View style={[styles.legendDot, { backgroundColor: "#DC2626" }]} />
             <Text style={styles.legendText}>Absent</Text>
           </View>
           <View style={styles.legendItem}>
-            <View style={[styles.legendDot, { backgroundColor: '#94A3B8' }]} />
+            <View style={[styles.legendDot, { backgroundColor: "#64748B" }]} />
             <Text style={styles.legendText}>Holiday/Off</Text>
           </View>
         </View>
@@ -330,8 +405,7 @@ export default function EmployeeAttendanceScreen() {
               color={Colors.text.primary}
             />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Attendance Details</Text>
-          <View style={{ width: 32 }} />
+          <Text style={styles.headerTitle}>Attendance Calendar</Text>
         </View>
 
         <ScrollView
@@ -345,17 +419,12 @@ export default function EmployeeAttendanceScreen() {
             />
           }
         >
-          {/* Monthly Control */}
-          <View style={styles.monthHeaderRow}>
-            <Text style={styles.monthLabel}>Attendance Monthly</Text>
-            <TouchableOpacity style={styles.monthPicker} onPress={() => setMonthPickerVisible(true)}>
-              <Text style={styles.monthPickerText}>{selectedDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' }).toUpperCase()}</Text>
-              <Ionicons name="calendar-outline" size={14} color={Colors.primary} />
-            </TouchableOpacity>
-          </View>
-
           {/* Calendar View */}
           {renderCalendar()}
+
+          <Text style={styles.listSectionTitle}>
+            {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })} Attendance List
+          </Text>
 
           {/* List */}
           {loadingRecord ? (
@@ -364,86 +433,152 @@ export default function EmployeeAttendanceScreen() {
               color={Colors.primary}
               style={{ marginTop: 40 }}
             />
-          ) : (() => {
-            const allCards = [
-              ...filteredRecords.map(r => ({ type: 'attendance' as const, dateStr: r.dateStr, record: r })),
-            ].sort((a, b) => b.dateStr.localeCompare(a.dateStr));
+          ) : (
+            (() => {
+              const allCards = [
+                ...filteredRecords.map((r) => ({
+                  type: "present" as const,
+                  dateStr: r.dateStr,
+                  record: r,
+                  leaveData: null,
+                  dateObj: new Date(r.dateStr),
+                })),
+              ];
 
-            if (allCards.length === 0) {
-              return (
-                <Text style={{ textAlign: 'center', marginTop: 40, color: Colors.text.secondary }}>
-                  No records found for {selectedDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}.
-                </Text>
-              );
-            }
+              leaveDateSet.forEach((dateStr) => {
+                const d = new Date(dateStr);
+                if (
+                  d.getMonth() === selectedDate.getMonth() &&
+                  d.getFullYear() === selectedDate.getFullYear()
+                ) {
+                  if (!allCards.some((c) => c.dateStr === dateStr)) {
+                    const leaveData = leaves.find(
+                      (l) =>
+                        l.startDate <= dateStr &&
+                        l.endDate >= dateStr &&
+                        l.status === "approved",
+                    );
+                    allCards.push({
+                      type: "leave" as const,
+                      dateStr: dateStr,
+                      record: null as any,
+                      leaveData: leaveData,
+                      dateObj: d,
+                    });
+                  }
+                }
+              });
 
-            return allCards.map((item, index) => {
-              const dateObj = new Date(item.dateStr);
-              const day = String(dateObj.getDate()).padStart(2, '0');
-              const month = String(dateObj.getMonth() + 1).padStart(2, '0');
-              const year = dateObj.getFullYear();
-              const dayStr = `${day}-${month}-${year}`;
+              allCards.sort((a, b) => b.dateStr.localeCompare(a.dateStr));
 
-              const record = item.record;
-              const hrs = Number(record.workingHours || 0);
-              const hrsColor = hrs >= 8 ? Colors.success : Colors.warning;
+              if (allCards.length === 0) {
+                return (
+                  <Text
+                    style={{
+                      textAlign: "center",
+                      marginTop: 40,
+                      color: Colors.text.secondary,
+                    }}
+                  >
+                    No records found for{" "}
+                    {selectedDate.toLocaleDateString("en-US", {
+                      month: "long",
+                      year: "numeric",
+                    })}
+                    .
+                  </Text>
+                );
+              }
 
-              return (
-                <TouchableOpacity
-                  key={record.id || index}
-                  style={styles.card}
-                  activeOpacity={0.7}
-                  onPress={() => {
-                    setSelectedRecord(record);
-                    setDetailVisible(true);
-                  }}
-                >
-                  <View style={styles.cardInner}>
-                    <View style={styles.cardTopRow}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <View style={styles.cardIndicator} />
-                        <Text style={styles.dateText}>{dayStr}</Text>
+              return allCards.map((item, index) => {
+                const dayStr = String(item.dateObj.getDate()).padStart(2, "0");
+                const weekDay = item.dateObj.toLocaleDateString("en-US", {
+                  weekday: "short",
+                });
+
+                const isPresent = item.type === "present" && item.record;
+                let hrsNum = 0;
+                if (isPresent) {
+                  hrsNum = Number(item.record?.workingHours || 0);
+                }
+                const h = Math.floor(hrsNum);
+                const m = Math.round((hrsNum - h) * 60);
+                const durationText = `${h}h ${m}m`;
+
+                const isAbsent = !isPresent;
+
+                return (
+                  <TouchableOpacity
+                    key={item.dateStr || index}
+                    style={styles.historyCard}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      if (item.record) {
+                        setSelectedRecord(item.record);
+                        setDetailVisible(true);
+                      }
+                    }}
+                  >
+                    <View style={styles.historyCardTop}>
+                      <Text style={styles.historyDateTxt}>
+                        {dayStr} {weekDay}
+                      </Text>
+                      <View
+                        style={[
+                          styles.durationPill,
+                          isAbsent && styles.durationPillAbsent,
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.durationTxt,
+                            isAbsent && styles.durationTxtAbsent,
+                          ]}
+                        >
+                          {durationText}
+                        </Text>
                       </View>
                     </View>
 
-                    <View style={styles.statsRow}>
-                      <View style={styles.statCol}>
-                        <Text style={[styles.statValue, { color: Colors.success }]}>
-                          {formatTime(record.checkIn?.timestamp)}
+                    {isPresent ? (
+                      <View style={styles.historyTimeRow}>
+                        <Ionicons
+                          name="log-in-outline"
+                          size={16}
+                          color="#252525ff"
+                        />
+                        <Text style={styles.historyTimeTxt}>
+                          {formatTime(item.record?.checkIn?.timestamp)}
                         </Text>
-                        <Text style={styles.statLabel}>Check In</Text>
-                        {record.status === 'late' && (
-                          <Text style={{ fontSize: 10, color: Colors.error, marginTop: 2, fontWeight: 'bold' }}>
-                            (Late)
-                          </Text>
-                        )}
-                      </View>
-
-                      <View style={styles.statCol}>
-                        <Text style={[styles.statValue, { color: Colors.error }]}>
-                          {record.checkOut ? formatTime(record.checkOut.timestamp) : (record.dateStr !== getLocalDateString() ? 'Missed' : '--:--')}
+                        <Text style={styles.historyDot}>•</Text>
+                        <Ionicons
+                          name="log-out-outline"
+                          size={16}
+                          color="#6B7280"
+                        />
+                        <Text style={styles.historyTimeTxt}>
+                          {item.record?.checkOut
+                            ? formatTime(item.record.checkOut.timestamp)
+                            : item.record?.dateStr !== getLocalDateString()
+                              ? "Missed"
+                              : "In Progress"}
                         </Text>
-                        <Text style={styles.statLabel}>Check Out</Text>
-                        {getExpectedCheckOut(record) && !record.checkOut?.timestamp && (
-                          <Text style={{ fontSize: 10, color: Colors.text.secondary, marginTop: 2 }}>
-                            (Exp: {getExpectedCheckOut(record)})
-                          </Text>
-                        )}
                       </View>
-
-                      <View style={[styles.statCol, { alignItems: 'flex-end' }]}>
-                        <Text style={[styles.statValue, { color: record.checkOut ? hrsColor : Colors.text.primary }]}>
-                          {getWorkingHours(record)}
+                    ) : (
+                      <View style={styles.historyTimeRow}>
+                        <Text style={styles.historyAbsentTxt}>
+                          Absent{" "}
+                          {item.leaveData
+                            ? `- ${item.leaveData.leaveType || "Leave"}`
+                            : ""}
                         </Text>
-                        <Text style={styles.statLabel}>Working HR's</Text>
                       </View>
-                    </View>
-                  </View>
-                </TouchableOpacity>
-              );
-            });
-          })()}
-
+                    )}
+                  </TouchableOpacity>
+                );
+              });
+            })()
+          )}
         </ScrollView>
 
         {/* Custom Month/Year Picker Modal */}
@@ -468,7 +603,6 @@ export default function EmployeeAttendanceScreen() {
 }
 
 const styles = StyleSheet.create({
-
   safe: { flex: 1, backgroundColor: Colors.employeeBg },
   root: { flex: 1, position: "relative" },
   container: { padding: 16, paddingBottom: Spacing.xxl },
@@ -476,9 +610,8 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingVertical: 12,
   },
   headerBtn: {
     width: 32,
@@ -489,6 +622,7 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
     alignItems: "center",
     justifyContent: "center",
+    marginRight: 12,
   },
   headerTitle: {
     fontSize: 15,
@@ -524,19 +658,19 @@ const styles = StyleSheet.create({
     color: Colors.primary,
   },
   monthNavRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
   monthNavBtn: {
     width: 30,
     height: 30,
     borderRadius: 15,
-    backgroundColor: '#EBF4FF',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#EBF4FF",
+    alignItems: "center",
+    justifyContent: "center",
     borderWidth: 1,
-    borderColor: '#BFDBFE',
+    borderColor: "#BFDBFE",
   },
 
   card: {
@@ -547,15 +681,15 @@ const styles = StyleSheet.create({
     borderColor: Colors.border,
   },
   leaveCard: {
-    borderColor: '#DDD6FE',
-    backgroundColor: '#FAFAFE',
+    borderColor: "#DDD6FE",
+    backgroundColor: "#FAFAFE",
   },
   leaveInfoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     marginTop: 10,
-    backgroundColor: '#EDE9FE',
+    backgroundColor: "#EDE9FE",
     borderRadius: 10,
     padding: 10,
   },
@@ -563,30 +697,30 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: '#D8B4FE',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: "#D8B4FE",
+    alignItems: "center",
+    justifyContent: "center",
   },
   leaveTypeText: {
     fontSize: 13,
-    fontWeight: '700',
-    color: '#4C1D95',
+    fontWeight: "700",
+    color: "#4C1D95",
   },
   leaveReasonText: {
     fontSize: 11,
-    color: '#7C3AED',
+    color: "#7C3AED",
     marginTop: 2,
   },
   leaveDurationBadge: {
-    backgroundColor: '#7C3AED',
+    backgroundColor: "#7C3AED",
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
   },
   leaveDurationText: {
-    color: '#fff',
+    color: "#fff",
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: "700",
   },
 
   cardIndicator: {
@@ -647,60 +781,129 @@ const styles = StyleSheet.create({
     color: Colors.text.tertiary,
     fontWeight: "600",
   },
+  historyCard: {
+    backgroundColor: "#ffffff",
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginBottom: 12,
+    shadowColor: "#00000020",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  historyCardTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  historyDateTxt: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#111827",
+  },
+  durationPill: {
+    backgroundColor: "#F3F4F6", // light grey/blue
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  durationPillAbsent: {
+    backgroundColor: "#FEE2E2", // soft red
+  },
+  durationTxt: {
+    fontSize: 12,
+    fontWeight: "700",
+    color: "#4338CA", // Indigo
+  },
+  durationTxtAbsent: {
+    color: "#B91C1C", // Red
+  },
+  historyTimeRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 3,
+  },
+  historyTimeTxt: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#252525ff",
+    marginLeft: 6,
+  },
+  historyDot: {
+    fontSize: 16,
+    color: "#252525ff",
+    marginHorizontal: 10,
+  },
+  historyAbsentTxt: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#DC2626", // Red for absent
+  },
   calendarContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
     marginBottom: 24,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
+    // borderWidth: 1,
+    // borderColor: '#E2E8F0',
+    shadowColor: "#0000004f",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
   },
   calendarHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 12,
   },
   calendarHeaderText: {
     flex: 1,
-    textAlign: 'center',
+    textAlign: "center",
     fontSize: 12,
-    fontWeight: '700',
-    color: '#64748B',
+    fontWeight: "600",
+    color: "#64748B", // slate-500
   },
   calendarRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 8,
   },
   calendarCell: {
     flex: 1,
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
+    height: 40,
+    alignItems: "center",
+    justifyContent: "center",
   },
   dayCircle: {
     width: 32,
     height: 32,
     borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  todayCircleBorder: {
+    borderWidth: 1.5,
+    borderColor: "#4338CA", // blue/indigo ring for today
   },
   dayText: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "400",
   },
   legendRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
+    flexDirection: "row",
+    justifyContent: "center",
+    flexWrap: "wrap",
     gap: 16,
     marginTop: 16,
     paddingTop: 16,
     borderTopWidth: 1,
-    borderTopColor: '#E2E8F0',
+    borderTopColor: "#F1F5F9",
   },
   legendItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
   legendDot: {
@@ -710,7 +913,30 @@ const styles = StyleSheet.create({
   },
   legendText: {
     fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
+    color: "#475569",
+    fontWeight: "500",
+  },
+  calInternalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 20,
+    paddingHorizontal: 8,
+  },
+  calMonthTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#0F172A",
+  },
+  calNavBtn: {
+    padding: 4,
+  },
+  listSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#475569',
+    marginLeft: 4,
+    marginBottom: 12,
+    marginTop: 4,
   },
 });
