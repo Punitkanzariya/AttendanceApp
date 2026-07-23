@@ -12,6 +12,7 @@ import {
   Dimensions,
   Linking,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,8 +23,39 @@ import { subscribeToUserAttendanceHistory } from '@/firebase';
 import { subscribeToUserLeaves } from '@/firebase/leaveService';
 import { useAuthStore } from '@/store/authStore';
 import UserMonthCalendar from './UserMonthCalendar';
+import SelfiePreviewModal from './SelfiePreviewModal';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
+const ThumbnailImage = ({ url, onPress }: { url: string; onPress: () => void }) => {
+  const [loading, setLoading] = useState(true);
+
+  return (
+    <TouchableOpacity
+      activeOpacity={0.85}
+      onPress={onPress}
+      style={styles.thumbnailWrapper}
+    >
+      {loading && (
+        <View style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0, justifyContent: 'center', alignItems: 'center', zIndex: 1 }}>
+          <ActivityIndicator size="small" color={Colors.primary} />
+        </View>
+      )}
+      <Image
+        source={{ uri: url }}
+        style={styles.thumbnailImage}
+        resizeMode="cover"
+        onLoad={() => setLoading(false)}
+        onError={() => setLoading(false)}
+      />
+      {!loading && (
+        <View style={styles.thumbnailZoomBadge}>
+          <Ionicons name="expand" size={10} color="#FFF" />
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+};
 
 interface AttendanceDetailModalProps {
   visible: boolean;
@@ -38,9 +70,27 @@ export default function AttendanceDetailModal({
 }: AttendanceDetailModalProps) {
   const { user } = useAuthStore();
   const [activeRecord, setActiveRecord] = useState<AttendanceRecord | null>(null);
+  const [viewMonth, setViewMonth] = useState<Date>(new Date());
+  const scrollViewRef = React.useRef<ScrollView>(null);
+
+  useEffect(() => {
+    if (activeRecord?.dateStr && scrollViewRef.current && viewMonth) {
+      const activeDate = new Date(activeRecord.dateStr);
+      if (activeDate.getMonth() === viewMonth.getMonth() && activeDate.getFullYear() === viewMonth.getFullYear()) {
+        const day = activeDate.getDate();
+        const offset = (day - 1) * 56 - (SCREEN_WIDTH / 2) + 24 + 16;
+        setTimeout(() => {
+          scrollViewRef.current?.scrollTo({ x: Math.max(0, offset), animated: true });
+        }, 300);
+      }
+    }
+  }, [activeRecord, viewMonth]);
 
   useEffect(() => {
     setActiveRecord(initialRecord);
+    if (initialRecord?.dateStr) {
+      setViewMonth(new Date(initialRecord.dateStr));
+    }
   }, [initialRecord]);
   const [previewSelfie, setPreviewSelfie] = useState<{
     url: string;
@@ -153,7 +203,7 @@ export default function AttendanceDetailModal({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="fade"
       transparent={false}
       onRequestClose={onClose}
     >
@@ -163,7 +213,6 @@ export default function AttendanceDetailModal({
           <View style={styles.header}>
             <View>
               <Text style={styles.headerTitle}>Attendance Details</Text>
-              <Text style={styles.headerSubtitle}>{formatDate(activeRecord.dateStr)}</Text>
             </View>
             <TouchableOpacity onPress={onClose} style={styles.closeBtn}>
               <Ionicons name="close" size={24} color={Colors.text.primary} />
@@ -174,38 +223,83 @@ export default function AttendanceDetailModal({
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
-            {/* Employee ID */}
-            <View style={styles.metaRow}>
-              <View style={{ flex: 1, marginRight: 10 }}>
-                <Text style={styles.empName}>
-                  Employee: {activeRecord.employeeId === user?.uid 
-                    ? `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || user?.displayName || activeRecord.employeeId
-                    : activeRecord.employeeId}
-                </Text>
-              </View>
-            </View>
 
-            {/* Total Work Hours Summary (Compact Row) */}
-            {activeRecord.checkOut && (
-              <View style={styles.hoursCardCompact}>
-                <Ionicons name="time" size={16} color="#1565C0" />
-                <Text style={styles.hoursLabelCompact}>TOTAL WORKING HOURS:</Text>
-                <Text style={styles.hoursValueCompact}>{activeRecord.workingHours} hrs</Text>
-              </View>
-            )}
-
-            {/* Monthly Calendar View for User */}
+            {/* Horizontal Date Selector (Drawer) */}
             <View style={{ marginBottom: Spacing.md }}>
-              <Text style={[styles.sectionTitle, { marginBottom: 8, color: '#334155' }]}>
-                Attendance Calendar
-              </Text>
-              <UserMonthCalendar 
-                records={userHistory} 
-                selectedDate={new Date(initialRecord?.dateStr || new Date().toISOString())} 
-                activeDateStr={activeRecord.dateStr}
-                onDateClick={handleDateClick}
-                leaveDateSet={leaveDateSet}
-              />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <Text style={[styles.sectionTitle, { color: '#334155' }]}>
+                  {viewMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
+                </Text>
+                <View style={{ flexDirection: 'row', gap: 16 }}>
+                  <TouchableOpacity onPress={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() - 1, 1))}>
+                    <Ionicons name="chevron-back" size={20} color="#64748B" />
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => setViewMonth(new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 1))}>
+                    <Ionicons name="chevron-forward" size={20} color="#64748B" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <ScrollView 
+                ref={scrollViewRef}
+                horizontal 
+                showsHorizontalScrollIndicator={false} 
+                contentContainerStyle={{ gap: 8, paddingBottom: 4 }}
+              >
+                {Array.from({ length: new Date(viewMonth.getFullYear(), viewMonth.getMonth() + 1, 0).getDate() }, (_, i) => i + 1).map(day => {
+                   const year = viewMonth.getFullYear();
+                   const month = viewMonth.getMonth();
+                   const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+                   
+                   const isActive = dateStr === activeRecord.dateStr;
+                   const hasRecord = userHistory.some(r => r.dateStr === dateStr);
+                   const isLeave = leaveDateSet.has(dateStr);
+                   const isPast = new Date(year, month, day) < new Date(new Date().setHours(0,0,0,0));
+                   const isWeekend = new Date(year, month, day).getDay() === 0;
+
+                   let bgColor = '#F1F5F9';
+                   let textColor = '#64748B';
+                   let dotColor = 'transparent';
+
+                   if (hasRecord) {
+                     bgColor = '#DCFCE7'; textColor = '#166534'; dotColor = '#166534';
+                   } else if (isLeave) {
+                     bgColor = '#EDE9FE'; textColor = '#6D28D9'; dotColor = '#6D28D9';
+                   } else if (isPast && !isWeekend) {
+                     bgColor = '#FEE2E2'; textColor = '#991B1B'; dotColor = '#991B1B';
+                   }
+
+                   return (
+                     <TouchableOpacity 
+                       key={day} 
+                       activeOpacity={0.7}
+                       disabled={!hasRecord}
+                       onPress={() => handleDateClick(dateStr)}
+                       style={[
+                         { 
+                           width: 48, 
+                           height: 64, 
+                           borderRadius: 12, 
+                           backgroundColor: bgColor, 
+                           alignItems: 'center', 
+                           justifyContent: 'center', 
+                           borderWidth: 2, 
+                           borderColor: isActive ? '#0F172A' : 'transparent',
+                           opacity: (!hasRecord && !isActive) ? 0.6 : 1
+                         }
+                       ]}
+                     >
+                       <Text style={{ fontSize: 10, color: textColor, marginBottom: 2, fontWeight: '600' }}>
+                         {new Date(year, month, day).toLocaleDateString('en-US', { weekday: 'short' })}
+                       </Text>
+                       <Text style={{ fontSize: 16, fontWeight: '700', color: textColor }}>
+                         {day}
+                       </Text>
+                       <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: dotColor, marginTop: 4 }} />
+                     </TouchableOpacity>
+                   );
+                })}
+              </ScrollView>
             </View>
 
             {/* Check In Details */}
@@ -263,24 +357,14 @@ export default function AttendanceDetailModal({
 
                   {/* Right Side: Selfie Thumbnail */}
                   {activeRecord.checkIn.selfieUrl ? (
-                    <TouchableOpacity
-                      activeOpacity={0.85}
+                    <ThumbnailImage
+                      url={activeRecord.checkIn.selfieUrl}
                       onPress={() => setPreviewSelfie({
                         url: activeRecord.checkIn!.selfieUrl!,
                         location: activeRecord.checkIn!.location,
                         timestamp: activeRecord.checkIn!.timestamp
                       })}
-                      style={styles.thumbnailWrapper}
-                    >
-                      <Image
-                        source={{ uri: activeRecord.checkIn.selfieUrl }}
-                        style={styles.thumbnailImage}
-                        resizeMode="cover"
-                      />
-                      <View style={styles.thumbnailZoomBadge}>
-                        <Ionicons name="expand" size={10} color="#FFF" />
-                      </View>
-                    </TouchableOpacity>
+                    />
                   ) : (
                     <View style={styles.thumbnailEmpty}>
                       <Ionicons name="camera-outline" size={16} color="#94A3B8" />
@@ -356,24 +440,14 @@ export default function AttendanceDetailModal({
 
                   {/* Right Side: Selfie Thumbnail */}
                   {activeRecord.checkOut.selfieUrl ? (
-                    <TouchableOpacity
-                      activeOpacity={0.85}
+                    <ThumbnailImage
+                      url={activeRecord.checkOut.selfieUrl}
                       onPress={() => setPreviewSelfie({
                         url: activeRecord.checkOut!.selfieUrl!,
                         location: activeRecord.checkOut!.location,
                         timestamp: activeRecord.checkOut!.timestamp
                       })}
-                      style={styles.thumbnailWrapper}
-                    >
-                      <Image
-                        source={{ uri: activeRecord.checkOut.selfieUrl }}
-                        style={styles.thumbnailImage}
-                        resizeMode="cover"
-                      />
-                      <View style={styles.thumbnailZoomBadge}>
-                        <Ionicons name="expand" size={10} color="#FFF" />
-                      </View>
-                    </TouchableOpacity>
+                    />
                   ) : (
                     <View style={styles.thumbnailEmpty}>
                       <Ionicons name="camera-outline" size={16} color="#94A3B8" />
@@ -395,54 +469,27 @@ export default function AttendanceDetailModal({
                 </View>
               )}
             </View>
+
+            {/* Total Work Hours Summary (Compact Row) at the bottom */}
+            {activeRecord.checkOut && (
+              <View style={styles.hoursCardCompact}>
+                <Ionicons name="time" size={16} color="#1565C0" />
+                <Text style={styles.hoursLabelCompact}>TOTAL WORKING HOURS:</Text>
+                <Text style={styles.hoursValueCompact}>{activeRecord.workingHours} hrs</Text>
+              </View>
+            )}
+
           </ScrollView>
         </View>
       </SafeAreaView>
 
-      {/* Fullscreen Selfie Preview Modal */}
-      {previewSelfie && (
-        <Modal
-          visible={!!previewSelfie}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setPreviewSelfie(null)}
-        >
-          <View style={styles.previewBackdrop}>
-            <View style={styles.previewContainer}>
-              <TouchableOpacity
-                style={styles.previewCloseBtn}
-                onPress={() => setPreviewSelfie(null)}
-              >
-                <Ionicons name="close" size={26} color="#FFFFFF" />
-              </TouchableOpacity>
-
-              <View style={[styles.previewImageWrap, { aspectRatio: imageAspectRatio }]}>
-                <Image
-                  source={{ uri: previewSelfie.url }}
-                  style={styles.previewImage}
-                  resizeMode="cover"
-                />
-                
-                {/* Full GPS Watermark Overlay */}
-                <View style={styles.previewWatermark}>
-                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 6, marginBottom: 4 }}>
-                    <Ionicons name="location" size={14} color="#F87171" style={{ marginTop: 1 }} />
-                    <Text style={[styles.previewWatermarkAddress, { flex: 1 }]}>
-                      {previewSelfie.location?.address || 'GPS Location'}
-                    </Text>
-                  </View>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                    <Ionicons name="time-outline" size={14} color="#CBD5E1" />
-                    <Text style={[styles.previewWatermarkMeta, { marginTop: 0, flex: 1 }]}>
-                      {formatTime(previewSelfie.timestamp)} | Lat: {previewSelfie.location?.latitude?.toFixed(6) || 'N/A'}, Lon: {previewSelfie.location?.longitude?.toFixed(6) || 'N/A'}
-                    </Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </View>
-        </Modal>
-      )}
+      <SelfiePreviewModal
+        visible={!!previewSelfie}
+        url={previewSelfie?.url}
+        onClose={() => setPreviewSelfie(null)}
+        location={previewSelfie?.location || null}
+        timestamp={previewSelfie?.timestamp || null}
+      />
     </Modal>
   );
 }
@@ -724,10 +771,6 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   previewWatermark: {
-    position: 'absolute',
-    bottom: 12,
-    left: 12,
-    right: 12,
     backgroundColor: 'rgba(0, 0, 0, 0.75)',
     paddingHorizontal: 14,
     paddingVertical: 10,

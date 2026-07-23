@@ -54,6 +54,7 @@ export const LeaveModal = ({
     useState<LeaveDurationType>("single_day");
   const [halfDayPeriod, setHalfDayPeriod] =
     useState<HalfDayPeriod>("first_half");
+  const [isLastDayHalf, setIsLastDayHalf] = useState(false);
   const [reason, setReason] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorPopup, setErrorPopup] = useState<{
@@ -70,18 +71,28 @@ export const LeaveModal = ({
       setReason("");
       setDurationType("single_day");
       setHalfDayPeriod("first_half");
+      setIsLastDayHalf(false);
     }
   }, [isVisible]);
 
   const todayDate = new Date().toISOString().split("T")[0];
 
   const handleSubmit = async () => {
+    const showAlert = (title: string, message: string) => {
+      setErrorPopup({ visible: true, title, message });
+    };
+
     const isSingleDate =
       durationType === "single_day" || durationType === "half_day";
     const actualEndDate = isSingleDate ? startDate : endDate;
 
     if (!startDate || (!isSingleDate && !actualEndDate) || !reason) {
-      Alert.alert("Error", "Please fill in all fields");
+      showAlert("Missing Information", "Please select a date and enter a reason before submitting.");
+      return;
+    }
+
+    if (startDate < todayDate) {
+      showAlert("Invalid Date", "You cannot apply for leave on a past date.");
       return;
     }
 
@@ -92,11 +103,10 @@ export const LeaveModal = ({
       days = 1;
     } else {
       days = calculateDays(startDate, actualEndDate);
+      if (isLastDayHalf && days > 0.5) {
+        days -= 0.5;
+      }
     }
-
-    const showAlert = (title: string, message: string) => {
-      setErrorPopup({ visible: true, title, message });
-    };
 
     if (days <= 0) {
       showAlert(
@@ -204,9 +214,10 @@ export const LeaveModal = ({
       setStartDate("");
       setEndDate("");
       setReason("");
-      if (leaveTypes.length > 0) setLeaveType(leaveTypes[0].leaveTypeId);
+      if (staticLeaveTypes.length > 0) setLeaveType(staticLeaveTypes[0].leaveTypeId);
       setDurationType("single_day");
       setHalfDayPeriod("first_half");
+      setIsLastDayHalf(false);
 
       onClose();
       if (onSuccess)
@@ -345,6 +356,21 @@ export const LeaveModal = ({
                   onChangeText={setEndDate}
                   min={todayDate}
                 />
+                
+                <TouchableOpacity
+                  style={{ flexDirection: "row", alignItems: "center", marginBottom: Spacing.md, marginTop: Spacing.xs }}
+                  onPress={() => setIsLastDayHalf(!isLastDayHalf)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons
+                    name={isLastDayHalf ? "checkbox" : "square-outline"}
+                    size={22}
+                    color={isLastDayHalf ? Colors.primary : Colors.text.secondary}
+                  />
+                  <Text style={{ marginLeft: 8, fontSize: FontSize.md, color: Colors.text.primary }}>
+                    Last day is a half day
+                  </Text>
+                </TouchableOpacity>
               </>
             )}
 
@@ -353,7 +379,7 @@ export const LeaveModal = ({
               !!endDate &&
               calculateDays(startDate, endDate) > 0 && (
                 <Text style={styles.totalDaysPreview}>
-                  Total Duration: {calculateDays(startDate, endDate)} Days
+                  Total Duration: {calculateDays(startDate, endDate) - (isLastDayHalf && calculateDays(startDate, endDate) > 0.5 ? 0.5 : 0)} {calculateDays(startDate, endDate) - (isLastDayHalf && calculateDays(startDate, endDate) > 0.5 ? 0.5 : 0) <= 1 ? "Day" : "Days"}
                 </Text>
               )}
 

@@ -149,7 +149,6 @@ const styles = StyleSheet.create({
     padding: 16,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    ...Shadow.sm,
   },
   headerRow: {
     alignItems: 'center',

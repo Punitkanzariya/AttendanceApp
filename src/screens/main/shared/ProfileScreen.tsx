@@ -22,7 +22,8 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useAuthStore } from "@/store/authStore";
-import { Colors, FontSize, Spacing, BorderRadius } from "@/theme";
+import { Colors, FontSize, Spacing, BorderRadius, Shadow } from "@/theme";
+import DocumentViewer from "@/components/shared/DocumentViewer";
 import { formatDateDDMMYYYY } from "@/utils/dateUtils";
 import { LinearGradient } from "expo-linear-gradient";
 import { doc, updateDoc, onSnapshot } from "firebase/firestore";
@@ -38,10 +39,14 @@ export default function ProfileScreen() {
   const [previewDocUrl, setPreviewDocUrl] = useState<string | null>(null);
   const [isFullViewerVisible, setIsFullViewerVisible] = useState(false);
   const [fullViewerUrl, setFullViewerUrl] = useState<string | null>(null);
+  const [returnToDocModal, setReturnToDocModal] = useState(false);
+  const [isIframeLoading, setIsIframeLoading] = useState(true);
 
-  const viewDocument = async (url: string) => {
+  const viewDocument = async (url: string, fromModal: boolean = false) => {
     setFullViewerUrl(url);
-    setIsDocModalVisible(false); // Hide the doc modal first
+    setIsIframeLoading(true);
+    setReturnToDocModal(fromModal);
+    if (fromModal) setIsDocModalVisible(false);
     setTimeout(() => {
       setIsFullViewerVisible(true);
     }, 100);
@@ -52,6 +57,10 @@ export default function ProfileScreen() {
     docType: string = "Document",
   ) => {
     try {
+      if (Platform.OS === "web") {
+        window.open(url, '_blank');
+        return;
+      }
       const fsAny = FileSystem as any;
       const baseDir = fsAny.documentDirectory || fsAny.cacheDirectory;
 
@@ -172,10 +181,12 @@ export default function ProfileScreen() {
     label: string,
     value: any,
     noBorder = false,
-  ) => (
+  ) => {
+    const iconName = icon.replace("-outline", "");
+    return (
     <View style={[styles.infoRow, noBorder && { borderBottomWidth: 0 }]}>
       <View style={styles.infoIconWrapper}>
-        <Ionicons name={icon as any} size={18} color="#94A3B8" />
+        <Ionicons name={iconName as any} size={18} color="#94A3B8" />
       </View>
       <View style={styles.infoContent}>
         <Text style={styles.infoLabel}>{label.toUpperCase()}</Text>
@@ -190,7 +201,8 @@ export default function ProfileScreen() {
         )}
       </View>
     </View>
-  );
+    );
+  };
 
   const formatRole = (role?: string) => {
     if (!role) return "N/A";
@@ -269,14 +281,14 @@ export default function ProfileScreen() {
           style={styles.iconBtn}
           onPress={() => navigation?.goBack?.()}
         >
-          <Ionicons name="arrow-back" size={24} color="#94A3B8" />
+          <Ionicons name="chevron-back" size={20} color={Colors.text.primary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Profile</Text>
         <TouchableOpacity 
           style={styles.iconBtn}
           onPress={() => navigation?.navigate("Notifications")}
         >
-          <Ionicons name="notifications-outline" size={24} color="#94A3B8" />
+          <Ionicons name="notifications-outline" size={20} color={Colors.text.primary} />
         </TouchableOpacity>
       </View>
 
@@ -286,7 +298,7 @@ export default function ProfileScreen() {
       >
         <View style={styles.topSection}>
           <LinearGradient
-            colors={["#E9D5FF", "#C7D2FE"]}
+            colors={["#DBEAFE", "#93C5FD"]}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.gradientCard}
@@ -337,7 +349,7 @@ export default function ProfileScreen() {
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
             <View style={[styles.sectionIcon, { backgroundColor: "#E0F2FE" }]}>
-              <Ionicons name="person-outline" size={20} color="#3B82F6" />
+              <Ionicons name="person" size={20} color="#3B82F6" />
             </View>
             <Text style={styles.sectionTitle}>Personal</Text>
           </View>
@@ -348,19 +360,19 @@ export default function ProfileScreen() {
               formatDateDDMMYYYY(user?.dateOfBirth) || "N/A",
             )}
             {renderInfoRow(
-              "phone-portrait-outline",
+              "call-outline",
               "Mobile",
               user?.phoneNumber || "+1 (555) 123-4567",
             )}
-            {renderInfoRow("at-outline", "Email", user?.email || "N/A", true)}
+            {renderInfoRow("mail-outline", "Email", user?.email || "N/A", true)}
           </View>
         </View>
 
         {/* Work Details */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionHeader}>
-            <View style={[styles.sectionIcon, { backgroundColor: "#FEE2E2" }]}>
-              <Ionicons name="briefcase-outline" size={20} color="#EF4444" />
+            <View style={[styles.sectionIcon, { backgroundColor: Colors.primaryLight }]}>
+              <Ionicons name="briefcase" size={20} color={Colors.primary} />
             </View>
             <Text style={styles.sectionTitle}>Work</Text>
           </View>
@@ -432,30 +444,51 @@ export default function ProfileScreen() {
                 ) : (
                   projectManager || "Not Assigned"
                 ),
+                false,
+              )}
+            {user?.role === "employee" &&
+              renderInfoRow(
+                "person-outline",
+                "Project Coordinator",
+                isFetchingProject ? (
+                  <ActivityIndicator size="small" color={Colors.primary} />
+                ) : (
+                  projectCoordinator || "Not Assigned"
+                ),
                 true,
               )}
           </View>
         </View>
 
         {/* Documents */}
-        {user?.documents && user.documents.length > 0
-          ? user.documents.map((docItem, index) => (
-              <View
-                key={docItem.id || index.toString()}
-                style={styles.sectionCard}
-              >
+        {user?.documents && user.documents.length > 0 && (
+          <View style={styles.sectionCard}>
+            <View style={styles.sectionHeader}>
+              <View style={[styles.sectionIcon, { backgroundColor: "#E0F2FE" }]}>
+                <Ionicons name="documents" size={20} color="#0284C7" />
+              </View>
+              <Text style={styles.sectionTitle}>Documents</Text>
+            </View>
+            <View style={styles.sectionContent}>
+              {user.documents.map((docItem, index) => (
                 <View
-                  style={[
-                    styles.sectionContent,
-                    { paddingVertical: Spacing.sm },
-                  ]}
+                  key={docItem.id || index.toString()}
+                  style={[{ paddingVertical: Spacing.sm }, index < (user.documents?.length || 0) - 1 && { borderBottomWidth: 1, borderBottomColor: Colors.border, borderStyle: 'dashed', paddingBottom: Spacing.md, marginBottom: Spacing.sm }]}
                 >
-                  <View style={styles.docHeaderRow}>
+                  <TouchableOpacity 
+                    style={styles.docHeaderRow} 
+                    onPress={() => viewDocument(docItem.url, false)}
+                    activeOpacity={0.7}
+                  >
                     <View style={styles.docIconWrapper}>
-                      <Ionicons
-                        name="document-text"
-                        size={24}
-                        color="#94A3B8"
+                      <Image
+                        source={
+                          docItem.url?.toLowerCase().includes('.pdf')
+                            ? require("../../../../assets/document_icons/pdf.png")
+                            : require("../../../../assets/document_icons/image.png")
+                        }
+                        style={{ width: 28, height: 28 }}
+                        resizeMode="contain"
                       />
                     </View>
                     <View style={styles.docTextWrapper}>
@@ -478,7 +511,7 @@ export default function ProfileScreen() {
                         {docItem.type || "Uploaded Document"}
                       </Text>
                     </View>
-                  </View>
+                  </TouchableOpacity>
                   <View style={{ flexDirection: "row", gap: 10 }}>
                     <TouchableOpacity
                       style={[
@@ -498,9 +531,10 @@ export default function ProfileScreen() {
                     </TouchableOpacity>
                   </View>
                 </View>
-              </View>
-            ))
-          : null}
+              ))}
+            </View>
+          </View>
+        )}
 
         {/* Logout Button */}
         <TouchableOpacity
@@ -810,55 +844,16 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* Full Screen Viewer Modal */}
-      <Modal
+      <DocumentViewer
         visible={isFullViewerVisible}
-        transparent={true}
-        animationType="fade"
-      >
-        <View style={styles.imageViewerOverlay}>
-          <TouchableOpacity
-            style={styles.closeImageBtn}
-            onPress={() => {
-              setIsFullViewerVisible(false);
-              setFullViewerUrl(null);
-              setIsDocModalVisible(true);
-            }}
-          >
-            <Ionicons name="close-circle" size={36} color="#ffffff" />
-          </TouchableOpacity>
-          {fullViewerUrl &&
-            (fullViewerUrl.toLowerCase().includes(".pdf") ? (
-              <View
-                style={{
-                  flex: 1,
-                  width: "100%",
-                  backgroundColor: "#fff",
-                  marginTop: Platform.OS === "ios" ? 40 : 0,
-                }}
-              >
-                {Platform.OS === "web" ? (
-                  <iframe
-                    src={fullViewerUrl}
-                    style={{ width: "100%", height: "100%", border: "none" }}
-                  />
-                ) : (
-                  <WebView
-                    source={{
-                      uri: `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(fullViewerUrl)}`,
-                    }}
-                    style={{ flex: 1 }}
-                  />
-                )}
-              </View>
-            ) : (
-              <Image
-                source={{ uri: fullViewerUrl }}
-                style={{ width: "100%", height: "80%" }}
-                resizeMode="contain"
-              />
-            ))}
-        </View>
-      </Modal>
+        url={fullViewerUrl}
+        title="Document Viewer"
+        onClose={() => {
+          setIsFullViewerVisible(false);
+          setFullViewerUrl(null);
+          if (returnToDocModal) setIsDocModalVisible(true);
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -877,12 +872,19 @@ const styles = StyleSheet.create({
     backgroundColor: "#FAFAFA",
   },
   iconBtn: {
-    padding: 8,
+    width: 32,
+    height: 32,
+    borderRadius: 8,
+    backgroundColor: "rgba(255,255,255,0.6)",
+    borderWidth: 1,
+    borderColor: Colors.border,
+    alignItems: "center",
+    justifyContent: "center",
   },
   headerTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#6366F1",
+    fontSize: 16,
+    fontWeight: "700",
+    color: Colors.text.primary,
   },
   scrollContainer: {
     paddingHorizontal: Spacing.md,
@@ -929,7 +931,7 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 2,
     right: 2,
-    backgroundColor: "#FF6B6B",
+    backgroundColor: Colors.primary,
     width: 28,
     height: 28,
     borderRadius: 14,
@@ -957,13 +959,10 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     backgroundColor: Colors.white,
-    borderRadius: 24,
+    borderRadius: 16,
     marginBottom: Spacing.md,
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.02,
-    shadowRadius: 12,
+    borderWidth: 1,
+    borderColor: Colors.border,
   },
   sectionHeader: {
     flexDirection: "row",
@@ -993,7 +992,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: "#F8FAFC",
+    borderBottomColor: Colors.border,
+    borderStyle: "dashed",
   },
   infoIconWrapper: {
     width: 32,
@@ -1056,7 +1056,7 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     flexDirection: "row",
-    backgroundColor: "#FF6B6B",
+    backgroundColor: Colors.error,
     borderRadius: 24,
     paddingVertical: 16,
     alignItems: "center",
@@ -1064,7 +1064,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     marginBottom: Spacing.xxl,
     elevation: 3,
-    shadowColor: "#FF6B6B",
+    shadowColor: Colors.error,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
     shadowRadius: 8,

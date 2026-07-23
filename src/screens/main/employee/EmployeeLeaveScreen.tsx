@@ -407,7 +407,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 18, fontWeight: "700", color: Colors.text.primary },
   applyBtn: {
-    backgroundColor: "#159404a4",
+    backgroundColor: Colors.primary,
     borderRadius: 24,
     paddingVertical: 14,
     flexDirection: "row",
@@ -434,12 +434,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 12,
     borderWidth: 1,
-    borderColor: "#F3F4F6",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    borderColor: "#E2E8F0",
   },
   historyIconWrap: {
     width: 48,

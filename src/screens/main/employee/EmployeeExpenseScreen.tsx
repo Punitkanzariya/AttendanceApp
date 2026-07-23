@@ -10,9 +10,10 @@ import {
   Linking,
   Image,
   Platform,
+  ScrollView
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { Colors, FontSize, FontWeight, Spacing, BorderRadius, Shadow } from "@/theme";
 import { formatDisplayStatus } from "@/utils/statusUtils";
@@ -22,6 +23,7 @@ import type { Expense } from "@/types";
 import { ExpenseModal } from "./components/modals/ExpenseModal";
 import { SuccessPopup } from "@/components/shared/SuccessPopup";
 import { WebView } from "react-native-webview";
+import DocumentViewer from "@/components/shared/DocumentViewer";
 
 export default function EmployeeExpenseScreen() {
   const { user } = useAuthStore();
@@ -29,10 +31,9 @@ export default function EmployeeExpenseScreen() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isModalVisible, setIsModalVisible] = useState(false);
-  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(
-    null,
-  );
+  const [expenseToEdit, setExpenseToEdit] = useState<Expense | null>(null);
   const [expenseToView, setExpenseToView] = useState<Expense | null>(null);
+  const [activeCategory, setActiveCategory] = useState<string>("All");
   const [isAttachmentVisible, setIsAttachmentVisible] = useState(false);
   const [successPopup, setSuccessPopup] = useState<{ visible: boolean; title: string; message: string }>({ visible: false, title: "", message: "" });
 
@@ -78,7 +79,44 @@ export default function EmployeeExpenseScreen() {
     if (status === "reimbursed" || status === "verified" || status === "approved") return "Approved";
     if (status === "rejected") return "Rejected";
     if (status === "draft") return "Draft";
+    if (status === "draft") return "Draft";
     return "Pending";
+  };
+
+  const getCategoryBgColor = (category: string) => {
+    switch (category) {
+      case 'Travel': return '#EEF2FF'; 
+      case 'Food':
+      case 'Meals': return '#FFF7ED'; 
+      case 'Fuel': return '#F0F9FF'; 
+      case 'Supplies': return '#F3E8FF';
+      case 'Other': return '#F1F5F9';
+      default: return '#F3F4F6'; 
+    }
+  };
+
+  const getCategoryIconColor = (category: string) => {
+    switch (category) {
+      case 'Travel': return '#6366F1'; 
+      case 'Food':
+      case 'Meals': return '#F97316'; 
+      case 'Fuel': return '#0EA5E9'; 
+      case 'Supplies': return '#9333EA';
+      case 'Other': return '#475569';
+      default: return '#6B7280'; 
+    }
+  };
+
+  const renderCategoryIcon = (category: string, color: string) => {
+    switch (category) {
+      case 'Travel': return <Ionicons name="car" size={20} color={color} />;
+      case 'Meals':
+      case 'Food': return <Ionicons name="restaurant" size={20} color={color} />;
+      case 'Fuel': return <MaterialCommunityIcons name="gas-station" size={20} color={color} />;
+      case 'Supplies': return <Ionicons name="briefcase" size={20} color={color} />;
+      case 'Other': return <Ionicons name="apps" size={20} color={color} />;
+      default: return <Ionicons name="receipt" size={20} color={color} />;
+    }
   };
 
   const renderItem = ({ item }: { item: Expense }) => (
@@ -89,75 +127,27 @@ export default function EmployeeExpenseScreen() {
     >
       <View style={styles.cardHeader}>
         <View style={styles.categoryWrap}>
-          <View style={styles.iconRing}>
-            <Ionicons
-              name={
-                item.category === "Travel"
-                  ? "car-outline"
-                  : item.category === "Meals"
-                    ? "restaurant-outline"
-                    : item.category === "Fuel"
-                      ? "speedometer-outline"
-                      : item.category === "Supplies"
-                        ? "briefcase-outline"
-                        : "cart-outline"
-              }
-              size={18}
-              color={Colors.primary}
-            />
+          <View style={[styles.iconRing, { backgroundColor: getCategoryBgColor(item.category) }]}>
+            {renderCategoryIcon(item.category, getCategoryIconColor(item.category))}
           </View>
-          <View>
-            <Text style={styles.expenseCategory}>{item.category}</Text>
-            <Text style={styles.expenseDate}>{item.date}</Text>
+          <View style={{ flexShrink: 1, paddingRight: 8 }}>
+            <Text style={styles.expenseCategory} numberOfLines={1}>{item.description || item.category}</Text>
+            <Text style={styles.expenseDate}>{item.category} • {item.date}</Text>
           </View>
         </View>
-        <Text style={styles.expenseAmount}>₹{item.amount}</Text>
-      </View>
-
-      <Text style={styles.descriptionText}>{item.description}</Text>
-
-      {item.billUrls?.[0] && (
-        <View style={styles.attachmentBadge}>
-          <Ionicons
-            name="document-attach-outline"
-            size={14}
-            color={Colors.text.secondary}
-          />
-          <Text style={styles.attachmentText}>Receipt Attached</Text>
-        </View>
-      )}
-
-      {item.status === "rejected" && item.rejectionReason && (
-        <View style={styles.rejectionBox}>
-          <Ionicons name="alert-circle" size={16} color={Colors.error} />
-          <Text style={styles.rejectionText}>{item.rejectionReason}</Text>
-        </View>
-      )}
-
-      <View style={styles.cardFooter}>
-        <View
-          style={[
-            styles.statusBadge,
-            {
-              backgroundColor: getStatusColor(item.status) + "15",
-              borderColor: getStatusColor(item.status) + "40",
-            },
-          ]}
-        >
-          <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {getStatusDisplay(item.status)}
-          </Text>
-        </View>
-
-        {item.status === "rejected" && (
-          <TouchableOpacity
-            style={styles.resubmitBtn}
-            onPress={() => handleOpenModalForEdit(item)}
+        <View style={{ alignItems: 'flex-end', flexShrink: 0, marginLeft: 8 }}>
+          <Text style={styles.expenseAmount}>₹{item.amount}</Text>
+          <View
+            style={[
+              styles.statusBadgeSmall,
+              { backgroundColor: getStatusColor(item.status) + "15" },
+            ]}
           >
-            <Ionicons name="pencil" size={14} color={Colors.primary} />
-            <Text style={styles.resubmitBtnText}>Edit & Resubmit</Text>
-          </TouchableOpacity>
-        )}
+            <Text style={[styles.statusTextSmall, { color: getStatusColor(item.status) }]}>
+              {getStatusDisplay(item.status).toUpperCase()}
+            </Text>
+          </View>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -191,6 +181,32 @@ export default function EmployeeExpenseScreen() {
           </View>
         </View>
 
+        <TouchableOpacity
+          style={styles.applyBtn}
+          activeOpacity={0.8}
+          onPress={handleOpenModalForNew}
+        >
+          <Ionicons
+            name="add"
+            size={20}
+            color="#FFFFFF"
+            style={{ marginRight: 6 }}
+          />
+          <Text style={styles.applyBtnTxt}>Add Expense</Text>
+        </TouchableOpacity>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.filterScroll, { marginTop: 24, marginBottom: 8 }]}>
+          {categoriesList.map((cat) => (
+            <TouchableOpacity 
+              key={cat} 
+              style={[styles.filterChip, activeCategory === cat && styles.filterChipActive]}
+              onPress={() => setActiveCategory(cat)}
+            >
+              <Text style={[styles.filterChipText, activeCategory === cat && styles.filterChipTextActive]}>{cat}</Text>
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Recent Expenses</Text>
         </View>
@@ -198,32 +214,30 @@ export default function EmployeeExpenseScreen() {
     );
   };
 
-  return (
-    <SafeAreaView style={styles.root} edges={["top"]}>
-      <View style={styles.header}>
-        <TouchableOpacity
-          style={styles.headerBtn}
-          onPress={() => navigation.goBack()}
-        >
-          <Ionicons name="chevron-back" size={20} color={Colors.text.primary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Expenses</Text>
-        <TouchableOpacity
-          style={styles.headerBtnPrimary}
-          onPress={handleOpenModalForNew}
-        >
-          <Ionicons name="add" size={22} color="#FFFFFF" />
-        </TouchableOpacity>
-      </View>
+    const categoriesList = ["All", ...Array.from(new Set(expenses.map(e => e.category)))];
+    const filteredExpenses = activeCategory === "All" ? expenses : expenses.filter(e => e.category === activeCategory);
 
-      {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={Colors.primary} />
+    return (
+      <SafeAreaView style={styles.root} edges={["top"]}>
+        <View style={styles.header}>
+          <TouchableOpacity
+            style={styles.headerBtn}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="chevron-back" size={20} color={Colors.text.primary} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Expenses</Text>
+          <View style={{ width: 32 }} />
         </View>
-      ) : (
-        <FlatList
-          data={expenses}
-          keyExtractor={(item) => item.expenseId}
+  
+        {isLoading ? (
+          <View style={styles.center}>
+            <ActivityIndicator size="large" color={Colors.primary} />
+          </View>
+        ) : (
+          <FlatList
+            data={filteredExpenses}
+            keyExtractor={(item) => item.expenseId}
           renderItem={renderItem}
           ListHeaderComponent={renderHeader}
           contentContainerStyle={styles.listContainer}
@@ -263,107 +277,126 @@ export default function EmployeeExpenseScreen() {
         message={successPopup.message}
         onClose={() => setSuccessPopup(prev => ({ ...prev, visible: false }))}
       />
-
       {/* Details Modal */}
-      <Modal visible={!!expenseToView} animationType="slide" transparent={true}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Expense Details</Text>
-              <TouchableOpacity onPress={() => setExpenseToView(null)}>
-                <Ionicons name="close" size={24} color={Colors.text.secondary} />
-              </TouchableOpacity>
-            </View>
-
+      <Modal visible={!!expenseToView} animationType="slide" transparent={true} onRequestClose={() => setExpenseToView(null)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setExpenseToView(null)}>
+          <TouchableOpacity activeOpacity={1} style={styles.previewModalContent}>
+            <View style={styles.dragHandle} />
+            
             {expenseToView && (
-              <View style={styles.modalScroll}>
-                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: Spacing.md }}>
-                  <View>
-                    <Text style={styles.detailLabel}>Status:</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(expenseToView.status) + '20', alignSelf: 'flex-start', marginTop: 2, borderWidth: 0 }]}>
-                      <Text style={[styles.statusText, { color: getStatusColor(expenseToView.status), fontSize: 11 }]}>
-                        {getStatusDisplay(expenseToView.status).toUpperCase()}
-                      </Text>
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 16, paddingBottom: 40 }}>
+                {/* Status Pill */}
+                <View style={styles.previewHeader}>
+                  <View style={[styles.previewStatusPill, { backgroundColor: getStatusColor(expenseToView.status) + '15' }]}>
+                    <Ionicons 
+                      name={expenseToView.status === 'rejected' ? 'close-circle' : expenseToView.status === 'manager_approved' ? 'checkmark-circle' : 'time'} 
+                      size={16} 
+                      color={getStatusColor(expenseToView.status)} 
+                    />
+                    <Text style={[styles.previewStatusText, { color: getStatusColor(expenseToView.status) }]}>
+                      {getStatusDisplay(expenseToView.status)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Title & Subtitle */}
+                <Text style={styles.previewTitle}>{expenseToView.category}</Text>
+                <Text style={styles.previewSubtitle}>Expense ID: #{expenseToView.expenseId?.substring(0,8).toUpperCase() || 'EXP-001'}</Text>
+
+                {/* Grid */}
+                <View style={styles.previewGrid}>
+                  <View style={styles.previewGridCard}>
+                    <View style={[styles.previewGridIcon, { backgroundColor: Colors.primary + '15' }]}>
+                      <Ionicons name="cash-outline" size={20} color={Colors.primary} />
                     </View>
+                    <Text style={styles.previewGridLabel}>Amount</Text>
+                    <Text style={styles.previewGridValue}>₹{expenseToView.amount}</Text>
+                  </View>
+                  <View style={styles.previewGridCard}>
+                    <View style={[styles.previewGridIcon, { backgroundColor: Colors.primary + '15' }]}>
+                      <Ionicons name="calendar-outline" size={20} color={Colors.primary} />
+                    </View>
+                    <Text style={styles.previewGridLabel}>Date</Text>
+                    <Text style={[styles.previewGridValue, { fontSize: 12 }]}>
+                      {expenseToView.date?.split('-').reverse().join('-')}
+                    </Text>
+                  </View>
+                  <View style={styles.previewGridCard}>
+                    <View style={[styles.previewGridIcon, { backgroundColor: Colors.primary + '15' }]}>
+                      <Ionicons name="pricetag-outline" size={20} color={Colors.primary} />
+                    </View>
+                    <Text style={styles.previewGridLabel}>Category</Text>
+                    <Text style={styles.previewGridValue}>{expenseToView.category}</Text>
                   </View>
                 </View>
 
-                <View style={{ flexDirection: 'row', gap: Spacing.xl }}>
-                  <View>
-                    <Text style={styles.detailLabel}>Amount:</Text>
-                    <Text style={[styles.detailValue, { fontSize: FontSize.lg, color: Colors.primary }]}>₹{expenseToView.amount}</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.detailLabel}>Date:</Text>
-                    <Text style={styles.detailValue}>{expenseToView.date}</Text>
-                  </View>
-                  <View>
-                    <Text style={styles.detailLabel}>Category:</Text>
-                    <Text style={styles.detailValue}>{expenseToView.category}</Text>
-                  </View>
-                </View>
+                {/* Description */}
+                <Text style={styles.previewSectionTitle}>Description</Text>
+                <Text style={styles.previewDescription}>{expenseToView.description}</Text>
 
-                <Text style={styles.detailLabel}>Description:</Text>
-                <Text style={styles.detailValue}>{expenseToView.description}</Text>
-
+                {/* Receipt */}
                 {expenseToView.billUrls?.[0] && (
-                  <TouchableOpacity style={styles.viewBillBtn} onPress={() => openAttachment(expenseToView.billUrls![0])}>
-                    <Ionicons name="open-outline" size={16} color={Colors.primary} />
-                    <Text style={styles.viewBillText}>View Attached Bill</Text>
-                  </TouchableOpacity>
+                  <>
+                    <Text style={styles.previewSectionTitle}>Receipt</Text>
+                    <TouchableOpacity style={styles.previewReceiptCard} onPress={() => openAttachment(expenseToView.billUrls![0])}>
+                      <View style={styles.previewReceiptThumb}>
+                        <Image 
+                          source={
+                            expenseToView.billUrls[0].toLowerCase().includes('.pdf') 
+                              ? require('../../../../assets/document_icons/pdf.png') 
+                              : require('../../../../assets/document_icons/image.png')
+                          }
+                          style={{ width: 28, height: 28, resizeMode: 'contain' }}
+                        />
+                      </View>
+                      <View style={{ flex: 1, marginLeft: 12 }}>
+                        <Text style={styles.previewReceiptName} numberOfLines={1}>
+                          {expenseToView.billUrls[0].toLowerCase().includes('.pdf') ? 'document.pdf' : 'receipt.jpg'}
+                        </Text>
+                        <Text style={styles.previewReceiptSize}>View Document</Text>
+                      </View>
+                      <View style={styles.previewReceiptBtn}>
+                        <Ionicons name="eye-outline" size={20} color={Colors.primary} />
+                      </View>
+                    </TouchableOpacity>
+                  </>
                 )}
 
+                {/* Rejection Reason */}
                 {!!expenseToView.rejectionReason?.trim() && (
-                  <View style={{ marginTop: Spacing.md }}>
-                    <Text style={styles.detailLabel}>Rejection Reason / Notes:</Text>
-                    <Text style={[styles.detailValue, { color: Colors.error }]}>{expenseToView.rejectionReason}</Text>
+                  <View style={styles.previewRejectionCard}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, gap: 6 }}>
+                      <Ionicons name="alert-circle-outline" size={18} color={Colors.error} />
+                      <Text style={styles.previewRejectionTitle}>Reason for Rejection</Text>
+                    </View>
+                    <Text style={styles.previewRejectionText}>{expenseToView.rejectionReason}</Text>
+                    
+                    <TouchableOpacity 
+                      style={{ marginTop: 16, backgroundColor: Colors.error, paddingVertical: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6 }}
+                      onPress={() => {
+                        const expense = expenseToView;
+                        setExpenseToView(null);
+                        setTimeout(() => handleOpenModalForEdit(expense), 300);
+                      }}
+                    >
+                      <Ionicons name="create-outline" size={18} color="#FFF" />
+                      <Text style={{ color: '#FFF', fontWeight: '600', fontSize: 14 }}>Edit and Resubmit</Text>
+                    </TouchableOpacity>
                   </View>
                 )}
-              </View>
+              </ScrollView>
             )}
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
 
       {/* Attachment Image/PDF Viewer Modal */}
-      <Modal visible={isAttachmentVisible} transparent={true} animationType="fade">
-        <View style={styles.imageViewerOverlay}>
-          {expenseToView?.billUrls?.[0] && (
-            expenseToView.billUrls[0].toLowerCase().includes('.pdf') ? (
-               <View style={{ flex: 1, width: '100%', height: '100%', backgroundColor: '#fff', marginTop: Platform.OS === 'ios' ? 40 : 0 }}>
-                  <TouchableOpacity 
-                    style={{ position: 'absolute', top: 10, left: 20, zIndex: 10, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20 }} 
-                    onPress={() => setIsAttachmentVisible(false)}
-                  >
-                    <Ionicons name="close-circle" size={36} color="#ffffff" />
-                  </TouchableOpacity>
-                  {Platform.OS === 'web' ? (
-                    <iframe src={expenseToView.billUrls[0]} style={{ width: '100%', height: '100%', border: 'none' }} />
-                  ) : (
-                    <WebView 
-                      source={{ uri: `https://docs.google.com/gview?embedded=true&url=${encodeURIComponent(expenseToView.billUrls[0])}` }}
-                      style={{ flex: 1 }}
-                    />
-                  )}
-               </View>
-            ) : (
-              <View style={{ flex: 1, width: '100%', height: '100%', justifyContent: 'center', alignItems: 'center' }}>
-                <TouchableOpacity 
-                  style={{ position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, right: 20, zIndex: 10 }} 
-                  onPress={() => setIsAttachmentVisible(false)}
-                >
-                  <Ionicons name="close-circle" size={36} color="#ffffff" />
-                </TouchableOpacity>
-                <Image 
-                  source={{ uri: expenseToView.billUrls[0] }} 
-                  style={styles.fullImage} 
-                  resizeMode="contain" 
-                />
-              </View>
-            )
-          )}
-        </View>
-      </Modal>
+      <DocumentViewer
+        visible={isAttachmentVisible}
+        url={expenseToView?.billUrls?.[0]}
+        title="Attached Bill"
+        onClose={() => setIsAttachmentVisible(false)}
+      />
 
     </SafeAreaView>
   );
@@ -434,6 +467,26 @@ const styles = StyleSheet.create({
   },
   summaryAmount: { fontSize: 22, fontWeight: "bold" },
 
+  applyBtn: {
+    backgroundColor: Colors.primary,
+    borderRadius: 24,
+    paddingVertical: 14,
+    flexDirection: "row",
+    justifyContent: "center",
+    alignItems: "center",
+    marginTop: 8,
+    elevation: 5,
+    shadowColor: Colors.primary,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+  },
+  applyBtnTxt: {
+    color: "#FFFFFF",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+
   sectionHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -456,7 +509,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 8,
   },
-  categoryWrap: { flexDirection: "row", alignItems: "center", gap: 12 },
+  categoryWrap: { flexShrink: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   iconRing: {
     width: 40,
     height: 40,
@@ -498,13 +551,10 @@ const styles = StyleSheet.create({
   attachmentText: { fontSize: 11, color: Colors.text.secondary },
 
   rejectionBox: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
     backgroundColor: "#FEF2F2",
-    padding: 8,
+    padding: 12,
     borderRadius: 8,
-    marginBottom: Spacing.md,
+    marginTop: 12,
     borderWidth: 1,
     borderColor: "#FECACA",
   },
@@ -544,7 +594,166 @@ const styles = StyleSheet.create({
   detailLabel: { fontSize: FontSize.sm, color: Colors.text.tertiary, marginBottom: 2 },
   detailValue: { fontSize: FontSize.md, fontWeight: 'bold', color: Colors.text.primary, marginBottom: Spacing.md },
   viewBillBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#EFF6FF', padding: Spacing.md, borderRadius: BorderRadius.md, marginBottom: Spacing.lg, borderWidth: 1, borderColor: '#BFDBFE', justifyContent: 'center' },
-  viewBillText: { color: Colors.primary, fontWeight: '600', fontSize: FontSize.sm },
+  viewBillText: { color: Colors.primary, fontWeight: '600' },
+  
+  // New Preview Modal Styles
+  previewModalContent: {
+    backgroundColor: Colors.white,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    maxHeight: '90%',
+    width: '100%',
+  },
+  dragHandle: {
+    width: 40,
+    height: 4,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginTop: 12,
+  },
+  filterScroll: { gap: 8, paddingBottom: 8, paddingHorizontal: 4 },
+  filterChip: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, backgroundColor: '#F1F5F9' },
+  filterChipActive: { backgroundColor: '#334155' },
+  filterChipText: { fontSize: 13, fontWeight: '600', color: '#64748B' },
+  filterChipTextActive: { color: '#FFF' },
+  statusBadgeSmall: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginTop: 6
+  },
+  statusTextSmall: { fontSize: 10, fontWeight: "800", letterSpacing: 0.5 },
+  previewHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+    position: 'relative'
+  },
+  previewStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6
+  },
+  previewStatusText: {
+    fontSize: 13,
+    fontWeight: '600'
+  },
+  previewTitle: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#1E293B',
+    textAlign: 'center',
+    marginBottom: 4
+  },
+  previewSubtitle: {
+    fontSize: 13,
+    color: '#64748B',
+    textAlign: 'center',
+    marginBottom: 16
+  },
+  previewGrid: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 16
+  },
+  previewGridCard: {
+    flex: 1,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 10,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E2E8F0'
+  },
+  previewGridIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6
+  },
+  previewGridLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    marginBottom: 4
+  },
+  previewGridValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+    textAlign: 'center'
+  },
+  previewSectionTitle: {
+    fontSize: 14,
+    color: '#1E293B',
+    fontWeight: '600',
+    marginBottom: 8
+  },
+  previewDescription: {
+    fontSize: 14,
+    color: '#475569',
+    lineHeight: 20,
+    marginBottom: 16
+  },
+  previewReceiptCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 24
+  },
+  previewReceiptThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#E2E8F0',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  previewReceiptName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1E293B',
+    marginBottom: 4
+  },
+  previewReceiptSize: {
+    fontSize: 12,
+    color: '#64748B'
+  },
+  previewReceiptBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FFF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Shadow.sm
+  },
+  previewRejectionCard: {
+    backgroundColor: '#FEF2F2',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 24
+  },
+  previewRejectionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: Colors.error
+  },
+  previewRejectionText: {
+    fontSize: 14,
+    color: '#991B1B',
+    lineHeight: 20
+  },
   imageViewerOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.9)",

@@ -400,15 +400,9 @@ export default function EmployeeAttendanceScreen() {
                 >
                   <View style={styles.cardInner}>
                     <View style={styles.cardTopRow}>
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                         <View style={styles.cardIndicator} />
                         <Text style={styles.dateText}>{dayStr}</Text>
-                      </View>
-                      <View style={styles.badgeRow}>
-                        <View style={styles.badge}>
-                          <Text style={styles.badgeText}>GENERAL</Text>
-                        </View>
-                        <Ionicons name="business" size={16} color={Colors.text.tertiary} style={{ marginLeft: 6 }} />
                       </View>
                     </View>
 
@@ -482,7 +476,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 16,
+    justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
@@ -549,7 +543,6 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     borderRadius: 12,
     marginBottom: 12,
-    ...Shadow.sm,
     borderWidth: 1,
     borderColor: Colors.border,
   },
@@ -661,7 +654,6 @@ const styles = StyleSheet.create({
     marginBottom: 24,
     borderWidth: 1,
     borderColor: '#E2E8F0',
-    ...Shadow.sm,
   },
   calendarHeader: {
     flexDirection: 'row',
